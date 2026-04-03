@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>DOODLE JUMP — ARCADE VAULT</title>
+  <link rel="stylesheet" href="../style/game.css">
+  <link rel="stylesheet" href="../style/doodle.css">
+</head>
+<body>
+
+  <div class="top-bar">
+    <a class="back-btn" href="../index.html">&#9664; BACK</a>
+    <div class="game-title">DOODLE JUMP</div>
+    <div class="score-display">
+      <span class="score-label">SCORE</span>
+      <span id="scoreVal">0</span>
+    </div>
+  </div>
+
+  <div class="game-container">
+    <canvas id="gameCanvas" width="380" height="560"></canvas>
+
+    <div class="overlay" id="startOverlay">
+      <div class="overlay-title" style="color: var(--neon-green); text-shadow: 0 0 30px var(--neon-green);">DOODLE JUMP</div>
+      <div class="overlay-sub">ENDLESS VERTICAL PLATFORMER</div>
+      <button class="start-btn" id="startBtn">PLAY</button>
+      <div class="platform-legend" style="margin-top: 28px;">
+        <div class="legend-item"><div class="legend-dot" style="background:#39ff14;"></div> NORMAL</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#00f5ff;"></div> MOVING</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff6600;"></div> BREAK</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff00ff;"></div> SPRING</div>
+      </div>
+      <div class="controls-hint" style="margin-top: 20px; margin-bottom: 0;">← → or A D to move</div>
+    </div>
+
+    <div class="overlay hidden" id="gameoverOverlay">
+      <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
+      <div class="overlay-sub">YOU FELL INTO THE VOID</div>
+      <div class="overlay-score" id="finalScore">0</div>
+      <div class="overlay-best" id="bestScore">BEST: 0</div>
+      <button class="start-btn" id="restartBtn">RETRY</button>
+    </div>
+  </div>
+
+  <div class="controls-hint">← → · A D · ARROWS TO MOVE</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+
+const ui = {
+  score: document.getElementById('scoreVal'),
+  finalScore: document.getElementById('finalScore'),
+  bestScore: document.getElementById('bestScore'),
+  startOverlay: document.getElementById('startOverlay'),
+  gameoverOverlay: document.getElementById('gameoverOverlay'),
+};
+
+const KEYS = {
+  LEFT: ['ArrowLeft', 'KeyA', 'a'],
+  RIGHT: ['ArrowRight', 'KeyD', 'd'],
+};
+
+const PLATFORM_TYPES = {
+  NORMAL: 0,
+  MOVING: 1,
+  BREAK: 2,
+  SPRING: 3,
+};
+
+const COLORS = {
+  NORMAL: '#39ff14',
+  MOVING: '#00f5ff',
+  BREAK: '#ff6600',
+  SPRING: '#ff00ff',
+  PLAYER: '#c8ff80',
+};
+
+const CONFIG = {
+  GRAVITY: 0.38,
+  JUMP_VEL: -11.5,
+  SPRING_VEL: -18,
+  PLAYER_W: 28,
+  PLAYER_H: 32,
+  PLAT_W: 64,
+  PLAT_H: 10,
+  PLAT_COUNT: 12,
+  PLAT_MIN_GAP: 45,
+  PLAT_MAX_GAP: 90,
+  PLAYER_SPEED: 4.5,
+  PLAYER_DAMPING: 0.75,
+};
+
+let gameState = {
+  player: null,
+  platforms: [],
+  score: 0,
+  best: parseInt(localStorage.getItem('doodle_best') || '0'),
+  cameraY: 0,
+  running: false,
+};
+
+const keys = {};
+
+function scaleCanvas() {
+  const UI_TOP = 48;
+  const UI_BOTTOM = 24;
+  const availableHeight = window.innerHeight - UI_TOP - UI_BOTTOM;
+  
+  const scaleX = window.innerWidth / W;
+  const scaleY = availableHeight / H;
+  const scale = Math.min(scaleX, scaleY);
+  
+  canvas.style.width = `${W * scale}px`;
+  canvas.style.height = `${H * scale}px`;
+}
+
+window.addEventListener('resize', scaleCanvas);
+scaleCanvas();
+
+function init() {
+  gameState.score = 0;
+  gameState.cameraY = 0;
+  gameState.player = createPlayer();
+  gameState.platforms = initPlatforms();
+  gameState.running = false;
+  ui.score.textContent = '0';
+  ui.bestScore.textContent = `BEST: ${gameState.best}`;
+}
+
+function createPlayer() {
+  return {
+    x: W / 2 - CONFIG.PLAYER_W / 2,
+    y: H - 120,
+    vx: 0,
+    vy: CONFIG.JUMP_VEL,
+    facing: 1,
+    eyeAnim: 0,
+  };
+}
+
+function isLeftPressed() {
+  return KEYS.LEFT.some(key => keys[key]);
+}
+
+function isRightPressed() {
+  return KEYS.RIGHT.some(key => keys[key]);
+}
+
+function getRandomPlatformType(score) {
+  const r = Math.random();
+  const difficulty = Math.min(score / 3000, 1);
+  
+  if (r < 0.55 - difficulty * 0.15) return PLATFORM_TYPES.NORMAL;
+  if (r < 0.75) return PLATFORM_TYPES.MOVING;
+  if (r < 0.88 + difficulty * 0.1) return PLATFORM_TYPES.BREAK;
+  return PLATFORM_TYPES.SPRING;
+}
+
+function createPlatform(y, score) {
+  const type = getRandomPlatformType(score);
+  return {
+    x: Math.random() * (W - CONFIG.PLAT_W),
+    y,
+    type,
+    broken: false,
+    dx: (Math.random() < 0.5 ? 1 : -1) * (0.8 + Math.random() * 1.2),
+    springExtended: false,
+    springTimer: 0,
+  };
+}
+
+function initPlatforms() {
+  const plats = [];
+  plats.push({
+    x: W / 2 - CONFIG.PLAT_W / 2,
+    y: H - 80,
+    type: PLATFORM_TYPES.NORMAL,
+    broken: false,
+    dx: 1,
+    springExtended: false,
+    springTimer: 0,
+  });
+  
+  let lastY = H - 80;
+  for (let i = 1; i < CONFIG.PLAT_COUNT; i++) {
+    const gap = CONFIG.PLAT_MIN_GAP + Math.random() * (CONFIG.PLAT_MAX_GAP - CONFIG.PLAT_MIN_GAP);
+    lastY -= gap;
+    plats.push(createPlatform(lastY, 0));
+  }
+  return plats;
+}
+
+function startGame() {
+  init();
+  ui.startOverlay.classList.add('hidden');
+  ui.gameoverOverlay.classList.add('hidden');
+  gameState.running = true;
+  lastTime = 0;
+  gameLoop();
+}
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('restartBtn').addEventListener('click', startGame);
+
+window.addEventListener('keydown', e => { keys[e.key] = true; });
+window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// Mobile touch controls
+let touchStartX = null;
+canvas.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  e.preventDefault();
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  if (touchStartX === null) return;
+  const dx = e.touches[0].clientX - touchStartX;
+  keys['ArrowLeft'] = dx < -5;
+  keys['ArrowRight'] = dx > 5;
+  e.preventDefault();
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+  keys['ArrowLeft'] = false;
+  keys['ArrowRight'] = false;
+  touchStartX = null;
+});
+
+let lastTap = 0;
+canvas.addEventListener('touchend', e => {
+  const now = Date.now();
+  if (now - lastTap < 300) {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }
+  lastTap = now;
+});
+
+function updatePlayer(dt) {
+  const { player } = gameState;
+  
+  if (isLeftPressed()) {
+    player.vx = -CONFIG.PLAYER_SPEED;
+    player.facing = -1;
+  } else if (isRightPressed()) {
+    player.vx = CONFIG.PLAYER_SPEED;
+    player.facing = 1;
+  } else {
+    player.vx *= Math.pow(CONFIG.PLAYER_DAMPING, dt);
+  }
+
+  player.x += player.vx * dt;
+  
+  if (player.x + CONFIG.PLAYER_W < 0) player.x = W;
+  if (player.x > W) player.x = -CONFIG.PLAYER_W;
+
+  player.vy += CONFIG.GRAVITY * dt;
+  player.y += player.vy * dt;
+  player.eyeAnim += 0.07 * dt;
+}
+
+function updatePlatforms(dt) {
+  gameState.platforms.forEach(p => {
+    if (p.type === PLATFORM_TYPES.MOVING) {
+      p.x += p.dx * dt;
+      if (p.x < 0 || p.x + CONFIG.PLAT_W > W) p.dx *= -1;
+    }
+    
+    if (p.springTimer > 0) {
+      p.springTimer -= dt;
+    } else {
+      p.springExtended = false;
+    }
+  });
+}
+
+function updateCamera() {
+  const { player, cameraY } = gameState;
+  const screenY = player.y - cameraY;
+  
+  if (screenY < H * 0.4) {
+    const delta = H * 0.4 - screenY;
+    gameState.cameraY -= delta;
+    gameState.score += Math.round(delta * 0.5);
+    ui.score.textContent = gameState.score;
+  }
+}
+
+function checkPlatformCollisions(dt) {
+  const { player, platforms, cameraY } = gameState;
+  
+  if (player.vy <= 0) return;
+  
+  for (const p of platforms) {
+    if (p.broken) continue;
+    
+    const px = p.x;
+    const py = p.y - cameraY;
+    const playerBottom = player.y - cameraY + CONFIG.PLAYER_H;
+    const prevBottom = playerBottom - player.vy * dt;
+
+    if (
+      player.x + CONFIG.PLAYER_W > px + 4 &&
+      player.x < px + CONFIG.PLAT_W - 4 &&
+      playerBottom >= py &&
+      prevBottom <= py + CONFIG.PLAT_H
+    ) {
+      handlePlatformCollision(p);
+      break;
+    }
+  }
+}
+
+function handlePlatformCollision(platform) {
+  const { player } = gameState;
+  
+  if (platform.type === PLATFORM_TYPES.BREAK) {
+    platform.broken = true;
+    player.vy = CONFIG.JUMP_VEL;
+    player.y = platform.y - CONFIG.PLAYER_H - 1;
+  } else if (platform.type === PLATFORM_TYPES.SPRING) {
+    platform.springExtended = true;
+    platform.springTimer = 15;
+    player.vy = CONFIG.SPRING_VEL;
+    player.y = platform.y - CONFIG.PLAYER_H - 2;
+  } else {
+    player.vy = CONFIG.JUMP_VEL;
+    player.y = platform.y - CONFIG.PLAYER_H - 1;
+  }
+}
+
+function spawnNewPlatforms() {
+  const { platforms, cameraY, score } = gameState;
+  const topVisible = cameraY;
+  const highestPlat = Math.min(...platforms.map(p => p.y));
+  
+  if (highestPlat > topVisible - 20) {
+    const gap = CONFIG.PLAT_MIN_GAP + Math.random() * (CONFIG.PLAT_MAX_GAP - CONFIG.PLAT_MIN_GAP);
+    platforms.push(createPlatform(highestPlat - gap, score));
+  }
+}
+
+function removeOffScreenPlatforms() {
+  const { platforms, cameraY } = gameState;
+  gameState.platforms = platforms.filter(p => p.y - cameraY < H + 60);
+}
+
+function checkGameOver() {
+  const { player, cameraY } = gameState;
+  
+  if (player.y - cameraY > H + 40) {
+    endGame();
+  }
+}
+
+function update(dt) {
+  if (!gameState.running) return;
+  
+  updatePlayer(dt);
+  updatePlatforms(dt);
+  updateCamera();
+  checkPlatformCollisions(dt);
+  spawnNewPlatforms();
+  removeOffScreenPlatforms();
+  checkGameOver();
+}
+
+function endGame() {
+  gameState.running = false;
+  
+  if (gameState.score > gameState.best) {
+    gameState.best = gameState.score;
+    localStorage.setItem('doodle_best', gameState.best);
+  }
+  
+  ui.finalScore.textContent = gameState.score;
+  ui.bestScore.textContent = `BEST: ${gameState.best}`;
+  ui.gameoverOverlay.classList.remove('hidden');
+  
+  ctx.fillStyle = 'rgba(5,5,16,0.5)';
+  ctx.fillRect(0, 0, W, H);
+}
+
+function draw() {
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0, 0, W, H);
+
+  drawBackgroundStrips();
+  drawPlatforms();
+  drawPlayer();
+  drawScoreIndicator();
+}
+
+function drawBackgroundStrips() {
+  for (let i = 0; i < 3; i++) {
+    const gx = (W / 4) * (i + 0.5);
+    const grad = ctx.createLinearGradient(gx - 40, 0, gx + 40, 0);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(0.5, 'rgba(57,255,20,0.015)');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fillRect(gx - 40, 0, 80, H);
+  }
+}
+
+function getPlatformColor(type) {
+  switch(type) {
+    case PLATFORM_TYPES.NORMAL: return COLORS.NORMAL;
+    case PLATFORM_TYPES.MOVING: return COLORS.MOVING;
+    case PLATFORM_TYPES.BREAK: return COLORS.BREAK;
+    case PLATFORM_TYPES.SPRING: return COLORS.SPRING;
+    default: return COLORS.NORMAL;
+  }
+}
+
+function drawPlatforms() {
+  gameState.platforms.forEach(p => {
+    const px = p.x;
+    const py = p.y - gameState.cameraY;
+    
+    if (py < -20 || py > H + 20 || p.broken) return;
+
+    const col = getPlatformColor(p.type);
+
+    ctx.shadowColor = col;
+    ctx.shadowBlur = 10;
+
+    ctx.fillStyle = col + '33';
+    ctx.fillRect(px, py, CONFIG.PLAT_W, CONFIG.PLAT_H);
+
+    ctx.fillStyle = col;
+    ctx.fillRect(px, py, CONFIG.PLAT_W, 3);
+
+    ctx.fillStyle = col + '88';
+    ctx.fillRect(px, py + 3, 3, CONFIG.PLAT_H - 3);
+    ctx.fillRect(px + CONFIG.PLAT_W - 3, py + 3, 3, CONFIG.PLAT_H - 3);
+
+    if (p.type === PLATFORM_TYPES.SPRING) {
+      drawSpringIndicator(p, px, py);
+    }
+
+    ctx.shadowBlur = 0;
+  });
+}
+
+function drawSpringIndicator(p, px, py) {
+  const sh = p.springExtended ? 16 : 8;
+  ctx.fillStyle = COLORS.SPRING;
+  ctx.shadowBlur = 14;
+  
+  for (let si = 0; si < 3; si++) {
+    const sy = py - (si + 1) * (sh / 3);
+    ctx.fillRect(px + CONFIG.PLAT_W / 2 - 4, sy, 8, 2);
+  }
+}
+
+function drawPlayer() {
+  const { player, cameraY } = gameState;
+  drawPlayerSprite(player.x, player.y - cameraY, player.facing, player.eyeAnim);
+}
+
+function drawPlayerSprite(x, y, facing, t) {
+  ctx.save();
+  ctx.translate(x + CONFIG.PLAYER_W / 2, y + CONFIG.PLAYER_H / 2);
+
+  ctx.fillStyle = 'rgba(57,255,20,0.15)';
+  ctx.beginPath();
+  ctx.ellipse(0, CONFIG.PLAYER_H / 2 + 4, 14, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.shadowColor = COLORS.PLAYER;
+  ctx.shadowBlur = 16;
+
+  ctx.fillStyle = '#1a2e00';
+  roundRect(ctx, -CONFIG.PLAYER_W / 2, -CONFIG.PLAYER_H / 2, CONFIG.PLAYER_W, CONFIG.PLAYER_H, 8);
+  ctx.fill();
+
+  ctx.strokeStyle = COLORS.PLAYER;
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, -CONFIG.PLAYER_W / 2, -CONFIG.PLAYER_H / 2, CONFIG.PLAYER_W, CONFIG.PLAYER_H, 8);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(0,245,255,0.15)';
+  ctx.strokeStyle = 'rgba(0,245,255,0.7)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, -9, -CONFIG.PLAYER_H / 2 + 4, 18, 12, 4);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.shadowColor = '#00f5ff';
+  ctx.shadowBlur = 8;
+  const eyeX = facing * 3;
+  const blink = Math.sin(t * 0.4) > 0.97 ? 1 : 0;
+  const eyeH = blink ? 1 : 4;
+  ctx.fillStyle = '#00f5ff';
+  ctx.fillRect(eyeX - 5, -CONFIG.PLAYER_H / 2 + 7, 3, eyeH);
+  ctx.fillRect(eyeX + 2, -CONFIG.PLAYER_H / 2 + 7, 3, eyeH);
+
+  ctx.shadowColor = COLORS.PLAYER;
+  ctx.shadowBlur = 12;
+  ctx.strokeStyle = COLORS.PLAYER;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, -CONFIG.PLAYER_H / 2);
+  ctx.lineTo(facing * 4, -CONFIG.PLAYER_H / 2 - 8);
+  ctx.stroke();
+  ctx.fillStyle = COLORS.PLAYER;
+  ctx.beginPath();
+  ctx.arc(facing * 4, -CONFIG.PLAYER_H / 2 - 9, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.shadowBlur = 6;
+  ctx.strokeStyle = COLORS.PLAYER + 'bb';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-6, CONFIG.PLAYER_H / 2 - 2);
+  ctx.lineTo(-6, CONFIG.PLAYER_H / 2 + 5);
+  ctx.moveTo(6, CONFIG.PLAYER_H / 2 - 2);
+  ctx.lineTo(6, CONFIG.PLAYER_H / 2 + 5);
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawScoreIndicator() {
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillStyle = 'rgba(57,255,20,0.3)';
+  ctx.fillText('◆ ' + gameState.score, 12, 22);
+}
+
+let lastTime = 0;
+function gameLoop(timestamp) {
+  const dt = lastTime ? Math.min((timestamp - lastTime) / (1000 / 60), 3) : 1;
+  lastTime = timestamp;
+  
+  update(dt);
+  draw();
+  
+  if (gameState.running) {
+    requestAnimationFrame(gameLoop);
+  }
+}
+
+// Initial demo draw
+function drawDemoScreen() {
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0, 0, W, H);
+
+  const demoPlatforms = [
+    { x: 60,  y: 480, type: PLATFORM_TYPES.NORMAL },
+    { x: 200, y: 400, type: PLATFORM_TYPES.MOVING },
+    { x: 100, y: 320, type: PLATFORM_TYPES.BREAK  },
+    { x: 250, y: 240, type: PLATFORM_TYPES.SPRING },
+    { x: 80,  y: 160, type: PLATFORM_TYPES.NORMAL },
+    { x: 200, y: 90,  type: PLATFORM_TYPES.MOVING },
+  ];
+  
+  demoPlatforms.forEach(p => {
+    const col = getPlatformColor(p.type);
+    ctx.shadowColor = col;
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = col + '33';
+    ctx.fillRect(p.x, p.y, CONFIG.PLAT_W, CONFIG.PLAT_H);
+    ctx.fillStyle = col;
+    ctx.fillRect(p.x, p.y, CONFIG.PLAT_W, 3);
+    ctx.shadowBlur = 0;
+  });
+  
+  drawPlayerSprite(W / 2 - CONFIG.PLAYER_W / 2, 430, 1, 0);
+}
+
+drawDemoScreen();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,21 @@
+.back-btn { color: rgba(255, 0, 255, 0.6); border-color: rgba(255, 0, 255, 0.3); }
+.back-btn:hover { color: var(--neon-magenta); border-color: var(--neon-magenta); }
+.game-title { color: var(--neon-magenta); }
+.overlay-score { color: var(--neon-magenta); }
+.overlay-best { color: rgba(255,0,255,0.5); }
+.start-btn { border-color: var(--neon-magenta); color: var(--neon-magenta); }
+.start-btn:hover { box-shadow: 0 0 50px rgba(255,0,255,0.9); }
+canvas { box-shadow: 0 0 40px rgba(255,0,255,0.2); border-color: rgba(255, 0, 255, 0.3); }
+
+.overlay {
+  border: 1px solid rgba(255, 0, 255, 0.3);
+  box-shadow:
+    0 0 0 1px rgba(255,0,255,0.1),
+    0 0 40px rgba(255,0,255,0.1),
+    0 0 80px rgba(255,0,255,0.05);
+}
+
+.overlay-title[style*="neon-magenta"] {
+  color: var(--neon-magenta);
+  text-shadow: 0 0 30px var(--neon-magenta);
+}

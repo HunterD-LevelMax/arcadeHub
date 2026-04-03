@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARCADE VAULT</title>
+  <link rel="stylesheet" href="style/main.css">
+</head>
+<body>
+
+  <!-- Stars -->
+  <div class="stars" id="stars"></div>
+
+  <div class="container">
+
+    <header class="header">
+      <div class="header-badge">INSERT COIN TO CONTINUE</div>
+      <h1>ARCADE VAULT</h1>
+      <p class="header-sub">Select your game &nbsp;·&nbsp; Challenge the leaderboard</p>
+      <div class="header-line">
+        <span>&#9632; READY PLAYER ONE &#9632;</span>
+      </div>
+    </header>
+
+    <div class="section-title">
+      <span>&#9632;</span>
+      <span>Available Games</span>
+    </div>
+
+    <div class="games-grid">
+
+      <!-- Asteroids -->
+      <a class="game-card" href="games/asteroids.html" style="--card-accent: #00f5ff; --preview-bg: #03071e;">
+        <div class="card-accent-bar"></div>
+        <div class="card-glow"></div>
+        <div class="card-preview">
+          <div class="preview-corner tl"></div>
+          <div class="preview-corner tr"></div>
+          <div class="preview-corner bl"></div>
+          <div class="preview-corner br"></div>
+          <div class="preview-badge">CLASSIC</div>
+          <canvas id="asteroidsCanvas"></canvas>
+          <div class="preview-icon">🚀</div>
+        </div>
+        <div class="card-body">
+          <div class="card-number">GAME_01 / 03</div>
+          <div class="card-title">ASTEROIDS</div>
+          <div class="card-desc">Уничтожай астероиды, уклоняйся от обломков. Выживи в открытом космосе как можно дольше.</div>
+          <div class="card-footer">
+            <div class="card-tags">
+              <span class="tag">SHOOTER</span>
+              <span class="tag">ARCADE</span>
+            </div>
+            <div class="play-btn">
+              PLAY
+              <div class="play-btn-arrow">▶</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Flappy Bird -->
+      <a class="game-card" href="games/flappy.html" style="--card-accent: #ff00ff; --preview-bg: #0f0318;">
+        <div class="card-accent-bar"></div>
+        <div class="card-glow"></div>
+        <div class="card-preview">
+          <div class="preview-corner tl"></div>
+          <div class="preview-corner tr"></div>
+          <div class="preview-corner bl"></div>
+          <div class="preview-corner br"></div>
+          <div class="preview-badge">ENDLESS</div>
+          <canvas id="flappyCanvas"></canvas>
+          <div class="preview-icon" style="animation-delay: -1.5s;">🐦</div>
+        </div>
+        <div class="card-body">
+          <div class="card-number">GAME_02 / 03</div>
+          <div class="card-title">FLAPPY BIRD</div>
+          <div class="card-desc">Один тап — и птица летит. Уклоняйся от труб, набирай очки, бей свой рекорд.</div>
+          <div class="card-footer">
+            <div class="card-tags">
+              <span class="tag">CASUAL</span>
+              <span class="tag">ONE-TAP</span>
+            </div>
+            <div class="play-btn">
+              PLAY
+              <div class="play-btn-arrow">▶</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Doodle Jump -->
+      <a class="game-card" href="games/doodle.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
+        <div class="card-accent-bar"></div>
+        <div class="card-glow"></div>
+        <div class="card-preview">
+          <div class="preview-corner tl"></div>
+          <div class="preview-corner tr"></div>
+          <div class="preview-corner bl"></div>
+          <div class="preview-corner br"></div>
+          <div class="preview-badge">ENDLESS</div>
+          <canvas id="doodleCanvas"></canvas>
+          <div class="preview-icon" style="animation-delay: -0.8s;">🟢</div>
+        </div>
+        <div class="card-body">
+          <div class="card-number">GAME_03 / 03</div>
+          <div class="card-title">DOODLE JUMP</div>
+          <div class="card-desc">Прыгай по платформам всё выше. Движущиеся, ломающиеся, пружинные — не дай себе упасть.</div>
+          <div class="card-footer">
+            <div class="card-tags">
+              <span class="tag">PLATFORM</span>
+              <span class="tag">ENDLESS</span>
+            </div>
+            <div class="play-btn">
+              PLAY
+              <div class="play-btn-arrow">▶</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+    </div>
+
+    <footer class="page-footer">
+      &copy; 2026 &nbsp;·&nbsp; ARCADE VAULT &nbsp;·&nbsp; ALL RIGHTS RESERVED
+    </footer>
+
+  </div>
+
+  <script>
+    // Generate stars
+    const starsContainer = document.getElementById('stars');
+    for (let i = 0; i < 120; i++) {
+      const star = document.createElement('div');
+      star.className = 'star';
+      star.style.cssText = `
+        left: ${Math.random() * 100}%;
+        top: ${Math.random() * 100}%;
+        --dur: ${2 + Math.random() * 4}s;
+        --delay: ${Math.random() * 4}s;
+        opacity: ${0.1 + Math.random() * 0.4};
+        width: ${1 + Math.random() * 2}px;
+        height: ${1 + Math.random() * 2}px;
+      `;
+      starsContainer.appendChild(star);
+    }
+
+    // Animated preview for Asteroids card
+    (function() {
+      const canvas = document.getElementById('asteroidsCanvas');
+      const card = canvas.closest('.card-preview');
+      canvas.width = card.offsetWidth || 320;
+      canvas.height = card.offsetHeight || 180;
+      const ctx = canvas.getContext('2d');
+
+      const rocks = Array.from({length: 8}, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: 8 + Math.random() * 18,
+        dx: (Math.random() - 0.5) * 0.6,
+        dy: (Math.random() - 0.5) * 0.6,
+        rot: 0,
+        drot: (Math.random() - 0.5) * 0.02,
+        pts: Array.from({length: 8}, (_, i) => {
+          const a = (i / 8) * Math.PI * 2;
+          const rr = 0.7 + Math.random() * 0.6;
+          return [Math.cos(a) * rr, Math.sin(a) * rr];
+        })
+      }));
+
+      const bullets = Array.from({length: 3}, (_, i) => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        dx: 2 + Math.random(),
+        dy: (Math.random() - 0.5) * 0.5
+      }));
+
+      function drawRock(r) {
+        ctx.save();
+        ctx.translate(r.x, r.y);
+        ctx.rotate(r.rot);
+        ctx.beginPath();
+        r.pts.forEach(([px, py], i) => {
+          const x = px * r.r, y = py * r.r;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(0, 245, 255, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function tick() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        rocks.forEach(r => {
+          r.x = (r.x + r.dx + canvas.width) % canvas.width;
+          r.y = (r.y + r.dy + canvas.height) % canvas.height;
+          r.rot += r.drot;
+          drawRock(r);
+        });
+
+        bullets.forEach(b => {
+          b.x = (b.x + b.dx) % (canvas.width + 10);
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, 2, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0, 245, 255, 0.8)';
+          ctx.fill();
+        });
+
+        requestAnimationFrame(tick);
+      }
+      tick();
+    })();
+
+    // Animated preview for Flappy card
+    (function() {
+      const canvas = document.getElementById('flappyCanvas');
+      const card = canvas.closest('.card-preview');
+      canvas.width = card.offsetWidth || 320;
+      canvas.height = card.offsetHeight || 180;
+      const ctx = canvas.getContext('2d');
+
+      const pipes = [
+        { x: canvas.width * 0.55, gap: 55, gapY: 70 },
+        { x: canvas.width * 0.85, gap: 55, gapY: 95 },
+      ];
+      let birdY = canvas.height / 2;
+      let birdV = 0;
+      let t = 0;
+
+      function tick() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        t += 0.04;
+
+        // Ground/sky gradient
+        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        grad.addColorStop(0, 'rgba(15,3,24,0.0)');
+        grad.addColorStop(1, 'rgba(15,3,24,0.4)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Pipes
+        pipes.forEach(p => {
+          p.x -= 0.7;
+          if (p.x < -30) { p.x = canvas.width + 30; p.gapY = 40 + Math.random() * (canvas.height - 80); }
+          ctx.fillStyle = 'rgba(255, 0, 255, 0.25)';
+          ctx.strokeStyle = 'rgba(255, 0, 255, 0.6)';
+          ctx.lineWidth = 1;
+          // top pipe
+          ctx.fillRect(p.x - 15, 0, 30, p.gapY - p.gap / 2);
+          ctx.strokeRect(p.x - 15, 0, 30, p.gapY - p.gap / 2);
+          // bottom pipe
+          ctx.fillRect(p.x - 15, p.gapY + p.gap / 2, 30, canvas.height);
+          ctx.strokeRect(p.x - 15, p.gapY + p.gap / 2, 30, canvas.height - (p.gapY + p.gap / 2));
+        });
+
+        // Simple sine bird movement
+        birdY = canvas.height / 2 + Math.sin(t) * 30;
+
+        // Bird glow
+        const grd = ctx.createRadialGradient(60, birdY, 0, 60, birdY, 18);
+        grd.addColorStop(0, 'rgba(255,0,255,0.3)');
+        grd.addColorStop(1, 'transparent');
+        ctx.fillStyle = grd;
+        ctx.fillRect(40, birdY - 18, 40, 36);
+
+        requestAnimationFrame(tick);
+      }
+      tick();
+    })();
+    // Animated preview for Doodle Jump card
+    (function() {
+      const canvas = document.getElementById('doodleCanvas');
+      const card = canvas.closest('.card-preview');
+      canvas.width = card.offsetWidth || 320;
+      canvas.height = card.offsetHeight || 180;
+      const ctx = canvas.getContext('2d');
+
+      const W = canvas.width, H = canvas.height;
+      const plats = [
+        { x: W * 0.12, y: H * 0.82, w: 58 },
+        { x: W * 0.45, y: H * 0.64, w: 58 },
+        { x: W * 0.68, y: H * 0.46, w: 58 },
+        { x: W * 0.20, y: H * 0.28, w: 58 },
+        { x: W * 0.55, y: H * 0.12, w: 58 },
+      ];
+      let playerY = H * 0.68;
+      let vy = -4;
+      let t = 0;
+
+      function tick() {
+        ctx.clearRect(0, 0, W, H);
+        t += 0.05;
+
+        // platforms
+        plats.forEach((p, i) => {
+          const col = i % 2 === 0 ? '#39ff14' : '#00f5ff';
+          ctx.shadowColor = col; ctx.shadowBlur = 8;
+          ctx.fillStyle = col + '33';
+          ctx.fillRect(p.x, p.y, p.w, 8);
+          ctx.fillStyle = col;
+          ctx.fillRect(p.x, p.y, p.w, 2.5);
+          ctx.shadowBlur = 0;
+        });
+
+        // simple bounce sine
+        playerY = H * 0.45 + Math.sin(t) * H * 0.22;
+        const px = W * 0.38 + Math.sin(t * 0.7) * W * 0.1;
+
+        // player glow
+        const grd = ctx.createRadialGradient(px + 12, playerY + 16, 0, px + 12, playerY + 16, 22);
+        grd.addColorStop(0, 'rgba(57,255,20,0.25)');
+        grd.addColorStop(1, 'transparent');
+        ctx.fillStyle = grd;
+        ctx.fillRect(px - 10, playerY - 6, 44, 44);
+
+        // player body
+        ctx.shadowColor = '#c8ff80'; ctx.shadowBlur = 12;
+        ctx.fillStyle = '#1a2e00';
+        ctx.strokeStyle = '#c8ff80'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(px, playerY, 24, 28, 6);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#00f5ff';
+        ctx.fillRect(px + 5, playerY + 5, 4, 4);
+        ctx.fillRect(px + 14, playerY + 5, 4, 4);
+        ctx.shadowBlur = 0;
+
+        requestAnimationFrame(tick);
+      }
+      tick();
+    })();
+  </script>
+
+</body>
+</html>
