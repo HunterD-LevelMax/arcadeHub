@@ -21,7 +21,7 @@ canvas { box-shadow: 0 0 40px rgba(0,245,255,0.2); border-color: rgba(0, 245, 25
 }
 
 .mobile-controls {
-  position: absolute;
+  position: fixed;
   bottom: 20px;
   left: 0;
   right: 0;
@@ -30,6 +30,7 @@ canvas { box-shadow: 0 0 40px rgba(0,245,255,0.2); border-color: rgba(0, 245, 25
   align-items: flex-end;
   padding: 0 20px;
   pointer-events: none;
+  z-index: 50;
 }
 
 .joystick-area {
@@ -85,7 +86,7 @@ canvas { box-shadow: 0 0 40px rgba(0,245,255,0.2); border-color: rgba(0, 245, 25
   box-shadow: 0 0 25px rgba(255, 0, 85, 0.6);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) {
   .mobile-controls {
     display: flex;
   }
