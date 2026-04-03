@@ -30,8 +30,9 @@ canvas { box-shadow: 0 0 40px rgba(0,245,255,0.2); border-color: rgba(0, 245, 25
   align-items: flex-end;
   padding: 0 max(20px, env(safe-area-inset-left, 20px)) 0 max(20px, env(safe-area-inset-right, 20px));
   pointer-events: none;
-  z-index: 50;
+  z-index: 60;
   touch-action: none;
+  visibility: visible;
 }
 
 .joystick-area {
@@ -95,12 +96,29 @@ canvas { box-shadow: 0 0 40px rgba(0,245,255,0.2); border-color: rgba(0, 245, 25
   display: none;
 }
 
-@media (min-width: 769px) and (hover: hover) and (pointer: fine) {
+@media (min-width: 769px) {
   .mobile-controls {
     display: none;
   }
   
   .controls-hint {
     display: block;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mobile-controls {
+    display: none;
+  }
+  
+  .controls-hint {
+    display: block;
+  }
+}
+
+@media (max-width: 768px) {
+  .mobile-controls {
+    display: flex !important;
+    visibility: visible !important;
   }
 }
