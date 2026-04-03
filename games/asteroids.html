@@ -39,6 +39,15 @@
 
   <div class="controls-hint">ARROWS|WASD: MOVE · SPACE|LMB: SHOOT</div>
 
+  <div class="mobile-controls" id="mobileControls">
+    <div class="joystick-area" id="joystickArea">
+      <div class="joystick-base" id="joystickBase">
+        <div class="joystick-stick" id="joystickStick"></div>
+      </div>
+    </div>
+    <button class="fire-btn" id="fireBtn">FIRE</button>
+  </div>
+
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -239,52 +248,70 @@ canvas.addEventListener('mousedown', e => {
   if (e.button === 0) shoot();
 });
 
-// Mobile touch controls
-let touchId = null;
-let touchOrigin = { x: 0, y: 0 };
+const joystickArea = document.getElementById('joystickArea');
+const joystickBase = document.getElementById('joystickBase');
+const joystickStick = document.getElementById('joystickStick');
+const fireBtn = document.getElementById('fireBtn');
 
-canvas.addEventListener('touchstart', e => {
-  if (touchId === null && e.touches.length === 1) {
-    touchId = e.touches[0].identifier;
-    touchOrigin.x = e.touches[0].clientX;
-    touchOrigin.y = e.touches[0].clientY;
-  }
+let joystickActive = false;
+let joystickCenter = { x: 0, y: 0 };
+let joystickPos = { x: 0, y: 0 };
+
+joystickArea.addEventListener('touchstart', e => {
   e.preventDefault();
+  joystickActive = true;
+  const rect = joystickBase.getBoundingClientRect();
+  joystickCenter.x = rect.left + rect.width / 2;
+  joystickCenter.y = rect.top + rect.height / 2;
+  updateJoystick(e.touches[0]);
 }, { passive: false });
 
-canvas.addEventListener('touchmove', e => {
-  if (touchId === null) return;
-  const touch = Array.from(e.touches).find(t => t.identifier === touchId);
-  if (!touch) return;
-  
-  const dx = touch.clientX - touchOrigin.x;
-  const dy = touch.clientY - touchOrigin.y;
-  
-  keys['ArrowLeft'] = dx < -20;
-  keys['ArrowRight'] = dx > 20;
-  keys['ArrowUp'] = dy < -20;
-  
+joystickArea.addEventListener('touchmove', e => {
   e.preventDefault();
+  if (joystickActive) {
+    updateJoystick(e.touches[0]);
+  }
 }, { passive: false });
 
-canvas.addEventListener('touchend', e => {
-  const touch = Array.from(e.changedTouches).find(t => t.identifier === touchId);
-  if (touch) {
-    touchId = null;
-    keys['ArrowLeft'] = false;
-    keys['ArrowRight'] = false;
-    keys['ArrowUp'] = false;
-  }
+joystickArea.addEventListener('touchend', e => {
+  e.preventDefault();
+  joystickActive = false;
+  joystickPos.x = 0;
+  joystickPos.y = 0;
+  joystickStick.style.transform = 'translate(-50%, -50%)';
+  keys['ArrowLeft'] = false;
+  keys['ArrowRight'] = false;
+  keys['ArrowUp'] = false;
+  keys['ArrowDown'] = false;
 });
 
-let lastTap = 0;
-canvas.addEventListener('touchend', e => {
-  const now = Date.now();
-  if (now - lastTap < 300) {
-    shoot();
+function updateJoystick(touch) {
+  const maxDist = 35;
+  let dx = touch.clientX - joystickCenter.x;
+  let dy = touch.clientY - joystickCenter.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  
+  if (distance > maxDist) {
+    const ratio = maxDist / distance;
+    dx *= ratio;
+    dy *= ratio;
   }
-  lastTap = now;
-});
+  
+  joystickPos.x = dx;
+  joystickPos.y = dy;
+  joystickStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  
+  const threshold = 10;
+  keys['ArrowLeft'] = dx < -threshold;
+  keys['ArrowRight'] = dx > threshold;
+  keys['ArrowUp'] = dy < -threshold;
+  keys['ArrowDown'] = dy > threshold;
+}
+
+fireBtn.addEventListener('touchstart', e => {
+  e.preventDefault();
+  shoot();
+}, { passive: false });
 
 // Drawing functions
 function drawShip() {
