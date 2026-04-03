@@ -29,10 +29,10 @@ canvas { box-shadow: 0 0 40px rgba(0,245,255,0.2); border-color: rgba(0, 245, 25
   justify-content: space-between;
   align-items: flex-end;
   padding: 0 max(20px, env(safe-area-inset-left, 20px)) 0 max(20px, env(safe-area-inset-right, 20px));
-  pointer-events: none;
   z-index: 60;
   touch-action: none;
   visibility: visible;
+  pointer-events: auto; /* <--- важно */
 }
 
 .joystick-area {
