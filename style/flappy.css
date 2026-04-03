@@ -19,3 +19,8 @@ canvas { box-shadow: 0 0 40px rgba(255,0,255,0.2); border-color: rgba(255, 0, 25
   color: var(--neon-magenta);
   text-shadow: 0 0 30px var(--neon-magenta);
 }
+
+.game-container {
+  margin-top: 50px !important;
+  height: calc(100dvh - 50px) !important;
+}
