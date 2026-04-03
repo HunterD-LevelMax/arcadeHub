@@ -25,7 +25,7 @@ canvas { box-shadow: 0 0 40px rgba(0,245,255,0.2); border-color: rgba(0, 245, 25
   bottom: 20px;
   left: 0;
   right: 0;
-  display: none;
+  display: flex;
   justify-content: space-between;
   align-items: flex-end;
   padding: 0 20px;
@@ -86,12 +86,16 @@ canvas { box-shadow: 0 0 40px rgba(0,245,255,0.2); border-color: rgba(0, 245, 25
   box-shadow: 0 0 25px rgba(255, 0, 85, 0.6);
 }
 
-@media (max-width: 768px), (pointer: coarse) {
+.controls-hint {
+  display: none;
+}
+
+@media (min-width: 769px) and (hover: hover) and (pointer: fine) {
   .mobile-controls {
-    display: flex;
+    display: none;
   }
   
   .controls-hint {
-    display: none;
+    display: block;
   }
 }
