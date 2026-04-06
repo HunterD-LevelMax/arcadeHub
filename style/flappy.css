@@ -1,26 +1,38 @@
-.back-btn { color: rgba(255, 0, 255, 0.6); border-color: rgba(255, 0, 255, 0.3); }
-.back-btn:hover { color: var(--neon-magenta); border-color: var(--neon-magenta); }
-.game-title { color: var(--neon-magenta); }
-.overlay-score { color: var(--neon-magenta); }
-.overlay-best { color: rgba(255,0,255,0.5); }
-.start-btn { border-color: var(--neon-magenta); color: var(--neon-magenta); }
-.start-btn:hover { box-shadow: 0 0 50px rgba(255,0,255,0.9); }
-canvas { box-shadow: 0 0 40px rgba(255,0,255,0.2); border-color: rgba(255, 0, 255, 0.3); }
+.back-btn { color: var(--neon-magenta); border-color: var(--neon-magenta); }
+.back-btn:hover { box-shadow: 0 0 12px var(--neon-magenta); }
+.game-title { color: var(--neon-magenta); text-shadow: 0 0 20px var(--neon-magenta); }
+.score-display { color: var(--neon-magenta); }
 
-.overlay {
-  border: 1px solid rgba(255, 0, 255, 0.3);
-  box-shadow:
-    0 0 0 1px rgba(255,0,255,0.1),
-    0 0 40px rgba(255,0,255,0.1),
-    0 0 80px rgba(255,0,255,0.05);
+canvas {
+  border-color: rgba(255, 0, 255, 0.3);
+  box-shadow: 0 0 40px rgba(255, 0, 255, 0.15);
+  image-rendering: pixelated;
 }
 
-.overlay-title[style*="neon-magenta"] {
+.overlay {
+  border: 1px solid rgba(255, 0, 255, 0.2);
+  box-shadow: 0 0 40px rgba(255, 0, 255, 0.1);
+}
+
+.overlay-title {
   color: var(--neon-magenta);
   text-shadow: 0 0 30px var(--neon-magenta);
 }
 
-.game-container {
-  margin-top: 50px !important;
-  height: calc(100dvh - 50px) !important;
+.overlay-score {
+  color: var(--neon-magenta);
+  text-shadow: 0 0 30px var(--neon-magenta);
+}
+
+.overlay-best {
+  color: rgba(255, 0, 255, 0.5);
+}
+
+.start-btn {
+  border-color: var(--neon-magenta);
+  color: var(--neon-magenta);
+}
+
+.start-btn:hover {
+  box-shadow: 0 0 30px rgba(255, 0, 255, 0.8);
 }

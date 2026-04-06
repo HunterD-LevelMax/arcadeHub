@@ -9,49 +9,42 @@
 </head>
 <body>
 
-  <div class="top-bar">
-    <a href="../index.html" class="back-btn">← BACK</a>
-    <div class="game-title">ASTEROIDS</div>
-    <div class="score-display">
-      SCORE: <span id="scoreVal">0</span>
-      &nbsp;&nbsp; LVL: <span id="levelVal">1</span>
-      &nbsp;&nbsp; ♥ <span id="livesVal">3</span>
-    </div>
-  </div>
-
-  <div class="game-container">
-    <canvas id="c"></canvas>
-
-    <div class="overlay" id="startOverlay">
-      <div class="overlay-title" style="color: var(--neon-cyan); text-shadow: 0 0 30px var(--neon-cyan);">ASTEROIDS</div>
-      <div class="overlay-sub">CLASSIC ARCADE SHOOTER</div>
-      <button class="start-btn" id="startBtn">PLAY</button>
-    </div>
-
-    <div class="overlay hidden" id="gameoverOverlay">
-      <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
-      <div class="overlay-sub">YOUR SHIP WAS DESTROYED</div>
-      <div class="overlay-score" id="finalScore">0</div>
-      <div class="overlay-best" id="bestScore">BEST: 0</div>
-      <button class="start-btn" id="restartBtn">RETRY</button>
-    </div>
-  </div>
-
-  <div class="controls-hint">ARROWS|WASD: MOVE · SPACE|LMB: SHOOT</div>
-
-  <div class="mobile-controls" id="mobileControls">
-    <div class="joystick-area" id="joystickArea">
-      <div class="joystick-base" id="joystickBase">
-        <div class="joystick-stick" id="joystickStick"></div>
+  <div class="page">
+    <div class="header">
+      <a href="../index.html" class="back-btn">← BACK</a>
+      <div class="game-title">ASTEROIDS</div>
+      <div class="score-display">
+        SCORE: <span id="scoreVal">0</span>
+        LVL: <span id="levelVal">1</span>
+        ♥ <span id="livesVal">3</span>
       </div>
     </div>
-    <button class="fire-btn" id="fireBtn">FIRE</button>
+
+    <div class="game-container">
+      <canvas id="c" class="canvas-700x550"></canvas>
+
+      <div class="overlay" id="startOverlay">
+        <div class="overlay-title" style="color: var(--neon-cyan); text-shadow: 0 0 30px var(--neon-cyan);">ASTEROIDS</div>
+        <div class="overlay-sub">CLASSIC ARCADE SHOOTER</div>
+        <button class="start-btn" id="startBtn">PLAY</button>
+      </div>
+
+      <div class="overlay hidden" id="gameoverOverlay">
+        <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
+        <div class="overlay-sub">YOUR SHIP WAS DESTROYED</div>
+        <div class="overlay-score" id="finalScore">0</div>
+        <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <button class="start-btn" id="restartBtn">RETRY</button>
+      </div>
+    </div>
+
+    <div class="footer">ARROWS|WASD: MOVE · SPACE|LMB: SHOOT</div>
   </div>
 
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-const W = 700, H = 550;
+
 canvas.width = W;
 canvas.height = H;
 
@@ -226,7 +219,6 @@ function collides(a, b, r1, r2) {
   return dx * dx + dy * dy < (r1 + r2) * (r1 + r2);
 }
 
-// Event Listeners
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('restartBtn').addEventListener('click', () => {
   init();
@@ -248,72 +240,6 @@ canvas.addEventListener('mousedown', e => {
   if (e.button === 0) shoot();
 });
 
-const joystickArea = document.getElementById('joystickArea');
-const joystickBase = document.getElementById('joystickBase');
-const joystickStick = document.getElementById('joystickStick');
-const fireBtn = document.getElementById('fireBtn');
-
-let joystickActive = false;
-let joystickCenter = { x: 0, y: 0 };
-let joystickPos = { x: 0, y: 0 };
-
-joystickArea.addEventListener('touchstart', e => {
-  e.preventDefault();
-  joystickActive = true;
-  const rect = joystickBase.getBoundingClientRect();
-  joystickCenter.x = rect.left + rect.width / 2;
-  joystickCenter.y = rect.top + rect.height / 2;
-  updateJoystick(e.touches[0]);
-}, { passive: false });
-
-joystickArea.addEventListener('touchmove', e => {
-  e.preventDefault();
-  if (joystickActive) {
-    updateJoystick(e.touches[0]);
-  }
-}, { passive: false });
-
-joystickArea.addEventListener('touchend', e => {
-  e.preventDefault();
-  joystickActive = false;
-  joystickPos.x = 0;
-  joystickPos.y = 0;
-  joystickStick.style.transform = 'translate(-50%, -50%)';
-  keys['ArrowLeft'] = false;
-  keys['ArrowRight'] = false;
-  keys['ArrowUp'] = false;
-  keys['ArrowDown'] = false;
-});
-
-function updateJoystick(touch) {
-  const maxDist = 35;
-  let dx = touch.clientX - joystickCenter.x;
-  let dy = touch.clientY - joystickCenter.y;
-  const distance = Math.sqrt(dx * dx + dy * dy);
-  
-  if (distance > maxDist) {
-    const ratio = maxDist / distance;
-    dx *= ratio;
-    dy *= ratio;
-  }
-  
-  joystickPos.x = dx;
-  joystickPos.y = dy;
-  joystickStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-  
-  const threshold = 10;
-  keys['ArrowLeft'] = dx < -threshold;
-  keys['ArrowRight'] = dx > threshold;
-  keys['ArrowUp'] = dy < -threshold;
-  keys['ArrowDown'] = dy > threshold;
-}
-
-fireBtn.addEventListener('touchstart', e => {
-  e.preventDefault();
-  shoot();
-}, { passive: false });
-
-// Drawing functions
 function drawShip() {
   ctx.save();
   ctx.translate(gameState.ship.x, gameState.ship.y);
@@ -396,7 +322,6 @@ function drawStars() {
   }
 }
 
-// Update functions
 function updateShip() {
   const { ship } = gameState;
   
@@ -535,7 +460,6 @@ init();
 gameLoop();
 
 </script>
-<script src="../js/game.js"></script>
 
 </body>
 </html>

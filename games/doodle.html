@@ -9,41 +9,41 @@
 </head>
 <body>
 
-  <div class="top-bar">
-    <a class="back-btn" href="../index.html">&#9664; BACK</a>
-    <div class="game-title">DOODLE JUMP</div>
-    <div class="score-display">
-      <span class="score-label">SCORE</span>
-      <span id="scoreVal">0</span>
-    </div>
-  </div>
-
-  <div class="game-container">
-    <canvas id="gameCanvas" width="380" height="560"></canvas>
-
-    <div class="overlay" id="startOverlay">
-      <div class="overlay-title" style="color: var(--neon-green); text-shadow: 0 0 30px var(--neon-green);">DOODLE JUMP</div>
-      <div class="overlay-sub">ENDLESS VERTICAL PLATFORMER</div>
-      <button class="start-btn" id="startBtn">PLAY</button>
-      <div class="platform-legend" style="margin-top: 28px;">
-        <div class="legend-item"><div class="legend-dot" style="background:#39ff14;"></div> NORMAL</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#00f5ff;"></div> MOVING</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ff6600;"></div> BREAK</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ff00ff;"></div> SPRING</div>
+  <div class="page">
+    <div class="header">
+      <a class="back-btn" href="../index.html">← BACK</a>
+      <div class="game-title">DOODLE JUMP</div>
+      <div class="score-display">
+        SCORE: <span id="scoreVal">0</span>
       </div>
-      <div class="controls-hint" style="margin-top: 20px; margin-bottom: 0;">← → or A D to move</div>
     </div>
 
-    <div class="overlay hidden" id="gameoverOverlay">
-      <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
-      <div class="overlay-sub">YOU FELL INTO THE VOID</div>
-      <div class="overlay-score" id="finalScore">0</div>
-      <div class="overlay-best" id="bestScore">BEST: 0</div>
-      <button class="start-btn" id="restartBtn">RETRY</button>
+    <div class="game-container">
+      <canvas id="gameCanvas" class="canvas-380x560" width="380" height="560"></canvas>
+
+      <div class="overlay" id="startOverlay">
+        <div class="overlay-title" style="color: var(--neon-green); text-shadow: 0 0 30px var(--neon-green);">DOODLE JUMP</div>
+        <div class="overlay-sub">ENDLESS VERTICAL PLATFORMER</div>
+        <button class="start-btn" id="startBtn">PLAY</button>
+        <div class="platform-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#39ff14;"></div> NORMAL</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#00f5ff;"></div> MOVING</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff6600;"></div> BREAK</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff00ff;"></div> SPRING</div>
+        </div>
+      </div>
+
+      <div class="overlay hidden" id="gameoverOverlay">
+        <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
+        <div class="overlay-sub">YOU FELL INTO THE VOID</div>
+        <div class="overlay-score" id="finalScore">0</div>
+        <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <button class="start-btn" id="restartBtn">RETRY</button>
+      </div>
     </div>
+
+    <div class="footer">← → · A D · ARROWS TO MOVE</div>
   </div>
-
-  <div class="controls-hint">← → · A D · ARROWS TO MOVE</div>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -104,22 +104,6 @@ let gameState = {
 };
 
 const keys = {};
-
-function scaleCanvas() {
-  const UI_TOP = 48;
-  const UI_BOTTOM = 24;
-  const availableHeight = window.innerHeight - UI_TOP - UI_BOTTOM;
-  
-  const scaleX = window.innerWidth / W;
-  const scaleY = availableHeight / H;
-  const scale = Math.min(scaleX, scaleY);
-  
-  canvas.style.width = `${W * scale}px`;
-  canvas.style.height = `${H * scale}px`;
-}
-
-window.addEventListener('resize', scaleCanvas);
-scaleCanvas();
 
 function init() {
   gameState.score = 0;
@@ -209,7 +193,6 @@ document.getElementById('restartBtn').addEventListener('click', startGame);
 window.addEventListener('keydown', e => { keys[e.key] = true; });
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 
-// Mobile touch controls
 let touchStartX = null;
 canvas.addEventListener('touchstart', e => {
   touchStartX = e.touches[0].clientX;
@@ -563,7 +546,6 @@ function gameLoop(timestamp) {
   }
 }
 
-// Initial demo draw
 function drawDemoScreen() {
   ctx.fillStyle = '#050510';
   ctx.fillRect(0, 0, W, H);
