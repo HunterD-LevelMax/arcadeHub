@@ -5,26 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>SNAKE — ARCADE VAULT</title>
   <link rel="stylesheet" href="../style/game.css">
-  <style>
-    :root {
-      --game-accent: #39ff14;
-    }
-    
-    .start-btn {
-      border-color: var(--neon-green);
-      color: var(--neon-green);
-    }
-    
-    .start-btn:hover {
-      box-shadow: 0 0 30px var(--neon-green);
-    }
-  </style>
+  <link rel="stylesheet" href="../style/snake.css">
 </head>
 <body>
 
   <div class="page">
     <div class="header">
-      <a href="../index.html" class="back-btn">← BACK</a>
+      <a href="../index.html" class="back-btn">🡰 BACK</a>
       <div class="game-title">SNAKE</div>
       <div class="score-display">SCORE: <span id="scoreVal">0</span></div>
     </div>
@@ -209,9 +196,9 @@ function draw() {
   }
   
   // Food
-  ctx.shadowColor = '#39ff14';
+  ctx.shadowColor = '#ff3344';
   ctx.shadowBlur = 12;
-  ctx.fillStyle = '#39ff14';
+  ctx.fillStyle = '#ff3344';
   ctx.fillRect(
     gameState.food.x * GRID + 3,
     gameState.food.y * GRID + 3,

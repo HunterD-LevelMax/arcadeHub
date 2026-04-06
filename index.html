@@ -29,6 +29,66 @@
 
     <div class="games-grid">
 
+      <!-- Frogger -->
+      <a class="game-card" href="games/frogger.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
+        <div class="card-accent-bar"></div>
+        <div class="card-glow"></div>
+        <div class="card-preview">
+          <div class="preview-corner tl"></div>
+          <div class="preview-corner tr"></div>
+          <div class="preview-corner bl"></div>
+          <div class="preview-corner br"></div>
+          <div class="preview-badge">CLASSIC</div>
+          <canvas id="froggerCanvas"></canvas>
+          <div class="preview-icon">🐸</div>
+        </div>
+        <div class="card-body">
+          <div class="card-number">GAME_01 / 07</div>
+          <div class="card-title">FROGGER</div>
+          <div class="card-desc">Help the frog cross the road and river. Avoid cars, jump on logs and get to safety.</div>
+          <div class="card-footer">
+            <div class="card-tags">
+              <span class="tag">ARCADE</span>
+              <span class="tag">CLASSIC</span>
+            </div>
+            <div class="play-btn">
+              PLAY
+              <div class="play-btn-arrow">▶</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Tetris -->
+      <a class="game-card" href="games/tetris.html" style="--card-accent: #00f5ff; --preview-bg: #03071e;">
+        <div class="card-accent-bar"></div>
+        <div class="card-glow"></div>
+        <div class="card-preview">
+          <div class="preview-corner tl"></div>
+          <div class="preview-corner tr"></div>
+          <div class="preview-corner bl"></div>
+          <div class="preview-corner br"></div>
+          <div class="preview-badge">CLASSIC</div>
+          <canvas id="tetrisCanvas"></canvas>
+          <div class="preview-icon">🧱</div>
+        </div>
+        <div class="card-body">
+          <div class="card-number">GAME_02 / 07</div>
+          <div class="card-title">TETRIS</div>
+          <div class="card-desc">Classic block puzzle game. Rotate and place falling tetrominos, clear lines and get highest score.</div>
+          <div class="card-footer">
+            <div class="card-tags">
+              <span class="tag">PUZZLE</span>
+              <span class="tag">ARCADE</span>
+            </div>
+            <div class="play-btn">
+              PLAY
+              <div class="play-btn-arrow">▶</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
       <!-- Snake -->
       <a class="game-card" href="games/snake.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
         <div class="card-accent-bar"></div>
@@ -43,7 +103,7 @@
           <div class="preview-icon">🐍</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_01 / 04</div>
+          <div class="card-number">GAME_03 / 07</div>
           <div class="card-title">SNAKE</div>
           <div class="card-desc">Classic snake game. Eat food, grow longer, don't hit yourself or the walls.</div>
           <div class="card-footer">
@@ -73,7 +133,7 @@
           <div class="preview-icon">🚀</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_02 / 04</div>
+          <div class="card-number">GAME_04 / 07</div>
           <div class="card-title">ASTEROIDS</div>
           <div class="card-desc">Destroy asteroids, dodge debris. Survive in open space as long as you can.</div>
           <div class="card-footer">
@@ -103,7 +163,7 @@
           <div class="preview-icon" style="animation-delay: -1.5s;">🐦</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_03 / 04</div>
+          <div class="card-number">GAME_05 / 07</div>
           <div class="card-title">FLAPPY BIRD</div>
           <div class="card-desc">One tap and the bird flies. Dodge pipes, collect points, beat your high score.</div>
           <div class="card-footer">
@@ -133,13 +193,41 @@
           <div class="preview-icon" style="animation-delay: -0.8s;">🟢</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_04 / 04</div>
+          <div class="card-number">GAME_06 / 07</div>
           <div class="card-title">DOODLE JUMP</div>
           <div class="card-desc">Jump higher on platforms. Moving, breaking, spring loaded - don't let yourself fall.</div>
           <div class="card-footer">
             <div class="card-tags">
               <span class="tag">PLATFORM</span>
               <span class="tag">ENDLESS</span>
+            </div>
+            <div class="play-btn">
+              PLAY
+              <div class="play-btn-arrow">▶</div>
+            </div>
+          </div>
+        </div>
+      </a>
+      <a class="game-card" href="games/spaceinvaders.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
+        <div class="card-accent-bar"></div>
+        <div class="card-glow"></div>
+        <div class="card-preview">
+          <div class="preview-corner tl"></div>
+          <div class="preview-corner tr"></div>
+          <div class="preview-corner bl"></div>
+          <div class="preview-corner br"></div>
+          <div class="preview-badge">CLASSIC</div>
+          <canvas id="spaceinvadersCanvas"></canvas>
+          <div class="preview-icon">👾</div>
+        </div>
+        <div class="card-body">
+          <div class="card-number">GAME_07 / 07</div>
+          <div class="card-title">SPACE INVADERS</div>
+          <div class="card-desc">Defend Earth from alien waves. Shoot aliens, use bombs, survive as long as possible.</div>
+          <div class="card-footer">
+            <div class="card-tags">
+              <span class="tag">SHOOTER</span>
+              <span class="tag">CLASSIC</span>
             </div>
             <div class="play-btn">
               PLAY
@@ -422,7 +510,276 @@
        }
        tick();
      })();
-   </script>
+     
+     // Animated preview for Tetris
+     (function() {
+       const canvas = document.getElementById('tetrisCanvas');
+       const card = canvas.closest('.card-preview');
+       canvas.width = card.offsetWidth || 320;
+       canvas.height = card.offsetHeight || 180;
+       const ctx = canvas.getContext('2d');
+       
+       const COLS = 10;
+       const ROWS = 18;
+       const bs = canvas.height / ROWS;
+       const ox = (canvas.width - COLS * bs) / 2;
+       
+       const SHAPES = [
+         [[1,1,1,1]],
+         [[1,1],[1,1]],
+         [[0,1,0],[1,1,1]],
+         [[0,0,1],[1,1,1]]
+       ];
+       
+       let grid = Array(ROWS).fill().map(() => Array(COLS).fill(-1));
+       let currentShape = 0;
+       let piece = SHAPES[currentShape];
+       let px = Math.floor(COLS / 2);
+       let py = -2;
+       let t = 0;
+       
+       const COLORS = ['#00f5ff', '#ff00ff', '#39ff14', '#ffff00', '#ff3344'];
+       
+       function tick() {
+         ctx.clearRect(0, 0, canvas.width, canvas.height);
+         t++;
+         
+         if (t % 12 === 0) {
+           py++;
+           
+           if (py + piece.length >= ROWS) {
+             piece.forEach((row, y) => {
+               row.forEach((val, x) => {
+                 if (val && py + y >= 0) {
+                   grid[py + y][px + x] = currentShape;
+                 }
+               });
+             });
+             
+             for (let y = ROWS - 1; y >= 0; y--) {
+               if (grid[y].every(c => c !== -1)) {
+                 grid.splice(y, 1);
+                 grid.unshift(Array(COLS).fill(-1));
+               }
+             }
+             
+             currentShape = Math.floor(Math.random() * SHAPES.length);
+             piece = SHAPES[currentShape];
+             px = Math.floor(COLS / 2) - Math.floor(piece[0].length / 2);
+             py = -2;
+           }
+         }
+         
+         // Draw grid
+         for (let y = 0; y < ROWS; y++) {
+           for (let x = 0; x < COLS; x++) {
+             if (grid[y][x] !== -1) {
+               ctx.shadowBlur = 4;
+               ctx.shadowColor = COLORS[grid[y][x]];
+               ctx.fillStyle = COLORS[grid[y][x]];
+               ctx.fillRect(ox + x * bs + 1, y * bs + 1, bs - 2, bs - 2);
+             }
+           }
+         }
+         
+         // Draw current piece
+         ctx.shadowBlur = 8;
+         ctx.shadowColor = COLORS[currentShape];
+         ctx.fillStyle = COLORS[currentShape];
+         piece.forEach((row, y) => {
+           row.forEach((val, x) => {
+             if (val && py + y >= 0) {
+               ctx.fillRect(ox + (px + x) * bs + 1, (py + y) * bs + 1, bs - 2, bs - 2);
+             }
+           });
+         });
+         
+         ctx.shadowBlur = 0;
+         
+         requestAnimationFrame(tick);
+       }
+       tick();
+     })();
+     
+      // Animated preview for Frogger
+      (function() {
+        const canvas = document.getElementById('froggerCanvas');
+        const card = canvas.closest('.card-preview');
+        canvas.width = card.offsetWidth || 320;
+        canvas.height = card.offsetHeight || 180;
+        const ctx = canvas.getContext('2d');
+        
+        const cs = canvas.height / 15;
+        
+        let cars = [];
+        for (let i = 0; i < 6; i++) {
+          cars.push({
+            x: Math.random() * canvas.width,
+            y: 100 + i * 12,
+            w: 20 + Math.random() * 20,
+            speed: (Math.random() > 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.4)
+          });
+        }
+        
+        let logs = [];
+        for (let i = 0; i < 4; i++) {
+          logs.push({
+            x: Math.random() * canvas.width,
+            y: 30 + i * 18,
+            w: 40 + Math.random() * 30,
+            speed: (Math.random() > 0.5 ? 1 : -1) * (0.2 + Math.random() * 0.2)
+          });
+        }
+        
+        let frogX = canvas.width / 2;
+        let frogY = canvas.height - 20;
+        let t = 0;
+        
+        function tick() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          t++;
+          
+          // Road
+          ctx.fillStyle = '#1a1a1a';
+          ctx.fillRect(0, 90, canvas.width, 75);
+          
+          // Water
+          ctx.fillStyle = '#051a3d';
+          ctx.fillRect(0, 20, canvas.width, 65);
+          
+          // Logs
+          logs.forEach(log => {
+            log.x += log.speed;
+            if (log.x > canvas.width) log.x = -log.w;
+            if (log.x + log.w < 0) log.x = canvas.width;
+            
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(log.x, log.y, log.w, 12);
+          });
+          
+          // Cars
+          cars.forEach(car => {
+            car.x += car.speed;
+            if (car.x > canvas.width) car.x = -car.w;
+            if (car.x + car.w < 0) car.x = canvas.width;
+            
+            ctx.fillStyle = '#ff3344';
+            ctx.fillRect(car.x, car.y, car.w, 8);
+          });
+          
+          // Frog movement
+          if (t % 60 === 0) {
+            frogY -= 15;
+            if (frogY < 10) {
+              frogY = canvas.height - 20;
+            }
+          }
+          
+          // Frog
+          ctx.shadowColor = '#39ff14';
+          ctx.shadowBlur = 8;
+          ctx.fillStyle = '#39ff14';
+          ctx.beginPath();
+          ctx.arc(frogX, frogY, 8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          
+          requestAnimationFrame(tick);
+        }
+        tick();
+      })();
+      
+      // Animated preview for Space Invaders
+      (function() {
+        const canvas = document.getElementById('spaceinvadersCanvas');
+        const card = canvas.closest('.card-preview');
+        canvas.width = card.offsetWidth || 320;
+        canvas.height = card.offsetHeight || 180;
+        const ctx = canvas.getContext('2d');
+        
+        const rows = 4;
+        const aw = 18, ah = 12, pad = 8;
+        const maxWidth = canvas.width - 60;
+        const cols = Math.max(6, Math.floor(maxWidth / (aw + pad)));
+        const totalW = cols * (aw + pad) - pad;
+        const startX = (canvas.width - totalW) / 2;
+        
+        const aliens = [];
+        
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            aliens.push({
+              x: startX + c * (aw + pad),
+              y: 30 + r * (ah + pad),
+              type: r,
+            });
+          }
+        }
+        
+        let dir = 1;
+        let t = 0;
+        
+        function tick() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          t++;
+          
+          // Starfield
+          ctx.fillStyle = 'rgba(57, 255, 20, 0.1)';
+          for (let i = 0; i < 20; i++) {
+            const sx = (i * 17 + t * 0.2) % canvas.width;
+            const sy = (i * 23) % canvas.height;
+            ctx.fillRect(sx, sy, 1, 1);
+          }
+          
+          // Move aliens
+          if (t % 30 === 0) {
+            let minX = canvas.width, maxX = 0;
+            aliens.forEach(a => {
+              minX = Math.min(minX, a.x);
+              maxX = Math.max(maxX, a.x + aw);
+            });
+            if (maxX >= canvas.width - 10 || minX <= 10) dir *= -1;
+            aliens.forEach(a => a.x += dir * 5);
+          }
+          
+          // Draw aliens
+          const colors = ['#ff00ff', '#ff8800', '#00f5ff', '#ffff00'];
+          aliens.forEach((a, i) => {
+            const col = colors[a.type % colors.length];
+            ctx.shadowColor = col;
+            ctx.shadowBlur = 6;
+            ctx.fillStyle = col;
+            
+            // Simple alien shape
+            const bx = a.x + aw/2;
+            const by = a.y + ah/2;
+            ctx.beginPath();
+            ctx.moveTo(bx, by - 5);
+            ctx.lineTo(bx + 6, by + 2);
+            ctx.lineTo(bx + 4, by + 5);
+            ctx.lineTo(bx - 4, by + 5);
+            ctx.lineTo(bx - 6, by + 2);
+            ctx.closePath();
+            ctx.fill();
+          });
+          
+          // Player ship
+          const px = canvas.width / 2 + Math.sin(t * 0.05) * 30;
+          const py = canvas.height - 25;
+          ctx.shadowColor = '#39ff14';
+          ctx.shadowBlur = 8;
+          ctx.fillStyle = '#39ff14';
+          ctx.fillRect(px - 3, py, 6, 6);
+          ctx.fillRect(px - 10, py + 6, 20, 4);
+          ctx.fillRect(px - 15, py + 10, 30, 2);
+          
+          ctx.shadowBlur = 0;
+          
+          requestAnimationFrame(tick);
+        }
+        tick();
+      })();
+    </script>
 
 </body>
 </html>

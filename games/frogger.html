@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>CROSSY FROG — ARCADE VAULT</title>
+  <link rel="stylesheet" href="../style/game.css">
+  <link rel="stylesheet" href="../style/frogger.css">
+</head>
+<body>
+
+<div class="page">
+  <div class="header">
+    <a href="../index.html" class="back-btn">🡰 BACK</a>
+    <div class="game-title">CROSSY FROG</div>
+    <div class="score-display">
+      SCORE: <span id="scoreVal">0</span> | BEST: <span id="bestVal">0</span>
+    </div>
+  </div>
+
+  <div class="game-container">
+    <canvas id="c"></canvas>
+
+    <div class="overlay" id="startOverlay">
+      <div class="overlay-title" style="color: var(--neon-green);">CROSSY FROG</div>
+      <div class="overlay-sub">HOP ACROSS THE ROADS</div>
+      <button class="start-btn" id="startBtn">PLAY</button>
+    </div>
+
+    <div class="overlay hidden" id="gameoverOverlay">
+      <div class="overlay-title" style="color: #ff3344;">SPLAT!</div>
+      <div class="overlay-sub">FROG GOT HIT</div>
+      <div class="overlay-score" id="finalScore">0</div>
+      <div class="overlay-best" id="bestScore">BEST: 0</div>
+      <button class="start-btn" id="restartBtn">RETRY</button>
+    </div>
+  </div>
+
+  <div class="footer">ARROWS / WASD: HOP</div>
+</div>
+<script src="../js/game.js"></script>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const BASE_W = 400, BASE_H = 600;
+initGameCommon(canvas, BASE_W, BASE_H);
+
+function W() { return canvas.width; }
+function H() { return canvas.height; }
+
+let stars = [];
+function initStars() {
+  const w = canvas.width;
+  const h = canvas.height;
+  const starCount = Math.floor((w * h) / 3000);
+  stars = [];
+  for (let i = 0; i < starCount; i++) {
+    stars.push({
+      x: Math.random() * w,
+      y: Math.random() * h * 0.4,
+      size: 0.3 + Math.random() * 1,
+      alpha: 0.1 + Math.random() * 0.3
+    });
+  }
+}
+
+function drawStars() {
+  stars.forEach(s => {
+    ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+initStars();
+
+const ui = {
+  score: document.getElementById('scoreVal'),
+  best: document.getElementById('bestVal'),
+  finalScore: document.getElementById('finalScore'),
+  bestScore: document.getElementById('bestScore'),
+  startOverlay: document.getElementById('startOverlay'),
+  gameoverOverlay: document.getElementById('gameoverOverlay'),
+};
+
+const KEYS = {
+  UP: ['ArrowUp', 'KeyW'],
+  DOWN: ['ArrowDown', 'KeyS'],
+  LEFT: ['ArrowLeft', 'KeyA'],
+  RIGHT: ['ArrowRight', 'KeyD'],
+};
+
+let lastTime = 0;
+let camZ = 0;
+
+let gameState = {
+  frog: { x: 5, z: 0 },
+  maxZ: 0,
+  lanes: {},
+  state: 'title',
+  best: getHighScore('crossyfrog'),
+  lastHop: 0
+};
+
+ui.best.textContent = gameState.best;
+
+function init() {
+  gameState.frog = { x: 5, z: 0 };
+  gameState.maxZ = 0;
+  gameState.lanes = {};
+  gameState.state = 'title';
+  gameState.lastHop = 0;
+
+  ui.score.textContent = 0;
+  ui.best.textContent = gameState.best;
+
+  ui.startOverlay.classList.remove('hidden');
+  ui.gameoverOverlay.classList.add('hidden');
+
+  for (let z = 0; z < 15; z++) {
+    gameState.lanes[z] = generateLane(z);
+  }
+}
+
+function generateLane(z) {
+  if (z < 3) return { type: 'grass', z, objects: [], speed: 0 };
+
+  const types = ['road','road','water','grass'];
+  const type = types[Math.floor(Math.random()*types.length)];
+
+  const lane = { type, z, objects: [], speed: 0 };
+
+  if (type === 'road') {
+    lane.speed = (Math.random()>0.5?1:-1)*(2 + z*0.1);
+
+    for (let i=0;i<3;i++){
+      lane.objects.push({
+        x: i*5 + Math.random()*2,
+        width: 1.5
+      });
+    }
+  }
+
+  if (type === 'water') {
+    lane.speed = (Math.random()>0.5?1:-1)*(1 + Math.random());
+
+    for (let i=0;i<2;i++){
+      lane.objects.push({
+        x: i*6 + Math.random()*2,
+        width: 3
+      });
+    }
+  }
+
+  return lane;
+}
+
+function screenToGrid(x,z,offsetZ){
+  const size = Math.min(W()/12, H()/12);
+  return {
+    x: W()/2 + (x-6)*size,
+    y: H()-60 - (z-offsetZ)*size,
+    size
+  };
+}
+
+function drawRect(x,z,w,h,color,offsetZ){
+  const p = screenToGrid(x,z,offsetZ);
+  ctx.fillStyle = color;
+  ctx.fillRect(
+    p.x - (p.size * w)/2,
+    p.y - p.size*h,
+    p.size*w,
+    p.size*h
+  );
+}
+
+function draw() {
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0,0,W(),H());
+  
+  drawStars();
+
+  const offsetZ = Math.max(0, camZ - 8);
+
+  Object.values(gameState.lanes).forEach(lane=>{
+    const z = lane.z;
+    const screenZ = z - offsetZ;
+    if (screenZ < -1 || screenZ > 12) return;
+
+    if (lane.type==='grass') drawRect(6,screenZ,12,1,'#103010',offsetZ);
+    if (lane.type==='road') drawRect(6,screenZ,12,1,'#222',offsetZ);
+    if (lane.type==='water') drawRect(6,screenZ,12,1,'#102040',offsetZ);
+
+    lane.objects.forEach(o=>{
+      if (lane.type==='road'){
+        drawRect(o.x,screenZ,o.width,0.8,'#ff3344',offsetZ);
+      }
+      if (lane.type==='water'){
+        drawRect(o.x,screenZ,o.width,0.8,'#8B4513',offsetZ);
+      }
+    });
+  });
+
+  const f = gameState.frog;
+  const p = screenToGrid(f.x, f.z - offsetZ, 0);
+
+  const jumpT = (Date.now() - gameState.lastHop)/120;
+  const jump = Math.sin(Math.min(jumpT,1)*Math.PI) * p.size * 0.4;
+
+  ctx.fillStyle = '#39ff14';
+  ctx.beginPath();
+  ctx.arc(p.x, p.y - p.size/2 - jump, p.size*0.4, 0, Math.PI*2);
+  ctx.fill();
+
+  // глаза
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(p.x - 4, p.y - p.size/2 - 6 - jump, 2, 0, Math.PI*2);
+  ctx.arc(p.x + 4, p.y - p.size/2 - 6 - jump, 2, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function update(dt){
+  if (gameState.state !== 'playing') return;
+
+  const f = gameState.frog;
+
+  camZ += (gameState.maxZ - camZ) * 0.1;
+
+  Object.values(gameState.lanes).forEach(lane=>{
+    if (lane.type==='road' || lane.type==='water'){
+      lane.objects.forEach(o=>{
+        o.x += lane.speed * dt;
+
+        if (o.x > 14) o.x = -2;
+        if (o.x < -2) o.x = 14;
+      });
+    }
+  });
+
+  const lane = gameState.lanes[f.z];
+
+  if (lane){
+    if (lane.type==='road'){
+      for (const car of lane.objects){
+        const dx = Math.abs(f.x - car.x);
+        if (dx < car.width/2 + 0.4){
+          endGame();
+        }
+      }
+    }
+
+    if (lane.type==='water'){
+      let onLog = false;
+
+      for (const log of lane.objects){
+        const center = log.x + log.width/2;
+        const dx = Math.abs(f.x - center);
+
+        if (dx < log.width/2){
+          onLog = true;
+          f.x += lane.speed * dt;
+        }
+      }
+
+      if (!onLog) endGame();
+      if (f.x < -1 || f.x > 12) endGame();
+    }
+  }
+
+  if (!gameState.lanes[f.z+10]){
+    gameState.lanes[f.z+10] = generateLane(f.z+10);
+  }
+
+  for (const z in gameState.lanes){
+    if (Number(z) < f.z - 20) delete gameState.lanes[z];
+  }
+
+  f.x = Math.max(0, Math.min(11, f.x));
+}
+
+function endGame(){
+  gameState.state = 'dead';
+
+  if (gameState.maxZ > gameState.best){
+    gameState.best = gameState.maxZ;
+    setHighScore('crossyfrog', gameState.best);
+  }
+
+  ui.finalScore.textContent = gameState.maxZ;
+  ui.bestScore.textContent = "BEST: " + gameState.best;
+  ui.best.textContent = gameState.best;
+
+  ui.gameoverOverlay.classList.remove('hidden');
+}
+
+function gameLoop(t){
+  const dt = (t - lastTime)/1000;
+  lastTime = t;
+
+  update(dt);
+  draw();
+
+  requestAnimationFrame(gameLoop);
+}
+
+document.addEventListener('keydown', e=>{
+  if (gameState.state !== 'playing') return;
+  if (Date.now() - gameState.lastHop < 120) return;
+
+  const f = gameState.frog;
+
+  if (KEYS.UP.includes(e.code)){
+    f.z++;
+    gameState.maxZ = Math.max(gameState.maxZ, f.z);
+  }
+  if (KEYS.DOWN.includes(e.code) && f.z>0) f.z--;
+  if (KEYS.LEFT.includes(e.code)) f.x--;
+  if (KEYS.RIGHT.includes(e.code)) f.x++;
+
+  ui.score.textContent = gameState.maxZ;
+  gameState.lastHop = Date.now();
+});
+
+document.getElementById('startBtn').onclick = ()=>{
+  gameState.state='playing';
+  ui.startOverlay.classList.add('hidden');
+};
+
+document.getElementById('restartBtn').onclick = ()=>{
+  init();
+  ui.startOverlay.classList.add('hidden');
+  gameState.state='playing';
+};
+
+init();
+requestAnimationFrame(gameLoop);
+</script>
+
+</body>
+</html>

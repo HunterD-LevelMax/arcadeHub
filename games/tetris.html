@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>TETRIS — ARCADE VAULT</title>
+  <link rel="stylesheet" href="../style/game.css">
+  <link rel="stylesheet" href="../style/tetris.css">
+</head>
+<body>
+
+  <div class="page">
+    <div class="header">
+      <a href="../index.html" class="back-btn">🡰 BACK</a>
+      <div class="game-title">TETRIS</div>
+      <div class="score-display">SCORE: <span id="scoreVal">0</span></div>
+    </div>
+
+    <div class="game-container">
+      <canvas id="c"></canvas>
+
+      <div class="overlay" id="startOverlay">
+        <div class="overlay-title" style="color: var(--neon-cyan); text-shadow: 0 0 30px var(--neon-cyan);">TETRIS</div>
+        <div class="overlay-sub">CLASSIC BLOCK PUZZLE</div>
+        <button class="start-btn" id="startBtn">PLAY</button>
+      </div>
+
+      <div class="overlay hidden" id="gameoverOverlay">
+        <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
+        <div class="overlay-sub">BLOCKS REACHED TOP</div>
+        <div class="overlay-score" id="finalScore">0</div>
+        <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <button class="start-btn" id="restartBtn">RETRY</button>
+      </div>
+    </div>
+
+    <div class="footer">ARROWS: MOVE/ROTATE · DOWN: SOFT DROP · SPACE: HARD DROP</div>
+  </div>
+
+<script src="../js/game.js"></script>
+<script>
+const BASE_W = 400, BASE_H = 600;
+const COLS = 10;
+const ROWS = 20;
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+initGameCommon(canvas, BASE_W, BASE_H);
+
+function W() { return canvas.width; }
+function H() { return canvas.height; }
+function blockSize() { return Math.min(W() / COLS, H() / ROWS); }
+function offsetX() { return (W() - COLS * blockSize()) / 2; }
+function offsetY() { return (H() - ROWS * blockSize()) / 2; }
+
+const ui = {
+  score: document.getElementById('scoreVal'),
+  finalScore: document.getElementById('finalScore'),
+  bestScore: document.getElementById('bestScore'),
+  startOverlay: document.getElementById('startOverlay'),
+  gameoverOverlay: document.getElementById('gameoverOverlay'),
+};
+
+const KEYS = {
+  LEFT: ['ArrowLeft', 'KeyA'],
+  RIGHT: ['ArrowRight', 'KeyD'],
+  ROTATE: ['ArrowUp', 'KeyW'],
+  SOFT_DROP: ['ArrowDown', 'KeyS'],
+  HARD_DROP: ['Space'],
+};
+
+const CONFIG = {
+  FALL_SPEED: 800,
+  SOFT_DROP_SPEED: 50,
+  LINE_POINTS: [0, 100, 300, 500, 800],
+  COLORS: [
+    '#00f5ff',
+    '#ff00ff',
+    '#39ff14',
+    '#ffff00',
+    '#ff3344',
+    '#ff8800',
+    '#8800ff'
+  ]
+};
+
+const SHAPES = [
+  [[1,1,1,1]],
+  [[1,1],[1,1]],
+  [[0,1,0],[1,1,1]],
+  [[1,0,0],[1,1,1]],
+  [[0,0,1],[1,1,1]],
+  [[0,1,1],[1,1,0]],
+  [[1,1,0],[0,1,1]]
+];
+
+let gameState = {
+  grid: [],
+  currentPiece: null,
+  currentX: 0,
+  currentY: 0,
+  currentShape: 0,
+  score: 0,
+  best: getHighScore('tetris'),
+  state: 'title',
+  lastFall: 0,
+  level: 1,
+  lines: 0,
+};
+
+ui.bestScore.textContent = `BEST: ${gameState.best}`;
+
+function init() {
+  gameState.grid = Array(ROWS).fill().map(() => Array(COLS).fill(-1));
+  gameState.score = 0;
+  gameState.state = 'title';
+  gameState.lastFall = 0;
+  gameState.level = 1;
+  gameState.lines = 0;
+  
+  ui.score.textContent = '0';
+  spawnPiece();
+}
+
+function spawnPiece() {
+  gameState.currentShape = Math.floor(Math.random() * SHAPES.length);
+  gameState.currentPiece = SHAPES[gameState.currentShape].map(row => [...row]);
+  gameState.currentX = Math.floor(COLS / 2) - Math.floor(gameState.currentPiece[0].length / 2);
+  gameState.currentY = 0;
+  
+  if (!isValidPosition(gameState.currentX, gameState.currentY, gameState.currentPiece)) {
+    endGame();
+  }
+}
+
+function isValidPosition(x, y, piece) {
+  for (let py = 0; py < piece.length; py++) {
+    for (let px = 0; px < piece[py].length; px++) {
+      if (piece[py][px]) {
+        const nx = x + px;
+        const ny = y + py;
+        
+        if (nx < 0 || nx >= COLS || ny >= ROWS) return false;
+        if (ny >= 0 && gameState.grid[ny][nx] !== -1) return false;
+      }
+    }
+  }
+  return true;
+}
+
+function rotatePiece() {
+  const piece = gameState.currentPiece;
+  const rotated = piece[0].map((_, i) => piece.map(row => row[i]).reverse());
+  
+  if (isValidPosition(gameState.currentX, gameState.currentY, rotated)) {
+    gameState.currentPiece = rotated;
+  }
+}
+
+function lockPiece() {
+  const piece = gameState.currentPiece;
+  const color = gameState.currentShape;
+  
+  for (let py = 0; py < piece.length; py++) {
+    for (let px = 0; px < piece[py].length; px++) {
+      if (piece[py][px]) {
+        const ny = gameState.currentY + py;
+        const nx = gameState.currentX + px;
+        if (ny >= 0) {
+          gameState.grid[ny][nx] = color;
+        }
+      }
+    }
+  }
+  
+  let clearedLines = 0;
+  for (let y = ROWS - 1; y >= 0; y--) {
+    if (gameState.grid[y].every(cell => cell !== -1)) {
+      gameState.grid.splice(y, 1);
+      gameState.grid.unshift(Array(COLS).fill(-1));
+      clearedLines++;
+      y++;
+    }
+  }
+  
+  if (clearedLines > 0) {
+    gameState.lines += clearedLines;
+    gameState.score += CONFIG.LINE_POINTS[clearedLines] * gameState.level;
+    ui.score.textContent = gameState.score;
+    gameState.level = Math.floor(gameState.lines / 10) + 1;
+  }
+  
+  spawnPiece();
+}
+
+function hardDrop() {
+  while (isValidPosition(gameState.currentX, gameState.currentY + 1, gameState.currentPiece)) {
+    gameState.currentY++;
+    gameState.score += 2;
+  }
+  lockPiece();
+  ui.score.textContent = gameState.score;
+}
+
+function endGame() {
+  gameState.state = 'dead';
+  
+  if (gameState.score > gameState.best) {
+    gameState.best = gameState.score;
+    setHighScore('tetris', gameState.best);
+  }
+  
+  ui.finalScore.textContent = gameState.score;
+  ui.bestScore.textContent = `BEST: ${gameState.best}`;
+  ui.gameoverOverlay.classList.remove('hidden');
+}
+
+function update(t) {
+  if (gameState.state !== 'playing') return;
+  
+  const speed = isKeyPressed(KEYS.SOFT_DROP) ? CONFIG.SOFT_DROP_SPEED : CONFIG.FALL_SPEED / gameState.level;
+  
+  if (t - gameState.lastFall > speed) {
+    if (isValidPosition(gameState.currentX, gameState.currentY + 1, gameState.currentPiece)) {
+      gameState.currentY++;
+      if (isKeyPressed(KEYS.SOFT_DROP)) {
+        gameState.score += 1;
+        ui.score.textContent = gameState.score;
+      }
+    } else {
+      lockPiece();
+    }
+    gameState.lastFall = t;
+  }
+}
+
+function draw() {
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0, 0, W(), H());
+  
+  const bs = blockSize();
+  const ox = offsetX();
+  const oy = offsetY();
+  
+  // Grid lines
+  ctx.strokeStyle = 'rgba(0, 245, 255, 0.05)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= COLS; x++) {
+    ctx.beginPath();
+    ctx.moveTo(ox + x * bs, oy);
+    ctx.lineTo(ox + x * bs, oy + ROWS * bs);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= ROWS; y++) {
+    ctx.beginPath();
+    ctx.moveTo(ox, oy + y * bs);
+    ctx.lineTo(ox + COLS * bs, oy + y * bs);
+    ctx.stroke();
+  }
+  
+  // Grid
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (gameState.grid[y][x] !== -1) {
+        const color = CONFIG.COLORS[gameState.grid[y][x]];
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = color;
+        ctx.fillRect(ox + x * bs + 2, oy + y * bs + 2, bs - 4, bs - 4);
+      }
+    }
+  }
+  
+  // Current piece
+  const piece = gameState.currentPiece;
+  const color = CONFIG.COLORS[gameState.currentShape];
+  
+  // Ghost piece
+  let ghostY = gameState.currentY;
+  while (isValidPosition(gameState.currentX, ghostY + 1, piece)) ghostY++;
+  
+  ctx.globalAlpha = 0.2;
+  ctx.fillStyle = color;
+  for (let py = 0; py < piece.length; py++) {
+    for (let px = 0; px < piece[py].length; px++) {
+      if (piece[py][px]) {
+        ctx.fillRect(
+          ox + (gameState.currentX + px) * bs + 2,
+          oy + (ghostY + py) * bs + 2,
+          bs - 4,
+          bs - 4
+        );
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+  
+  // Actual piece
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = color;
+  
+  for (let py = 0; py < piece.length; py++) {
+    for (let px = 0; px < piece[py].length; px++) {
+      if (piece[py][px]) {
+        ctx.fillRect(
+          ox + (gameState.currentX + px) * bs + 2,
+          oy + (gameState.currentY + py) * bs + 2,
+          bs - 4,
+          bs - 4
+        );
+      }
+    }
+  }
+  
+  ctx.shadowBlur = 0;
+  
+  // Score and level
+  ctx.fillStyle = 'rgba(0, 245, 255, 0.7)';
+  ctx.font = '14px Orbitron';
+  ctx.textAlign = 'right';
+  ctx.fillText(`LEVEL ${gameState.level}`, W() - 10, 40);
+  ctx.textAlign = 'left';
+}
+
+function gameLoop(t) {
+  update(t);
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+// Input
+const keys = {};
+function isKeyPressed(keyArray) {
+  return keyArray.some(key => keys[key]);
+}
+
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  
+  if (gameState.state !== 'playing') return;
+  
+  if (KEYS.LEFT.includes(e.code) && isValidPosition(gameState.currentX - 1, gameState.currentY, gameState.currentPiece)) {
+    gameState.currentX--;
+    e.preventDefault();
+  }
+  if (KEYS.RIGHT.includes(e.code) && isValidPosition(gameState.currentX + 1, gameState.currentY, gameState.currentPiece)) {
+    gameState.currentX++;
+    e.preventDefault();
+  }
+  if (KEYS.ROTATE.includes(e.code)) {
+    rotatePiece();
+    e.preventDefault();
+  }
+  if (KEYS.HARD_DROP.includes(e.code)) {
+    hardDrop();
+    e.preventDefault();
+  }
+});
+
+document.addEventListener('keyup', e => {
+  keys[e.code] = false;
+});
+
+// Touch controls
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (gameState.state !== 'playing') return;
+  
+  const touch = e.touches[0];
+  const rect = canvas.getBoundingClientRect();
+  const x = touch.clientX - rect.left;
+  
+  if (x < rect.width / 3 && isValidPosition(gameState.currentX - 1, gameState.currentY, gameState.currentPiece)) {
+    gameState.currentX--;
+  } else if (x > rect.width * 2 / 3 && isValidPosition(gameState.currentX + 1, gameState.currentY, gameState.currentPiece)) {
+    gameState.currentX++;
+  } else if (x >= rect.width / 3 && x <= rect.width * 2 / 3) {
+    rotatePiece();
+  }
+});
+
+let touchHold = null;
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (gameState.state !== 'playing') return;
+  
+  const touch = e.touches[0];
+  const rect = canvas.getBoundingClientRect();
+  const y = touch.clientY - rect.top;
+  
+  if (y > rect.height * 0.7) {
+    if (isValidPosition(gameState.currentX, gameState.currentY + 1, gameState.currentPiece)) {
+      gameState.currentY++;
+    }
+  }
+});
+
+canvas.addEventListener('touchend', e => {
+  if (e.touches.length === 0) {
+    clearTimeout(touchHold);
+  }
+});
+
+// Buttons
+document.getElementById('startBtn').addEventListener('click', () => {
+  gameState.state = 'playing';
+  ui.startOverlay.classList.add('hidden');
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+  init();
+  gameState.state = 'playing';
+  ui.gameoverOverlay.classList.add('hidden');
+});
+
+init();
+requestAnimationFrame(gameLoop);
+
+</script>
+
+</body>
+</html>

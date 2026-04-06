@@ -1,0 +1,12 @@
+:root {
+  --game-accent: #39ff14;
+}
+
+.start-btn {
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+}
+
+.start-btn:hover {
+  box-shadow: 0 0 30px var(--neon-green);
+}
