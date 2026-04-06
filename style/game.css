@@ -117,22 +117,9 @@ body::after {
 
 canvas {
   display: block;
-  width: 400px;
-  height: 600px;
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
   border: 1px solid rgba(255,255,255,0.1);
-  object-fit: contain;
-}
-
-canvas.canvas-380x560 {
-  width: 380px;
-  height: 560px;
-}
-
-canvas.canvas-700x550 {
-  width: 700px;
-  height: 550px;
 }
 
 .footer {

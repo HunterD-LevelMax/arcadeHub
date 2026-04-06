@@ -19,7 +19,7 @@
     </div>
 
     <div class="game-container">
-      <canvas id="gameCanvas" class="canvas-380x560" width="380" height="560"></canvas>
+      <canvas id="gameCanvas"></canvas>
 
       <div class="overlay" id="startOverlay">
         <div class="overlay-title" style="color: var(--neon-green); text-shadow: 0 0 30px var(--neon-green);">DOODLE JUMP</div>
@@ -45,11 +45,16 @@
     <div class="footer">← → · A D · ARROWS TO MOVE</div>
   </div>
 
+<script src="../js/game.js"></script>
 <script>
+const BASE_W = 380, BASE_H = 560;
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const W = canvas.width;
-const H = canvas.height;
+
+initGameCommon(canvas, BASE_W, BASE_H);
+
+function W() { return canvas.width; }
+function H() { return canvas.height; }
 
 const ui = {
   score: document.getElementById('scoreVal'),
@@ -117,8 +122,8 @@ function init() {
 
 function createPlayer() {
   return {
-    x: W / 2 - CONFIG.PLAYER_W / 2,
-    y: H - 120,
+    x: W() / 2 - CONFIG.PLAYER_W / 2,
+    y: H() - 120,
     vx: 0,
     vy: CONFIG.JUMP_VEL,
     facing: 1,
@@ -147,7 +152,7 @@ function getRandomPlatformType(score) {
 function createPlatform(y, score) {
   const type = getRandomPlatformType(score);
   return {
-    x: Math.random() * (W - CONFIG.PLAT_W),
+    x: Math.random() * (W() - CONFIG.PLAT_W),
     y,
     type,
     broken: false,
@@ -158,10 +163,12 @@ function createPlatform(y, score) {
 }
 
 function initPlatforms() {
+  const w = W();
+  const h = H();
   const plats = [];
   plats.push({
-    x: W / 2 - CONFIG.PLAT_W / 2,
-    y: H - 80,
+    x: w / 2 - CONFIG.PLAT_W / 2,
+    y: h - 80,
     type: PLATFORM_TYPES.NORMAL,
     broken: false,
     dx: 1,
@@ -169,7 +176,7 @@ function initPlatforms() {
     springTimer: 0,
   });
   
-  let lastY = H - 80;
+  let lastY = h - 80;
   for (let i = 1; i < CONFIG.PLAT_COUNT; i++) {
     const gap = CONFIG.PLAT_MIN_GAP + Math.random() * (CONFIG.PLAT_MAX_GAP - CONFIG.PLAT_MIN_GAP);
     lastY -= gap;
@@ -196,7 +203,7 @@ window.addEventListener('keyup', e => { keys[e.key] = false; });
 let touchStartX = null;
 canvas.addEventListener('touchstart', e => {
   touchStartX = e.touches[0].clientX;
-  e.preventDefault();
+  if (e.cancelable) e.preventDefault();
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
@@ -204,7 +211,7 @@ canvas.addEventListener('touchmove', e => {
   const dx = e.touches[0].clientX - touchStartX;
   keys['ArrowLeft'] = dx < -5;
   keys['ArrowRight'] = dx > 5;
-  e.preventDefault();
+  if (e.cancelable) e.preventDefault();
 }, { passive: false });
 
 canvas.addEventListener('touchend', () => {
@@ -240,9 +247,10 @@ function updatePlayer(dt) {
   }
 
   player.x += player.vx * dt;
+  const w = W();
   
-  if (player.x + CONFIG.PLAYER_W < 0) player.x = W;
-  if (player.x > W) player.x = -CONFIG.PLAYER_W;
+  if (player.x + CONFIG.PLAYER_W < 0) player.x = w;
+  if (player.x > w) player.x = -CONFIG.PLAYER_W;
 
   player.vy += CONFIG.GRAVITY * dt;
   player.y += player.vy * dt;
@@ -250,10 +258,11 @@ function updatePlayer(dt) {
 }
 
 function updatePlatforms(dt) {
+  const w = W();
   gameState.platforms.forEach(p => {
     if (p.type === PLATFORM_TYPES.MOVING) {
       p.x += p.dx * dt;
-      if (p.x < 0 || p.x + CONFIG.PLAT_W > W) p.dx *= -1;
+      if (p.x < 0 || p.x + CONFIG.PLAT_W > w) p.dx *= -1;
     }
     
     if (p.springTimer > 0) {
@@ -266,10 +275,11 @@ function updatePlatforms(dt) {
 
 function updateCamera() {
   const { player, cameraY } = gameState;
+  const h = H();
   const screenY = player.y - cameraY;
   
-  if (screenY < H * 0.4) {
-    const delta = H * 0.4 - screenY;
+  if (screenY < h * 0.4) {
+    const delta = h * 0.4 - screenY;
     gameState.cameraY -= delta;
     gameState.score += Math.round(delta * 0.5);
     ui.score.textContent = gameState.score;
@@ -278,6 +288,7 @@ function updateCamera() {
 
 function checkPlatformCollisions(dt) {
   const { player, platforms, cameraY } = gameState;
+  const h = H();
   
   if (player.vy <= 0) return;
   
@@ -332,13 +343,15 @@ function spawnNewPlatforms() {
 
 function removeOffScreenPlatforms() {
   const { platforms, cameraY } = gameState;
-  gameState.platforms = platforms.filter(p => p.y - cameraY < H + 60);
+  const h = H();
+  gameState.platforms = platforms.filter(p => p.y - cameraY < h + 60);
 }
 
 function checkGameOver() {
   const { player, cameraY } = gameState;
+  const h = H();
   
-  if (player.y - cameraY > H + 40) {
+  if (player.y - cameraY > h + 40) {
     endGame();
   }
 }
@@ -368,12 +381,14 @@ function endGame() {
   ui.gameoverOverlay.classList.remove('hidden');
   
   ctx.fillStyle = 'rgba(5,5,16,0.5)';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, W(), H());
 }
 
 function draw() {
+  const w = W();
+  const h = H();
   ctx.fillStyle = '#050510';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, w, h);
 
   drawBackgroundStrips();
   drawPlatforms();
@@ -382,14 +397,16 @@ function draw() {
 }
 
 function drawBackgroundStrips() {
+  const w = W();
+  const h = H();
   for (let i = 0; i < 3; i++) {
-    const gx = (W / 4) * (i + 0.5);
+    const gx = (w / 4) * (i + 0.5);
     const grad = ctx.createLinearGradient(gx - 40, 0, gx + 40, 0);
     grad.addColorStop(0, 'transparent');
     grad.addColorStop(0.5, 'rgba(57,255,20,0.015)');
     grad.addColorStop(1, 'transparent');
     ctx.fillStyle = grad;
-    ctx.fillRect(gx - 40, 0, 80, H);
+    ctx.fillRect(gx - 40, 0, 80, h);
   }
 }
 
@@ -404,11 +421,12 @@ function getPlatformColor(type) {
 }
 
 function drawPlatforms() {
+  const h = H();
   gameState.platforms.forEach(p => {
     const px = p.x;
     const py = p.y - gameState.cameraY;
     
-    if (py < -20 || py > H + 20 || p.broken) return;
+    if (py < -20 || py > h + 20 || p.broken) return;
 
     const col = getPlatformColor(p.type);
 
@@ -547,8 +565,10 @@ function gameLoop(timestamp) {
 }
 
 function drawDemoScreen() {
+  const w = W();
+  const h = H();
   ctx.fillStyle = '#050510';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, w, h);
 
   const demoPlatforms = [
     { x: 60,  y: 480, type: PLATFORM_TYPES.NORMAL },
@@ -570,7 +590,7 @@ function drawDemoScreen() {
     ctx.shadowBlur = 0;
   });
   
-  drawPlayerSprite(W / 2 - CONFIG.PLAYER_W / 2, 430, 1, 0);
+  drawPlayerSprite(w / 2 - CONFIG.PLAYER_W / 2, 430, 1, 0);
 }
 
 drawDemoScreen();

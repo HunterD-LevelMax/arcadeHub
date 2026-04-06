@@ -21,7 +21,7 @@
     </div>
 
     <div class="game-container">
-      <canvas id="c" class="canvas-700x550"></canvas>
+      <canvas id="c"></canvas>
 
       <div class="overlay" id="startOverlay">
         <div class="overlay-title" style="color: var(--neon-cyan); text-shadow: 0 0 30px var(--neon-cyan);">ASTEROIDS</div>
@@ -41,12 +41,41 @@
     <div class="footer">ARROWS|WASD: MOVE · SPACE|LMB: SHOOT</div>
   </div>
 
+<script src="../js/game.js"></script>
 <script>
+const BASE_W = 700, BASE_H = 550;
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-canvas.width = W;
-canvas.height = H;
+let stars = [];
+function initStars() {
+  const w = canvas.width;
+  const h = canvas.height;
+  const starCount = Math.floor((w * h) / 2500);
+  stars = [];
+  for (let i = 0; i < starCount; i++) {
+    stars.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      size: 0.5 + Math.random() * 1.5,
+      alpha: 0.2 + Math.random() * 0.5
+    });
+  }
+}
+
+function drawStars() {
+  stars.forEach(s => {
+    ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+initGameCommon(canvas, BASE_W, BASE_H, initStars);
+
+function W() { return canvas.width; }
+function H() { return canvas.height; }
 
 const ui = {
   score: document.getElementById('scoreVal'),
@@ -106,6 +135,7 @@ function init() {
   
   ui.bestScore.textContent = `BEST: ${gameState.best}`;
   updateUI();
+  initStars();
   
   for (let i = 0; i < CONFIG.INITIAL_ASTEROIDS; i++) {
     spawnAsteroid();
@@ -114,8 +144,8 @@ function init() {
 
 function createShip() {
   return {
-    x: W / 2,
-    y: H / 2,
+    x: W() / 2,
+    y: H() / 2,
     vx: 0,
     vy: 0,
     angle: -Math.PI / 2,
@@ -129,12 +159,14 @@ function isKeyPressed(keyArray) {
 }
 
 function spawnAsteroid(x = null, y = null, size = null) {
+  const w = W();
+  const h = H();
   const s = size || (15 + Math.random() * 25);
   const speed = size ? CONFIG.ASTEROID_FAST_SPEED : CONFIG.ASTEROID_SPEED;
   
   gameState.asteroids.push({
-    x: x !== null ? x : Math.random() < 0.5 ? -50 : W + 50,
-    y: y !== null ? y : Math.random() * H,
+    x: x !== null ? x : Math.random() < 0.5 ? -50 : w + 50,
+    y: y !== null ? y : Math.random() * h,
     vx: (Math.random() - 0.5) * speed,
     vy: (Math.random() - 0.5) * speed,
     size: s,
@@ -207,10 +239,12 @@ function shoot() {
 }
 
 function wrapPosition(obj, margin = 0) {
-  if (obj.x < -margin) obj.x = W + margin;
-  if (obj.x > W + margin) obj.x = -margin;
-  if (obj.y < -margin) obj.y = H + margin;
-  if (obj.y > H + margin) obj.y = -margin;
+  const w = W();
+  const h = H();
+  if (obj.x < -margin) obj.x = w + margin;
+  if (obj.x > w + margin) obj.x = -margin;
+  if (obj.y < -margin) obj.y = h + margin;
+  if (obj.y > h + margin) obj.y = -margin;
 }
 
 function collides(a, b, r1, r2) {
@@ -316,10 +350,12 @@ function drawParticles() {
 }
 
 function drawStars() {
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
-  for (let i = 0; i < CONFIG.STAR_COUNT; i++) {
-    ctx.fillRect((i * 73) % W, (i * 137) % H, 1, 1);
-  }
+  stars.forEach(s => {
+    ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
 }
 
 function updateShip() {
@@ -431,8 +467,10 @@ function checkLevelUp() {
 }
 
 function gameLoop() {
+  const w = W();
+  const h = H();
   ctx.fillStyle = '#050510';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, w, h);
   
   drawStars();
 

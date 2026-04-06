@@ -31,6 +31,16 @@ function initFullscreenDoubleTap(canvas) {
   });
 }
 
-function initGameCommon(canvas, width, height) {
+function initGameCommon(canvas, baseWidth, baseHeight, onResize) {
   initFullscreenDoubleTap(canvas);
+  
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    if (onResize) onResize();
+  }
+  
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
 }
