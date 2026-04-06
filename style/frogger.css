@@ -5,7 +5,48 @@
 .back-btn { color: var(--game-accent); border-color: var(--game-accent); }
 .back-btn:hover { box-shadow: 0 0 12px var(--game-accent); }
 .game-title { color: var(--game-accent); text-shadow: 0 0 20px var(--game-accent); }
-.score-display { color: var(--game-accent); }
+
+.hud {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: clamp(9px, 1.8vw, 13px);
+  letter-spacing: 1px;
+}
+
+.hud-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
+}
+
+.hud-label {
+  font-size: 8px;
+  color: rgba(57, 255, 20, 0.5);
+  letter-spacing: 2px;
+}
+
+.hud-val {
+  color: var(--game-accent);
+  font-weight: bold;
+  text-shadow: 0 0 8px var(--game-accent);
+}
+
+.lives-display {
+  display: flex;
+  gap: 3px;
+}
+
+.life-icon {
+  font-size: 14px;
+  filter: drop-shadow(0 0 4px #39ff14);
+  transition: all 0.3s;
+}
+
+.life-icon.lost {
+  filter: grayscale(1) opacity(0.3);
+}
 
 canvas {
   border-color: rgba(57, 255, 20, 0.3);
@@ -22,6 +63,10 @@ canvas {
   text-shadow: 0 0 30px var(--game-accent);
 }
 
+.overlay-sub {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .overlay-score {
   color: var(--game-accent);
   text-shadow: 0 0 30px var(--game-accent);
@@ -34,4 +79,65 @@ canvas {
 
 .start-btn:hover {
   box-shadow: 0 0 30px var(--game-accent);
+}
+
+#comboDisplay {
+  position: absolute;
+  top: 60px;
+  right: 14px;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: var(--neon-yellow);
+  text-shadow: 0 0 12px var(--neon-yellow);
+  z-index: 8;
+  transition: opacity 0.5s;
+  text-align: right;
+}
+
+.score-popup {
+  position: absolute;
+  pointer-events: none;
+  z-index: 20;
+  font-family: 'Share Tech Mono', monospace;
+  font-weight: bold;
+  letter-spacing: 2px;
+  animation: floatUp 1s ease-out forwards;
+}
+
+@keyframes floatUp {
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-60px) scale(1.5);
+    opacity: 0;
+  }
+}
+
+.controls-hint {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.key-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 1px;
+}
+
+.key-icon {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  border-radius: 4px;
 }
