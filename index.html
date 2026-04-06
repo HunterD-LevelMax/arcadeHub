@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,6 +29,36 @@
 
     <div class="games-grid">
 
+      <!-- Snake -->
+      <a class="game-card" href="games/snake.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
+        <div class="card-accent-bar"></div>
+        <div class="card-glow"></div>
+        <div class="card-preview">
+          <div class="preview-corner tl"></div>
+          <div class="preview-corner tr"></div>
+          <div class="preview-corner bl"></div>
+          <div class="preview-corner br"></div>
+          <div class="preview-badge">CLASSIC</div>
+          <canvas id="snakeCanvas"></canvas>
+          <div class="preview-icon">🐍</div>
+        </div>
+        <div class="card-body">
+          <div class="card-number">GAME_01 / 04</div>
+          <div class="card-title">SNAKE</div>
+          <div class="card-desc">Classic snake game. Eat food, grow longer, don't hit yourself or the walls.</div>
+          <div class="card-footer">
+            <div class="card-tags">
+              <span class="tag">CLASSIC</span>
+              <span class="tag">ARCADE</span>
+            </div>
+            <div class="play-btn">
+              PLAY
+              <div class="play-btn-arrow">▶</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
       <!-- Asteroids -->
       <a class="game-card" href="games/asteroids.html" style="--card-accent: #00f5ff; --preview-bg: #03071e;">
         <div class="card-accent-bar"></div>
@@ -43,9 +73,9 @@
           <div class="preview-icon">🚀</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_01 / 03</div>
+          <div class="card-number">GAME_02 / 04</div>
           <div class="card-title">ASTEROIDS</div>
-          <div class="card-desc">Уничтожай астероиды, уклоняйся от обломков. Выживи в открытом космосе как можно дольше.</div>
+          <div class="card-desc">Destroy asteroids, dodge debris. Survive in open space as long as you can.</div>
           <div class="card-footer">
             <div class="card-tags">
               <span class="tag">SHOOTER</span>
@@ -73,9 +103,9 @@
           <div class="preview-icon" style="animation-delay: -1.5s;">🐦</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_02 / 03</div>
+          <div class="card-number">GAME_03 / 04</div>
           <div class="card-title">FLAPPY BIRD</div>
-          <div class="card-desc">Один тап — и птица летит. Уклоняйся от труб, набирай очки, бей свой рекорд.</div>
+          <div class="card-desc">One tap and the bird flies. Dodge pipes, collect points, beat your high score.</div>
           <div class="card-footer">
             <div class="card-tags">
               <span class="tag">CASUAL</span>
@@ -103,9 +133,9 @@
           <div class="preview-icon" style="animation-delay: -0.8s;">🟢</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_03 / 03</div>
+          <div class="card-number">GAME_04 / 04</div>
           <div class="card-title">DOODLE JUMP</div>
-          <div class="card-desc">Прыгай по платформам всё выше. Движущиеся, ломающиеся, пружинные — не дай себе упасть.</div>
+          <div class="card-desc">Jump higher on platforms. Moving, breaking, spring loaded - don't let yourself fall.</div>
           <div class="card-footer">
             <div class="card-tags">
               <span class="tag">PLATFORM</span>
@@ -330,9 +360,69 @@
 
         requestAnimationFrame(tick);
       }
-      tick();
-    })();
-  </script>
+       tick();
+     })();
+     
+     // Animated preview for Snake card
+     (function() {
+       const canvas = document.getElementById('snakeCanvas');
+       const card = canvas.closest('.card-preview');
+       canvas.width = card.offsetWidth || 320;
+       canvas.height = card.offsetHeight || 180;
+       const ctx = canvas.getContext('2d');
+       
+       const GRID = 10;
+       let snake = [
+         { x: 8, y: 9 },
+         { x: 7, y: 9 },
+         { x: 6, y: 9 },
+         { x: 5, y: 9 },
+       ];
+       let dir = { x: 1, y: 0 };
+       let food = { x: 20, y: 9 };
+       let t = 0;
+       
+       function tick() {
+         ctx.clearRect(0, 0, canvas.width, canvas.height);
+         t++;
+         
+         if (t % 8 === 0) {
+           const head = snake[0];
+           const newHead = { x: head.x + dir.x, y: head.y + dir.y };
+           
+           if (newHead.x < 0) newHead.x = 31;
+           if (newHead.x >= 32) newHead.x = 0;
+           if (newHead.y < 0) newHead.y = 17;
+           if (newHead.y >= 18) newHead.y = 0;
+           
+           snake.unshift(newHead);
+           if (newHead.x === food.x && newHead.y === food.y) {
+             food = { x: Math.floor(Math.random() * 28) + 2, y: Math.floor(Math.random() * 14) + 2 };
+           } else {
+             snake.pop();
+           }
+         }
+         
+         // Food
+         ctx.shadowColor = '#39ff14';
+         ctx.shadowBlur = 6;
+         ctx.fillStyle = '#39ff14';
+         ctx.fillRect(food.x * GRID + 2, food.y * GRID + 2, GRID - 4, GRID - 4);
+         
+         // Snake
+         snake.forEach((seg, i) => {
+           const alpha = 1 - (i / snake.length) * 0.5;
+           ctx.shadowBlur = i === 0 ? 8 : 4;
+           ctx.fillStyle = `rgba(57, 255, 20, ${alpha})`;
+           ctx.fillRect(seg.x * GRID + 1, seg.y * GRID + 1, GRID - 2, GRID - 2);
+         });
+         ctx.shadowBlur = 0;
+         
+         requestAnimationFrame(tick);
+       }
+       tick();
+     })();
+   </script>
 
 </body>
 </html>

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SNAKE — ARCADE VAULT</title>
+  <link rel="stylesheet" href="../style/game.css">
+  <style>
+    :root {
+      --game-accent: #39ff14;
+    }
+    
+    .start-btn {
+      border-color: var(--neon-green);
+      color: var(--neon-green);
+    }
+    
+    .start-btn:hover {
+      box-shadow: 0 0 30px var(--neon-green);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page">
+    <div class="header">
+      <a href="../index.html" class="back-btn">← BACK</a>
+      <div class="game-title">SNAKE</div>
+      <div class="score-display">SCORE: <span id="scoreVal">0</span></div>
+    </div>
+
+    <div class="game-container">
+      <canvas id="c"></canvas>
+
+      <div class="overlay" id="startOverlay">
+        <div class="overlay-title" style="color: var(--neon-green); text-shadow: 0 0 30px var(--neon-green);">SNAKE</div>
+        <div class="overlay-sub">CLASSIC ARCADE GAME</div>
+        <button class="start-btn" id="startBtn">PLAY</button>
+      </div>
+
+      <div class="overlay hidden" id="gameoverOverlay">
+        <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
+        <div class="overlay-sub">YOU HIT YOURSELF</div>
+        <div class="overlay-score" id="finalScore">0</div>
+        <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <button class="start-btn" id="restartBtn">RETRY</button>
+      </div>
+    </div>
+
+    <div class="footer">ARROWS · WASD TO MOVE</div>
+  </div>
+
+<script src="../js/game.js"></script>
+<script>
+const BASE_W = 400, BASE_H = 600;
+const GRID = 20;
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+initGameCommon(canvas, BASE_W, BASE_H);
+
+function W() { return canvas.width; }
+function H() { return canvas.height; }
+function gridW() { return Math.floor(W() / GRID); }
+function gridH() { return Math.floor(H() / GRID); }
+
+const ui = {
+  score: document.getElementById('scoreVal'),
+  finalScore: document.getElementById('finalScore'),
+  bestScore: document.getElementById('bestScore'),
+  startOverlay: document.getElementById('startOverlay'),
+  gameoverOverlay: document.getElementById('gameoverOverlay'),
+};
+
+const KEYS = {
+  UP: ['ArrowUp', 'KeyW'],
+  DOWN: ['ArrowDown', 'KeyS'],
+  LEFT: ['ArrowLeft', 'KeyA'],
+  RIGHT: ['ArrowRight', 'KeyD'],
+};
+
+const CONFIG = {
+  SPEED: 120,
+};
+
+let gameState = {
+  snake: [],
+  direction: { x: 1, y: 0 },
+  nextDirection: { x: 1, y: 0 },
+  food: null,
+  score: 0,
+  best: getHighScore('snake'),
+  state: 'title',
+  lastUpdate: 0,
+};
+
+ui.bestScore.textContent = `BEST: ${gameState.best}`;
+
+function init() {
+  const gw = gridW();
+  const gh = gridH();
+  
+  gameState.snake = [
+    { x: Math.floor(gw / 2), y: Math.floor(gh / 2) },
+    { x: Math.floor(gw / 2) - 1, y: Math.floor(gh / 2) },
+    { x: Math.floor(gw / 2) - 2, y: Math.floor(gh / 2) },
+  ];
+  gameState.direction = { x: 1, y: 0 };
+  gameState.nextDirection = { x: 1, y: 0 };
+  gameState.score = 0;
+  gameState.state = 'title';
+  gameState.lastUpdate = 0;
+  
+  ui.score.textContent = '0';
+  spawnFood();
+}
+
+function spawnFood() {
+  const gw = gridW();
+  const gh = gridH();
+  let x, y;
+  let valid;
+  
+  do {
+    valid = true;
+    x = Math.floor(Math.random() * gw);
+    y = Math.floor(Math.random() * gh);
+    
+    for (const seg of gameState.snake) {
+      if (seg.x === x && seg.y === y) {
+        valid = false;
+        break;
+      }
+    }
+  } while (!valid);
+  
+  gameState.food = { x, y };
+}
+
+function endGame() {
+  gameState.state = 'dead';
+  
+  if (gameState.score > gameState.best) {
+    gameState.best = gameState.score;
+    setHighScore('snake', gameState.best);
+  }
+  
+  ui.finalScore.textContent = gameState.score;
+  ui.bestScore.textContent = `BEST: ${gameState.best}`;
+  ui.gameoverOverlay.classList.remove('hidden');
+}
+
+function update() {
+  if (gameState.state !== 'playing') return;
+  
+  gameState.direction = gameState.nextDirection;
+  
+  const head = gameState.snake[0];
+  const newHead = {
+    x: head.x + gameState.direction.x,
+    y: head.y + gameState.direction.y
+  };
+  
+  const gw = gridW();
+  const gh = gridH();
+  
+  // Wall collision
+  if (newHead.x < 0 || newHead.x >= gw || newHead.y < 0 || newHead.y >= gh) {
+    return endGame();
+  }
+  
+  // Self collision
+  for (const seg of gameState.snake) {
+    if (newHead.x === seg.x && newHead.y === seg.y) {
+      return endGame();
+    }
+  }
+  
+  gameState.snake.unshift(newHead);
+  
+  // Food collision
+  if (newHead.x === gameState.food.x && newHead.y === gameState.food.y) {
+    gameState.score += 10;
+    ui.score.textContent = gameState.score;
+    spawnFood();
+  } else {
+    gameState.snake.pop();
+  }
+}
+
+function draw() {
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0, 0, W(), H());
+  
+  // Grid
+  ctx.strokeStyle = 'rgba(57, 255, 20, 0.05)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W(); x += GRID) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H());
+    ctx.stroke();
+  }
+  for (let y = 0; y < H(); y += GRID) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W(), y);
+    ctx.stroke();
+  }
+  
+  // Food
+  ctx.shadowColor = '#39ff14';
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = '#39ff14';
+  ctx.fillRect(
+    gameState.food.x * GRID + 3,
+    gameState.food.y * GRID + 3,
+    GRID - 6,
+    GRID - 6
+  );
+  ctx.shadowBlur = 0;
+  
+  // Snake
+  gameState.snake.forEach((seg, i) => {
+    const alpha = 1 - (i / gameState.snake.length) * 0.5;
+    
+    ctx.shadowColor = '#39ff14';
+    ctx.shadowBlur = i === 0 ? 15 : 8;
+    ctx.fillStyle = `rgba(57, 255, 20, ${alpha})`;
+    ctx.fillRect(
+      seg.x * GRID + 2,
+      seg.y * GRID + 2,
+      GRID - 4,
+      GRID - 4
+    );
+  });
+  ctx.shadowBlur = 0;
+}
+
+function loop(t) {
+  requestAnimationFrame(loop);
+  
+  if (gameState.state === 'playing' && t - gameState.lastUpdate > CONFIG.SPEED) {
+    update();
+    gameState.lastUpdate = t;
+  }
+  
+  draw();
+}
+
+// Input
+document.addEventListener('keydown', e => {
+  if (gameState.state !== 'playing') return;
+  
+  if (KEYS.UP.includes(e.code) && gameState.direction.y !== 1) {
+    gameState.nextDirection = { x: 0, y: -1 };
+    e.preventDefault();
+  }
+  if (KEYS.DOWN.includes(e.code) && gameState.direction.y !== -1) {
+    gameState.nextDirection = { x: 0, y: 1 };
+    e.preventDefault();
+  }
+  if (KEYS.LEFT.includes(e.code) && gameState.direction.x !== 1) {
+    gameState.nextDirection = { x: -1, y: 0 };
+    e.preventDefault();
+  }
+  if (KEYS.RIGHT.includes(e.code) && gameState.direction.x !== -1) {
+    gameState.nextDirection = { x: 1, y: 0 };
+    e.preventDefault();
+  }
+});
+
+// Touch controls
+let touchStart = null;
+canvas.addEventListener('touchstart', e => {
+  touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  e.preventDefault();
+});
+
+canvas.addEventListener('touchend', e => {
+  if (!touchStart || gameState.state !== 'playing') return;
+  
+  const dx = e.changedTouches[0].clientX - touchStart.x;
+  const dy = e.changedTouches[0].clientY - touchStart.y;
+  
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > 30 && gameState.direction.x !== -1) gameState.nextDirection = { x: 1, y: 0 };
+    if (dx < -30 && gameState.direction.x !== 1) gameState.nextDirection = { x: -1, y: 0 };
+  } else {
+    if (dy > 30 && gameState.direction.y !== -1) gameState.nextDirection = { x: 0, y: 1 };
+    if (dy < -30 && gameState.direction.y !== 1) gameState.nextDirection = { x: 0, y: -1 };
+  }
+  
+  touchStart = null;
+  e.preventDefault();
+});
+
+// Buttons
+document.getElementById('startBtn').addEventListener('click', () => {
+  gameState.state = 'playing';
+  ui.startOverlay.classList.add('hidden');
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+  init();
+  gameState.state = 'playing';
+  ui.gameoverOverlay.classList.add('hidden');
+});
+
+init();
+requestAnimationFrame(loop);
+
+</script>
+
+</body>
+</html>

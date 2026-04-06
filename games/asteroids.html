@@ -117,7 +117,7 @@ let gameState = {
   asteroids: [],
   particles: [],
   score: 0,
-  best: parseInt(localStorage.getItem('asteroids_best') || '0'),
+  best: getHighScore('asteroids'),
   level: 1,
   state: 'title',
 };
@@ -211,7 +211,7 @@ function endGame() {
   
   if (gameState.score > gameState.best) {
     gameState.best = gameState.score;
-    localStorage.setItem('asteroids_best', gameState.best);
+    setHighScore('asteroids', gameState.best);
   }
   
   ui.finalScore.textContent = gameState.score;
@@ -273,6 +273,88 @@ document.addEventListener('keyup', e => {
 canvas.addEventListener('mousedown', e => {
   if (e.button === 0) shoot();
 });
+
+// Touch controls
+let touchLeft = false;
+let touchRight = false;
+let touchThrust = false;
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  for (let i = 0; i < e.touches.length; i++) {
+    const touch = e.touches[i];
+    const rect = canvas.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    
+    if (x < rect.width / 3) {
+      touchLeft = true;
+    } else if (x > rect.width * 2 / 3) {
+      shoot();
+    } else {
+      touchThrust = true;
+    }
+  }
+});
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  touchLeft = false;
+  touchRight = false;
+  touchThrust = false;
+  
+  for (let i = 0; i < e.touches.length; i++) {
+    const touch = e.touches[i];
+    const rect = canvas.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    
+    if (x < rect.width / 3) {
+      touchLeft = true;
+    } else if (x > rect.width * 2 / 3) {
+      // Fire handled on touchstart
+    } else {
+      touchThrust = true;
+    }
+  }
+});
+
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  touchLeft = false;
+  touchRight = false;
+  touchThrust = false;
+});
+
+// Override key check for touch controls
+const originalIsKeyPressed = isKeyPressed;
+isKeyPressed = function(keyArray) {
+  if (keyArray === KEYS.LEFT && touchLeft) return true;
+  if (keyArray === KEYS.RIGHT && touchRight) return false;
+  if (keyArray === KEYS.UP && touchThrust) return true;
+  return originalIsKeyPressed(keyArray);
+};
+
+// Draw touch controls hint
+function drawTouchControls() {
+  if (gameState.state !== 'playing') return;
+  if (!('ontouchstart' in window)) return;
+  
+  ctx.globalAlpha = 0.15;
+  ctx.fillStyle = '#00f5ff';
+  
+  // Left area
+  ctx.fillRect(0, 0, W() / 3, H());
+  // Right area
+  ctx.fillRect(W() * 2 / 3, 0, W() / 3, H());
+  
+  ctx.globalAlpha = 1;
+  
+  ctx.fillStyle = 'rgba(0, 245, 255, 0.3)';
+  ctx.font = '12px Orbitron';
+  ctx.textAlign = 'center';
+  ctx.fillText('ROTATE', W() / 6, H() - 20);
+  ctx.fillText('FIRE', W() * 5 / 6, H() - 20);
+  ctx.fillText('THRUST', W() / 2, H() - 20);
+}
 
 function drawShip() {
   ctx.save();
@@ -490,6 +572,8 @@ function gameLoop() {
   if (gameState.state !== 'dead') {
     drawShip();
   }
+  
+  drawTouchControls();
 
   requestAnimationFrame(gameLoop);
 }

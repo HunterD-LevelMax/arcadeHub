@@ -42,7 +42,7 @@
       </div>
     </div>
 
-    <div class="footer">← → · A D · ARROWS TO MOVE</div>
+<div class="footer">← → · A D · MOUSE TO MOVE</div>
   </div>
 
 <script src="../js/game.js"></script>
@@ -103,7 +103,7 @@ let gameState = {
   player: null,
   platforms: [],
   score: 0,
-  best: parseInt(localStorage.getItem('doodle_best') || '0'),
+  best: getHighScore('doodle'),
   cameraY: 0,
   running: false,
 };
@@ -231,6 +231,31 @@ canvas.addEventListener('touchend', e => {
     }
   }
   lastTap = now;
+});
+
+// Mouse controls (same as touch)
+let mouseStartX = null;
+canvas.addEventListener('mousedown', e => {
+  mouseStartX = e.clientX;
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (mouseStartX === null) return;
+  const dx = e.clientX - mouseStartX;
+  keys['ArrowLeft'] = dx < -5;
+  keys['ArrowRight'] = dx > 5;
+});
+
+canvas.addEventListener('mouseup', () => {
+  keys['ArrowLeft'] = false;
+  keys['ArrowRight'] = false;
+  mouseStartX = null;
+});
+
+canvas.addEventListener('mouseleave', () => {
+  keys['ArrowLeft'] = false;
+  keys['ArrowRight'] = false;
+  mouseStartX = null;
 });
 
 function updatePlayer(dt) {
@@ -373,7 +398,7 @@ function endGame() {
   
   if (gameState.score > gameState.best) {
     gameState.best = gameState.score;
-    localStorage.setItem('doodle_best', gameState.best);
+    setHighScore('doodle', gameState.best);
   }
   
   ui.finalScore.textContent = gameState.score;

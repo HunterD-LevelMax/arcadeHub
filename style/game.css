@@ -168,9 +168,12 @@ canvas {
 }
 
 .overlay-best {
-  font-size: 11px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
   letter-spacing: 3px;
-  color: rgba(255,255,255,0.4);
+  color: var(--neon-yellow);
+  text-shadow: 0 0 15px var(--neon-yellow);
 }
 
 .start-btn {
@@ -225,6 +228,10 @@ canvas {
 
   .overlay-score {
     font-size: 36px;
+  }
+
+  .overlay-best {
+    font-size: 14px;
   }
 
   .start-btn {

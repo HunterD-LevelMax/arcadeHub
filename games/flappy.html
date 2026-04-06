@@ -80,7 +80,7 @@ let gameState = {
   pipes: [],
   particles: [],
   score: 0,
-  best: parseInt(localStorage.getItem('flappy_best') || '0'),
+  best: getHighScore('flappy'),
   state: 'title',
   frameCount: 0,
   pipeTimer: 0,
@@ -220,7 +220,7 @@ function endGame() {
   
   if (gameState.score > gameState.best) {
     gameState.best = gameState.score;
-    localStorage.setItem('flappy_best', gameState.best);
+    setHighScore('flappy', gameState.best);
   }
   
   ui.finalScore.textContent = gameState.score;
