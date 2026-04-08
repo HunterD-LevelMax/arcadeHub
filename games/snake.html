@@ -68,6 +68,7 @@ const KEYS = {
 
 const CONFIG = {
   SPEED: 120,
+  BASE_SPEED: 120,
 };
 
 let gameState = {
@@ -79,6 +80,7 @@ let gameState = {
   best: getHighScore('snake'),
   state: 'title',
   lastUpdate: 0,
+  deltaTime: 0,
 };
 
 ui.bestScore.textContent = `BEST: ${gameState.best}`;
@@ -227,9 +229,15 @@ function draw() {
 function loop(t) {
   requestAnimationFrame(loop);
   
-  if (gameState.state === 'playing' && t - gameState.lastUpdate > CONFIG.SPEED) {
+  const frameInterval = 1000 / 60;
+  const deltaTime = t - gameState.lastUpdate;
+  
+  if (deltaTime < frameInterval && gameState.lastUpdate !== 0) return;
+  
+  gameState.lastUpdate = t - (deltaTime % frameInterval);
+  
+  if (gameState.state === 'playing') {
     update();
-    gameState.lastUpdate = t;
   }
   
   draw();

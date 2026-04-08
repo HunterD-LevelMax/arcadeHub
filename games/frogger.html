@@ -800,11 +800,18 @@ function draw(time) {
 }
 
 function gameLoop(ts) {
-  const dt = Math.min((ts - lastTime) / 1000, 0.05);
-  lastTime = ts;
+  rafId = requestAnimationFrame(gameLoop);
+  
+  const frameInterval = 1000 / 60;
+  const deltaTime = ts - lastTime;
+  
+  if (deltaTime < frameInterval) return;
+  
+  lastTime = ts - (deltaTime % frameInterval);
+  const dt = Math.min((deltaTime) / 1000, 0.05);
+  
   update(dt);
   draw(ts);
-  rafId = requestAnimationFrame(gameLoop);
 }
 
 const KEYS_UP = ['ArrowUp', 'KeyW'];

@@ -84,6 +84,7 @@ let gameState = {
   state: 'title',
   frameCount: 0,
   pipeTimer: 0,
+  dt: 1,
 };
 
 ui.bestScore.textContent = `BEST: ${gameState.best}`;
@@ -383,15 +384,17 @@ function drawParticles() {
 
 function updateBird() {
   const { bird } = gameState;
-  bird.vy += CONFIG.GRAVITY;
-  bird.y += bird.vy;
+  const dt = gameState.dt || 1;
+  bird.vy += CONFIG.GRAVITY * dt;
+  bird.y += bird.vy * dt;
   bird.angle = Math.min(Math.max(bird.vy * 0.05, -0.5), 0.8);
   bird.frame++;
 }
 
 function updatePipes() {
+  const dt = gameState.dt;
   gameState.pipes.forEach(p => {
-    p.x -= CONFIG.PIPE_SPEED;
+    p.x -= CONFIG.PIPE_SPEED * dt;
 
     if (!p.scored && p.x + CONFIG.PIPE_W < gameState.bird.x) {
       p.scored = true;
@@ -404,15 +407,28 @@ function updatePipes() {
 }
 
 function updateParticles() {
+  const dt = gameState.dt;
   gameState.particles.forEach(p => {
-    p.x += p.vx;
-    p.y += p.vy;
-    p.life--;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
   });
   gameState.particles = gameState.particles.filter(p => p.life > 0);
 }
 
-function gameLoop() {
+let lastTime = 0;
+
+function gameLoop(time) {
+  requestAnimationFrame(gameLoop);
+  
+  const frameInterval = 1000 / 60;
+  const deltaTime = time - lastTime;
+  
+  if (deltaTime < frameInterval && lastTime !== 0) return;
+  
+  lastTime = time - (deltaTime % frameInterval);
+  gameState.dt = Math.max(deltaTime / 16.667, 0.5);
+  
   gameState.frameCount++;
 
   updateSkyH();
@@ -443,12 +459,14 @@ function gameLoop() {
   drawGround(gameState.frameCount);
   drawParticles();
   drawBird();
-
-  requestAnimationFrame(gameLoop);
 }
 
 init();
-gameLoop();
+lastTime = 0;
+requestAnimationFrame((t) => {
+  lastTime = t;
+  gameLoop(t);
+});
 
 </script>
 

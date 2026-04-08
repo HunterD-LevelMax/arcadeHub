@@ -440,51 +440,51 @@ function drawStars() {
   });
 }
 
-function updateShip() {
+function updateShip(dt) {
   const { ship } = gameState;
   
-  if (isKeyPressed(KEYS.LEFT)) ship.angle -= CONFIG.SHIP_ROTATION;
-  if (isKeyPressed(KEYS.RIGHT)) ship.angle += CONFIG.SHIP_ROTATION;
+  if (isKeyPressed(KEYS.LEFT)) ship.angle -= CONFIG.SHIP_ROTATION * dt;
+  if (isKeyPressed(KEYS.RIGHT)) ship.angle += CONFIG.SHIP_ROTATION * dt;
   
   if (isKeyPressed(KEYS.UP)) {
-    ship.vx += Math.cos(ship.angle) * CONFIG.SHIP_THRUST;
-    ship.vy += Math.sin(ship.angle) * CONFIG.SHIP_THRUST;
+    ship.vx += Math.cos(ship.angle) * CONFIG.SHIP_THRUST * dt;
+    ship.vy += Math.sin(ship.angle) * CONFIG.SHIP_THRUST * dt;
   }
 
-  ship.x += ship.vx;
-  ship.y += ship.vy;
-  ship.vx *= 0.99;
-  ship.vy *= 0.99;
+  ship.x += ship.vx * dt;
+  ship.y += ship.vy * dt;
+  ship.vx *= Math.pow(0.99, dt);
+  ship.vy *= Math.pow(0.99, dt);
 
   wrapPosition(ship);
 
-  if (ship.invincible > 0) ship.invincible--;
+  if (ship.invincible > 0) ship.invincible -= dt;
 }
 
-function updateBullets() {
+function updateBullets(dt) {
   gameState.bullets.forEach(b => {
-    b.x += b.vx;
-    b.y += b.vy;
-    b.life--;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    b.life -= dt;
     wrapPosition(b);
   });
   gameState.bullets = gameState.bullets.filter(b => b.life > 0);
 }
 
-function updateAsteroids() {
+function updateAsteroids(dt) {
   gameState.asteroids.forEach(a => {
-    a.x += a.vx;
-    a.y += a.vy;
-    a.rot += a.drot;
+    a.x += a.vx * dt;
+    a.y += a.vy * dt;
+    a.rot += a.drot * dt;
     wrapPosition(a, 50);
   });
 }
 
-function updateParticles() {
+function updateParticles(dt) {
   gameState.particles.forEach(p => {
-    p.x += p.vx;
-    p.y += p.vy;
-    p.life--;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
   });
   gameState.particles = gameState.particles.filter(p => p.life > 0);
 }
@@ -548,7 +548,19 @@ function checkLevelUp() {
   }
 }
 
-function gameLoop() {
+let lastTime = 0;
+
+function gameLoop(time) {
+  requestAnimationFrame(gameLoop);
+  
+  const frameInterval = 1000 / 60;
+  const deltaTime = time - lastTime;
+  
+  if (deltaTime < frameInterval && lastTime !== 0) return;
+  
+  lastTime = time - (deltaTime % frameInterval);
+  const dt = Math.max(deltaTime / 16.667, 0.5);
+  
   const w = W();
   const h = H();
   ctx.fillStyle = '#050510';
@@ -557,10 +569,10 @@ function gameLoop() {
   drawStars();
 
   if (gameState.state === 'play') {
-    updateShip();
-    updateBullets();
-    updateAsteroids();
-    updateParticles();
+    updateShip(dt);
+    updateBullets(dt);
+    updateAsteroids(dt);
+    updateParticles(dt);
     handleCollisions();
     checkLevelUp();
   }
@@ -574,12 +586,11 @@ function gameLoop() {
   }
   
   drawTouchControls();
-
-  requestAnimationFrame(gameLoop);
 }
 
 init();
-gameLoop();
+lastTime = 0;
+requestAnimationFrame(gameLoop);
 
 </script>
 

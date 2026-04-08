@@ -64,6 +64,33 @@ function getCookie(name) {
   return null;
 }
 
+const TARGET_FPS = 60;
+const FIXED_DT = 1000 / TARGET_FPS;
+
+function createGameLoop(update, draw) {
+  let accumulator = 0;
+  let lastTime = 0;
+  
+  function gameLoop(time) {
+    if (!lastTime) lastTime = time;
+    
+    const deltaTime = time - lastTime;
+    lastTime = time;
+    
+    accumulator += deltaTime;
+    
+    while (accumulator >= FIXED_DT) {
+      update(FIXED_DT);
+      accumulator -= FIXED_DT;
+    }
+    
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+  
+  requestAnimationFrame(gameLoop);
+}
+
 // High score management - saves to both localStorage and cookies
 function getHighScore(gameId) {
   let score = localStorage.getItem(gameId + '_best');

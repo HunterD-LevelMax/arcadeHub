@@ -323,10 +323,20 @@ function draw() {
   ctx.textAlign = 'left';
 }
 
+let lastTime = 0;
+
 function gameLoop(t) {
+  requestAnimationFrame(gameLoop);
+  
+  const frameInterval = 1000 / 60;
+  const deltaTime = t - lastTime;
+  
+  if (deltaTime < frameInterval && lastTime !== 0) return;
+  
+  lastTime = t - (deltaTime % frameInterval);
+  
   update(t);
   draw();
-  requestAnimationFrame(gameLoop);
 }
 
 // Input
@@ -415,6 +425,7 @@ document.getElementById('restartBtn').addEventListener('click', () => {
 });
 
 init();
+lastTime = 0;
 requestAnimationFrame(gameLoop);
 
 </script>
