@@ -805,7 +805,7 @@ function gameLoop(ts) {
   const frameInterval = 1000 / 60;
   const deltaTime = ts - lastTime;
   
-  if (deltaTime < frameInterval) return;
+  if (deltaTime < frameInterval && lastTime !== 0) return;
   
   lastTime = ts - (deltaTime % frameInterval);
   const dt = Math.min((deltaTime) / 1000, 0.05);
@@ -856,19 +856,19 @@ canvas.addEventListener('touchend', e => {
 document.getElementById('startBtn').onclick = () => {
   gameState.state = 'playing';
   ui.startOverlay.classList.add('hidden');
-  lastTime = performance.now();
+  lastTime = 0;
 };
 
 document.getElementById('restartBtn').onclick = () => {
   ui.gameoverOverlay.classList.add('hidden');
   init();
   gameState.state = 'playing';
-  lastTime = performance.now();
+  lastTime = 0;
 };
 
 resizeCanvas();
 init();
-lastTime = performance.now();
+lastTime = 0;
 rafId = requestAnimationFrame(gameLoop);
 
 </script>
