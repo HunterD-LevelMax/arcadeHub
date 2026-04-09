@@ -16,24 +16,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function initFullscreenDoubleTap(canvas) {
-  let lastTap = 0;
-  canvas.addEventListener('touchend', e => {
-    const now = Date.now();
-    if (now - lastTap < 300) {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-      } else {
-        document.exitFullscreen();
-      }
-    }
-    lastTap = now;
-  });
-}
-
-function initGameCommon(canvas, baseWidth, baseHeight, onResize) {
-  initFullscreenDoubleTap(canvas);
-  
+function initGameCommon(canvas, baseWidth, baseHeight, onResize) {  
   function resizeCanvas() {
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width;

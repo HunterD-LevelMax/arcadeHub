@@ -85,18 +85,18 @@ const COLORS = {
 };
 
 const CONFIG = {
-  GRAVITY: 0.38,
-  JUMP_VEL: -11.5,
+  GRAVITY: 0.35,
+  JUMP_VEL: -11,
   SPRING_VEL: -18,
   PLAYER_W: 28,
   PLAYER_H: 32,
   PLAT_W: 64,
   PLAT_H: 10,
   PLAT_COUNT: 12,
-  PLAT_MIN_GAP: 45,
-  PLAT_MAX_GAP: 90,
-  PLAYER_SPEED: 4.5,
-  PLAYER_DAMPING: 0.75,
+  PLAT_MIN_GAP: 55,
+  PLAT_MAX_GAP: 100,
+  PLAYER_SPEED: 3.5,
+  PLAYER_DAMPING: 0.85,
 };
 
 let gameState = {
@@ -190,8 +190,8 @@ function startGame() {
   ui.startOverlay.classList.add('hidden');
   ui.gameoverOverlay.classList.add('hidden');
   gameState.running = true;
-  lastTime = 0;
-  gameLoop();
+  needsReset = true;
+  requestAnimationFrame(gameLoop);
 }
 
 document.getElementById('startBtn').addEventListener('click', startGame);
@@ -577,19 +577,23 @@ function drawScoreIndicator() {
 }
 
 let lastTime = 0;
+let needsReset = true;
+
 function gameLoop(timestamp) {
-  requestAnimationFrame(gameLoop);
+  if (needsReset) {
+    lastTime = timestamp;
+    needsReset = false;
+  }
   
-  const frameInterval = 1000 / 60;
   const deltaTime = timestamp - lastTime;
+  lastTime = timestamp;
   
-  if (deltaTime < frameInterval && lastTime !== 0) return;
-  
-  lastTime = timestamp - (deltaTime % frameInterval);
-  const dt = Math.max(deltaTime / 16.667, 0.5);
+  const dt = Math.min(deltaTime / FIXED_DT, 2);
   
   update(dt);
   draw();
+  
+  requestAnimationFrame(gameLoop);
 }
 
 function drawDemoScreen() {

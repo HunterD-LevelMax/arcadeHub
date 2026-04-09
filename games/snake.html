@@ -67,8 +67,8 @@ const KEYS = {
 };
 
 const CONFIG = {
-  SPEED: 120,
-  BASE_SPEED: 120,
+  SPEED: 150,
+  BASE_SPEED: 65,
 };
 
 let gameState = {
@@ -226,6 +226,8 @@ function draw() {
   ctx.shadowBlur = 0;
 }
 
+let lastMove = 0;
+
 function loop(t) {
   requestAnimationFrame(loop);
   
@@ -236,7 +238,11 @@ function loop(t) {
   
   gameState.lastUpdate = t - (deltaTime % frameInterval);
   
-  if (gameState.state === 'playing') {
+  const moveInterval = CONFIG.SPEED;
+  const moveDelta = t - lastMove;
+  
+  if (gameState.state === 'playing' && moveDelta >= moveInterval) {
+    lastMove = t - (moveDelta % moveInterval);
     update();
   }
   
