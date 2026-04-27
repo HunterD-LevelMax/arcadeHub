@@ -1,143 +1,229 @@
-:root {
-  --game-accent: #39ff14;
-}
+    :root {
+      --game-accent: #39ff14;
+      --neon-yellow: #ffff00;
+    }
 
-.back-btn { color: var(--game-accent); border-color: var(--game-accent); }
-.back-btn:hover { box-shadow: 0 0 12px var(--game-accent); }
-.game-title { color: var(--game-accent); text-shadow: 0 0 20px var(--game-accent); }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-.hud {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  font-size: clamp(9px, 1.8vw, 13px);
-  letter-spacing: 1px;
-}
+    body {
+      background: #050510;
+      color: var(--game-accent);
+      font-family: 'Share Tech Mono', monospace;
+      overflow: hidden;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
 
-.hud-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1.2;
-}
+    .page { display: flex; flex-direction: column; height: 100dvh; }
 
-.hud-label {
-  font-size: 8px;
-  color: rgba(57, 255, 20, 0.5);
-  letter-spacing: 2px;
-}
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: rgba(0,0,0,0.7);
+      border-bottom: 1px solid rgba(57,255,20,0.3);
+      flex-shrink: 0;
+    }
 
-.hud-val {
-  color: var(--game-accent);
-  font-weight: bold;
-  text-shadow: 0 0 8px var(--game-accent);
-}
+    .back-btn {
+      color: var(--game-accent);
+      border: 1px solid var(--game-accent);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 3px 8px;
+      letter-spacing: 1px;
+      transition: box-shadow 0.2s;
+    }
+    .back-btn:hover { box-shadow: 0 0 12px var(--game-accent); }
 
-.lives-display {
-  display: flex;
-  gap: 3px;
-}
+    .game-title {
+      font-size: clamp(14px, 3vw, 20px);
+      font-weight: bold;
+      letter-spacing: 4px;
+      color: var(--game-accent);
+      text-shadow: 0 0 20px var(--game-accent);
+    }
 
-.life-icon {
-  font-size: 14px;
-  filter: drop-shadow(0 0 4px #39ff14);
-  transition: all 0.3s;
-}
+    .hud {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-size: clamp(9px, 1.8vw, 13px);
+      letter-spacing: 1px;
+    }
 
-.life-icon.lost {
-  filter: grayscale(1) opacity(0.3);
-}
+    .hud-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 1.2;
+    }
 
-canvas {
-  border-color: rgba(57, 255, 20, 0.3);
-  box-shadow: 0 0 40px rgba(57, 255, 20, 0.15);
-}
+    .hud-label {
+      font-size: 8px;
+      color: rgba(57,255,20,0.5);
+      letter-spacing: 2px;
+    }
 
-.overlay {
-  border: 1px solid rgba(57, 255, 20, 0.2);
-  box-shadow: 0 0 40px rgba(57, 255, 20, 0.1);
-}
+    .hud-val {
+      color: var(--game-accent);
+      font-weight: bold;
+      text-shadow: 0 0 8px var(--game-accent);
+    }
 
-.overlay-title {
-  color: var(--game-accent);
-  text-shadow: 0 0 30px var(--game-accent);
-}
+    .lives-display {
+      display: flex;
+      gap: 3px;
+    }
 
-.overlay-sub {
-  color: rgba(255, 255, 255, 0.5);
-}
+    .life-icon {
+      font-size: 14px;
+      filter: drop-shadow(0 0 4px #39ff14);
+      transition: all 0.3s;
+    }
 
-.overlay-score {
-  color: var(--game-accent);
-  text-shadow: 0 0 30px var(--game-accent);
-}
+    .life-icon.lost {
+      filter: grayscale(1) opacity(0.3);
+    }
 
-.start-btn {
-  border-color: var(--game-accent);
-  color: var(--game-accent);
-}
+    .game-container { position: relative; flex: 1; overflow: hidden; }
 
-.start-btn:hover {
-  box-shadow: 0 0 30px var(--game-accent);
-}
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 1px solid rgba(57,255,20,0.3);
+      box-shadow: 0 0 40px rgba(57,255,20,0.15);
+    }
 
-#comboDisplay {
-  position: absolute;
-  top: 60px;
-  right: 14px;
-  font-size: 13px;
-  letter-spacing: 2px;
-  color: var(--neon-yellow);
-  text-shadow: 0 0 12px var(--neon-yellow);
-  z-index: 8;
-  transition: opacity 0.5s;
-  text-align: right;
-}
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      background: rgba(5,5,16,0.88);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(57,255,20,0.2);
+      box-shadow: 0 0 40px rgba(57,255,20,0.1);
+    }
+    .overlay.hidden { display: none; }
 
-.score-popup {
-  position: absolute;
-  pointer-events: none;
-  z-index: 20;
-  font-family: 'Share Tech Mono', monospace;
-  font-weight: bold;
-  letter-spacing: 2px;
-  animation: floatUp 1s ease-out forwards;
-}
+    .overlay-title {
+      font-size: clamp(28px, 6vw, 42px);
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-align: center;
+      color: var(--game-accent);
+      text-shadow: 0 0 30px var(--game-accent);
+    }
 
-@keyframes floatUp {
-  from {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
-  to {
-    transform: translateY(-60px) scale(1.5);
-    opacity: 0;
-  }
-}
+    .overlay-sub {
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: rgba(255,255,255,0.5);
+      text-align: center;
+      line-height: 1.8;
+    }
 
-.controls-hint {
-  display: flex;
-  gap: 16px;
-  margin-top: 4px;
-}
+    .overlay-score {
+      font-size: clamp(40px, 10vw, 58px);
+      font-weight: bold;
+      color: var(--game-accent);
+      text-shadow: 0 0 30px var(--game-accent);
+    }
 
-.key-hint {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.3);
-  letter-spacing: 1px;
-}
+    .overlay-best {
+      font-size: 13px;
+      opacity: 0.7;
+      letter-spacing: 2px;
+    }
 
-.key-icon {
-  width: 28px;
-  height: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  border-radius: 4px;
-}
+    .start-btn {
+      background: transparent;
+      border: 2px solid var(--game-accent);
+      color: var(--game-accent);
+      padding: 12px 32px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 15px;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-shadow: 0 0 10px var(--game-accent);
+      box-shadow: 0 0 20px rgba(57,255,20,0.3);
+    }
+    .start-btn:hover {
+      background: rgba(57,255,20,0.12);
+      box-shadow: 0 0 30px var(--game-accent);
+    }
+
+    .controls-hint {
+      display: flex;
+      gap: 16px;
+      margin-top: 4px;
+    }
+
+    .key-hint {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 1px;
+    }
+
+    .key-icon {
+      width: 28px;
+      height: 28px;
+      border: 1px solid rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      border-radius: 4px;
+    }
+
+    #comboDisplay {
+      position: absolute;
+      top: 60px;
+      right: 14px;
+      font-size: 13px;
+      letter-spacing: 2px;
+      color: var(--neon-yellow);
+      text-shadow: 0 0 12px var(--neon-yellow);
+      z-index: 8;
+      transition: opacity 0.5s;
+      text-align: right;
+      pointer-events: none;
+      font-family: 'Share Tech Mono', monospace;
+      font-weight: bold;
+    }
+
+    .score-popup {
+      position: absolute;
+      pointer-events: none;
+      z-index: 20;
+      font-family: 'Share Tech Mono', monospace;
+      font-weight: bold;
+      letter-spacing: 2px;
+      animation: floatUp 1s ease-out forwards;
+    }
+
+    @keyframes floatUp {
+      from { transform: translateY(0) scale(1); opacity: 1; }
+      to   { transform: translateY(-60px) scale(1.5); opacity: 0; }
+    }
+
+    .footer {
+      text-align: center;
+      padding: 5px;
+      font-size: 10px;
+      opacity: 0.35;
+      letter-spacing: 2px;
+      flex-shrink: 0;
+    }
