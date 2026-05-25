@@ -31,7 +31,7 @@ arcadeHub/
 
 ### Location and Naming
 - Create file in `games/` directory
-- Name format: `snake.html`, `tetris.html`, etc.
+- Name format: `snake.html`, `SPACE Space Tetris.html`, etc.
 - Use lowercase with underscores if needed
 
 ### Required HTML Structure
@@ -100,7 +100,7 @@ arcadeHub/
 
 ### Location and Naming
 - Create file in `style/` directory
-- Name format: `game-name.css` (e.g., `snake.css`, `tetris.css`)
+- Name format: `game-name.css` (e.g., `snake.css`, `SPACE Space Tetris.css`)
 
 ### Required CSS Structure
 
@@ -343,7 +343,8 @@ canvas.addEventListener('touchstart', e => {
 |-------|-----|------|
 | Dark BG | #050510 | All |
 | Neon Cyan | #00f5ff | Asteroids |
-| Neon Magenta | #ff00ff | Flappy Bird |
-| Neon Green | #39ff14 | Snake, Doodle Jump |
+| Neon Magenta | #ff00ff | FLY HARD |
+| Neon Green | #39ff14 | Snake, SPACE HOPPER |
 | Neon Yellow | #ffff00 | Best Score |
 | Neon Red | #ff3344 | Game Over |
+

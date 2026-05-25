@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>DOODLE JUMP — ARCADE VAULT</title>
+  <title>SPACE HOPPER — ARCADE VAULT</title>
   <link rel="stylesheet" href="../style/game.css">
   <link rel="stylesheet" href="../style/doodle.css">
 </head>
@@ -12,7 +12,7 @@
   <div class="page">
     <div class="header">
       <a class="back-btn" href="../index.html">🡰 BACK</a>
-      <div class="game-title">DOODLE JUMP</div>
+      <div class="game-title">SPACE HOPPER</div>
       <div class="score-display">
         SCORE: <span id="scoreVal">0</span>
       </div>
@@ -22,7 +22,7 @@
       <canvas id="gameCanvas"></canvas>
 
       <div class="overlay" id="startOverlay">
-        <div class="overlay-title" style="color: var(--neon-green); text-shadow: 0 0 30px var(--neon-green);">DOODLE JUMP</div>
+        <div class="overlay-title" style="color: var(--neon-green); text-shadow: 0 0 30px var(--neon-green);">SPACE HOPPER</div>
         <div class="overlay-sub">ENDLESS VERTICAL PLATFORMER</div>
         <button class="start-btn" id="startBtn">PLAY</button>
         <div class="platform-legend">
@@ -30,6 +30,7 @@
           <div class="legend-item"><div class="legend-dot" style="background:#00f5ff;"></div> MOVING</div>
           <div class="legend-item"><div class="legend-dot" style="background:#ff6600;"></div> BREAK</div>
           <div class="legend-item"><div class="legend-dot" style="background:#ff00ff;"></div> SPRING</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ffff66;"></div> BONUS ORB</div>
         </div>
       </div>
 
@@ -83,13 +84,18 @@ const CONFIG = {
   GRAVITY:       0.35,
   JUMP_VEL:      -11,
   SPRING_VEL:    -18,
+  BONUS_JUMP_VEL:-14,
   PLAYER_W:      28,
   PLAYER_H:      32,
   PLAT_W:        64,
   PLAT_H:        10,
-  PLAT_COUNT:    12,
   PLAT_MIN_GAP:  55,
   PLAT_MAX_GAP:  100,
+  MIN_PLATFORM_BUFFER: 4,
+  BONUS_BASE_CHANCE: 0.08,
+  BONUS_MAX_CHANCE: 0.2,
+  BONUS_SCORE_MIN: 40,
+  BONUS_SCORE_MAX: 120,
   PLAYER_SPEED:  3.5,
   PLAYER_DAMPING:0.85,
 };
@@ -141,11 +147,26 @@ function getRandomPlatformType(score) {
   return PLATFORM_TYPES.SPRING;
 }
 
+function getPlatformTargetCount() {
+  const widthFactor = Math.max(1, W() / BASE_W);
+  const heightFactor = Math.max(1, H() / BASE_H);
+  return Math.max(12, Math.round(12 * widthFactor * Math.sqrt(heightFactor)));
+}
+
+function getGapRange() {
+  const widthScale = Math.max(1, W() / BASE_W);
+  const minGap = Math.max(36, CONFIG.PLAT_MIN_GAP - Math.round((widthScale - 1) * 10));
+  const maxGap = Math.max(minGap + 18, CONFIG.PLAT_MAX_GAP - Math.round((widthScale - 1) * 16));
+  return { minGap, maxGap };
+}
+
 // ─── FIX 2: начальные платформы (score=0) могут выпасть MOVING / BREAK /
 //     SPRING. Для стартового набора (первые 5 платформ) всегда NORMAL,
 //     чтобы гарантировать игроку достижимый старт.
 function createPlatform(y, score, forceNormal) {
   const type = forceNormal ? PLATFORM_TYPES.NORMAL : getRandomPlatformType(score);
+  const bonusChance = Math.min(CONFIG.BONUS_MAX_CHANCE, CONFIG.BONUS_BASE_CHANCE + Math.min(score / 7000, 0.12));
+  const hasBonus = !forceNormal && Math.random() < bonusChance && type !== PLATFORM_TYPES.BREAK;
   return {
     x:              Math.random() * (W() - CONFIG.PLAT_W),
     y,
@@ -157,6 +178,11 @@ function createPlatform(y, score, forceNormal) {
     dx: (Math.random() < 0.5 ? 1 : -1) * (0.8 + Math.random() * 1.2),
     springExtended: false,
     springTimer:    0,
+    bonus: hasBonus ? {
+      kind: 'energy',
+      score: CONFIG.BONUS_SCORE_MIN + Math.floor(Math.random() * (CONFIG.BONUS_SCORE_MAX - CONFIG.BONUS_SCORE_MIN + 1)),
+      used: false
+    } : null,
   };
 }
 
@@ -176,9 +202,11 @@ function initPlatforms() {
     springTimer:    0,
   });
 
+  const targetCount = getPlatformTargetCount();
+  const gapRange = getGapRange();
   let lastY = h - 80;
-  for (let i = 1; i < CONFIG.PLAT_COUNT; i++) {
-    const gap = CONFIG.PLAT_MIN_GAP + Math.random() * (CONFIG.PLAT_MAX_GAP - CONFIG.PLAT_MIN_GAP);
+  for (let i = 1; i < targetCount; i++) {
+    const gap = gapRange.minGap + Math.random() * (gapRange.maxGap - gapRange.minGap);
     lastY -= gap;
     // ─── FIX 2 cont: первые 5 платформ принудительно NORMAL
     plats.push(createPlatform(lastY, 0, i < 5));
@@ -333,10 +361,18 @@ function checkPlatformCollisions(dt) {
 
 function handlePlatformCollision(platform) {
   const { player } = gameState;
+  let jumpVel = CONFIG.JUMP_VEL;
+
+  if (platform.bonus && !platform.bonus.used) {
+    platform.bonus.used = true;
+    jumpVel = CONFIG.BONUS_JUMP_VEL;
+    gameState.score += platform.bonus.score;
+    ui.score.textContent = gameState.score;
+  }
 
   if (platform.type === PLATFORM_TYPES.BREAK) {
     platform.broken = true;
-    player.vy = CONFIG.JUMP_VEL;
+    player.vy = jumpVel;
     player.y  = platform.y - CONFIG.PLAYER_H - 1;
   } else if (platform.type === PLATFORM_TYPES.SPRING) {
     platform.springExtended = true;
@@ -344,7 +380,7 @@ function handlePlatformCollision(platform) {
     player.vy = CONFIG.SPRING_VEL;
     player.y  = platform.y - CONFIG.PLAYER_H - 2;
   } else {
-    player.vy = CONFIG.JUMP_VEL;
+    player.vy = jumpVel;
     player.y  = platform.y - CONFIG.PLAYER_H - 1;
   }
 }
@@ -352,12 +388,14 @@ function handlePlatformCollision(platform) {
 function spawnNewPlatforms() {
   const { platforms, cameraY, score } = gameState;
   const topVisible  = cameraY;
-  const highestPlat = Math.min(...platforms.map(p => p.y));
+  const desiredTop = topVisible - H() * 0.35;
+  const gapRange = getGapRange();
+  let highestPlat = Math.min(...platforms.map(p => p.y));
 
-  if (highestPlat > topVisible - 20) {
-    const gap = CONFIG.PLAT_MIN_GAP + Math.random() * (CONFIG.PLAT_MAX_GAP - CONFIG.PLAT_MIN_GAP);
-    // новые платформы выше старта — тип определяется сложностью
+  while (highestPlat > desiredTop || platforms.length < getPlatformTargetCount() + CONFIG.MIN_PLATFORM_BUFFER) {
+    const gap = gapRange.minGap + Math.random() * (gapRange.maxGap - gapRange.minGap);
     platforms.push(createPlatform(highestPlat - gap, score, false));
+    highestPlat -= gap;
   }
 }
 
@@ -451,6 +489,7 @@ function drawPlatforms() {
     ctx.fillRect(px + CONFIG.PLAT_W - 3,   py + 3, 3, CONFIG.PLAT_H - 3);
 
     if (p.type === PLATFORM_TYPES.SPRING) drawSpringIndicator(p, px, py);
+    if (p.bonus && !p.bonus.used) drawBonusOrb(px + CONFIG.PLAT_W / 2, py - 8);
 
     ctx.shadowBlur = 0;
   });
@@ -466,6 +505,16 @@ function drawSpringIndicator(p, px, py) {
   }
 }
 
+
+function drawBonusOrb(x, y) {
+  ctx.shadowColor = '#ffff66';
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = '#ffff66';
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+}
 function drawPlayer() {
   const { player, cameraY } = gameState;
   drawPlayerSprite(player.x, player.y - cameraY, player.facing, player.eyeAnim);
@@ -616,3 +665,4 @@ drawDemoScreen();
 
 </body>
 </html>
+

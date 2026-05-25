@@ -25,6 +25,10 @@ body {
   position: relative;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 /* Animated grid background */
 body::before {
   content: '';
@@ -238,6 +242,34 @@ body::after {
   white-space: nowrap;
 }
 
+.player-profile {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.player-profile span {
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border: 1px solid rgba(57, 255, 20, 0.45);
+  color: #b9ffab;
+  padding: 6px 12px;
+  background: rgba(7, 25, 7, 0.45);
+}
+
+#playerCoins.coin-pop {
+  animation: coinPulse 0.35s ease-out;
+}
+
+@keyframes coinPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 rgba(57, 255, 20, 0.2); }
+  40% { transform: scale(1.08); box-shadow: 0 0 18px rgba(57, 255, 20, 0.75); }
+  100% { transform: scale(1); box-shadow: 0 0 0 rgba(57, 255, 20, 0.2); }
+}
+
 /* Section title */
 .section-title {
   font-family: 'Orbitron', sans-serif;
@@ -295,6 +327,40 @@ body::after {
     0 0 0 1px var(--card-accent, var(--neon-cyan)),
     0 20px 60px rgba(0, 0, 0, 0.5),
     0 0 40px rgba(0, 245, 255, 0.08);
+}
+
+.game-card.locked {
+  cursor: not-allowed;
+}
+
+.game-card.locked::after {
+  content: 'LOCKED - ' attr(data-unlock-cost) ' COINS';
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 5;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.78);
+  border: 1px solid rgba(255, 0, 255, 0.7);
+  padding: 4px 8px;
+}
+
+.game-card.locked .card-preview,
+.game-card.locked .card-body {
+  filter: grayscale(0.25) brightness(0.65);
+}
+
+.game-card.unlock-flash {
+  animation: unlockFlash 0.45s ease-out;
+}
+
+@keyframes unlockFlash {
+  0% { box-shadow: 0 0 0 rgba(57, 255, 20, 0); }
+  30% { box-shadow: 0 0 0 1px #39ff14, 0 0 34px rgba(57, 255, 20, 0.9); }
+  100% { box-shadow: 0 0 0 rgba(57, 255, 20, 0); }
 }
 
 .game-card:hover .card-glow {
@@ -478,6 +544,76 @@ body::after {
   letter-spacing: 3px;
   color: rgba(255,255,255,0.15);
   text-transform: uppercase;
+}
+
+.arcade-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(5, 5, 16, 0.75);
+  backdrop-filter: blur(6px);
+}
+
+.arcade-modal-overlay.hidden {
+  display: none;
+}
+
+.arcade-modal {
+  width: min(92vw, 430px);
+  background: linear-gradient(160deg, rgba(10, 10, 31, 0.98), rgba(15, 3, 24, 0.98));
+  border: 1px solid rgba(0, 245, 255, 0.4);
+  box-shadow: 0 0 0 1px rgba(0, 245, 255, 0.4), 0 24px 70px rgba(0, 0, 0, 0.6);
+  padding: 22px 20px 18px;
+  animation: modalPop 0.2s ease-out;
+}
+
+@keyframes modalPop {
+  from { transform: translateY(10px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.arcade-modal-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px;
+  letter-spacing: 2px;
+  color: var(--neon-cyan);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.arcade-modal-text {
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.88);
+  margin-bottom: 18px;
+}
+
+.arcade-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.arcade-btn {
+  min-width: 86px;
+  padding: 9px 14px;
+  border: 1px solid rgba(0, 245, 255, 0.6);
+  background: rgba(0, 245, 255, 0.15);
+  color: #c6fcff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.arcade-btn.ghost {
+  border-color: rgba(255, 0, 255, 0.6);
+  background: rgba(255, 0, 255, 0.1);
+  color: #ffd4ff;
 }
 
 /* Glitch animation on hover for title */
