@@ -155,37 +155,44 @@ function gridToScreen(gx, gz) {
 
 // ── lane generation ───────────────────────────────────────────────────────────
 const CAR_COLORS = ['#ff3344','#ff8800','#ff00ff','#00f5ff','#ffff00'];
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function laneDifficulty(z) { return clamp((z - 3) / 60, 0, 1); }
 
 function generateLane(z) {
   if (z <= 0) return { type: 'safe',  z, objects: [], speed: 0 };
   if (z === 1) return { type: 'grass', z, objects: [], speed: 0 };
   if (z % 8 === 0) return { type: 'safe', z, objects: [], speed: 0 };
 
-  const diff = Math.min(z / 40, 1);
+  const diff = laneDifficulty(z);
   const roll = Math.random();
   let type;
-  if (z < 5)      type = roll < 0.5 ? 'road' : 'grass';
-  else             type = roll < 0.45 ? 'road' : roll < 0.75 ? 'water' : 'grass';
+  if (z < 5) type = roll < 0.32 ? 'road' : 'grass';
+  else if (z < 12) type = roll < 0.28 ? 'road' : roll < 0.62 ? 'water' : 'grass';
+  else type = roll < 0.45 ? 'road' : roll < 0.75 ? 'water' : 'grass';
 
   const lane = { type, z, objects: [], speed: 0 };
 
   if (type === 'road') {
-    lane.speed = (Math.random()>0.5?1:-1) * (1.5 + diff*3 + Math.random());
-    const count = 2 + Math.floor(diff * 3);
+    lane.speed = (Math.random()>0.5?1:-1) * (0.95 + diff*1.65 + Math.random()*0.45);
+    const count = z < 10 ? 1 : 1 + Math.floor(diff * 2);
+    let cursor = Math.random() * 1.2;
     for (let i = 0; i < count; i++) {
       const isTruck = Math.random() < 0.25 + diff*0.15;
       const w = (isTruck ? 2.0 : 1.2) + Math.random()*0.4;
+      const minGap = 1.1;
+      if (i > 0) cursor += minGap;
       lane.objects.push({
-        x: (i / count) * GRID_COLS + Math.random()*1.5,
+        x: cursor,
         width: w,
         color: CAR_COLORS[Math.floor(Math.random()*CAR_COLORS.length)],
         isTruck
       });
+      cursor += w + 0.9 + Math.random() * 0.9;
     }
   }
 
   if (type === 'water') {
-    lane.speed = (Math.random()>0.5?1:-1) * (0.8 + diff*1.5 + Math.random()*0.5);
+    lane.speed = (Math.random()>0.5?1:-1) * (0.55 + diff*0.95 + Math.random()*0.35);
     const count = 2 + Math.floor(Math.random()*2);
     for (let i = 0; i < count; i++) {
       lane.objects.push({
@@ -428,13 +435,17 @@ let camZ = 0;           // smoothed camera (= z of bottom-visible row)
 let lastTime = 0;
 let rafId = null;
 
+function frogActualX() {
+  return gameState.frog.x + (gameState.frog.carryX || 0);
+}
+
 function init() {
   camZ = 0;
   particles = [];
   const best = getHighScore('crossyfrog');
 
   gameState = {
-    frog: { x: 5, z: 0 },   // INTEGER grid coords
+    frog: { x: 5, z: 0, carryX: 0 },   // x grid cell + fractional carry from logs
     targetX: 5, targetZ: 0,  // where frog is hopping TO (same as frog after snap)
     maxZ: 0,
     lanes: {},
@@ -489,11 +500,11 @@ function normaliseX(x) {
   return ((x % WRAP) + WRAP) % WRAP;
 }
 
-function frogOnObject(frogX, obj) {
+function frogOnObject(frogX, obj, extra = 0) {
   // frogX is the integer centre column (0-10).
   // obj.x is its left edge; obj.width in columns.
   // Account for wrap-around.
-  const margin = 0.3;
+  const margin = Math.max(0, 0.16 - extra);
   const left  = obj.x + margin;
   const right = obj.x + obj.width - margin;
   // check direct and wrapped
@@ -509,12 +520,13 @@ function checkCollision() {
   if (Date.now() < gameState.invincibleUntil) return;
 
   const f = gameState.frog;
+  const fx = frogActualX();
   const lane = gameState.lanes[f.z];
   if (!lane) return;
 
   if (lane.type === 'road') {
     for (const car of lane.objects) {
-      if (frogOnObject(f.x, car)) {
+      if (frogOnObject(fx, car)) {
         triggerDeath('road', car.color);
         return;
       }
@@ -524,7 +536,7 @@ function checkCollision() {
   if (lane.type === 'water') {
     let safe = false;
     for (const obj of lane.objects) {
-      if (frogOnObject(f.x, obj)) { safe = true; break; }
+      if (frogOnObject(fx, obj, 0.1)) { safe = true; break; }
     }
     if (!safe) triggerDeath('water', '#00f5ff');
   }
@@ -552,6 +564,7 @@ function triggerDeath(cause, color) {
     if (gameState.lives > 0) {
       gameState.frog.x = 5;
       gameState.frog.z = Math.max(0, gameState.maxZ);
+      gameState.frog.carryX = 0;
       gameState.anim.active = false;
       gameState.invincibleUntil = Date.now() + 2000;
       gameState.state = 'playing';
@@ -586,20 +599,23 @@ function hop(dx, dz) {
   gameState.lastHop = performance.now();
 
   const f = gameState.frog;
-  const newX = f.x + dx;
+  const baseX = Math.round(frogActualX());
+  const newX = baseX + dx;
   const newZ = f.z + dz;
 
   if (newX < 0 || newX >= GRID_COLS) return;
   if (newZ < 0) return;
 
   // start jump animation
-  gameState.anim = { active:true, fromX:f.x, fromZ:f.z, toX:newX, toZ:newZ, t:0, dur:160, startMs:performance.now() };
+  const fromX = frogActualX();
+  gameState.anim = { active:true, fromX, fromZ:f.z, toX:newX, toZ:newZ, t:0, dur:160, startMs:performance.now() };
 
   // snap frog immediately to destination (animation is purely visual)
   f.x = newX;
   f.z = newZ;
+  f.carryX = 0;
 
-  const pp = gridToScreen(f.x, f.z);
+  const pp = gridToScreen(frogActualX(), f.z);
   spawnParticles(pp.x, pp.y, '#39ff14', 5, 'jump');
 
   if (dz > 0) {
@@ -656,25 +672,24 @@ function update(dt) {
     const f = gameState.frog;
     const fLane = gameState.lanes[f.z];
     if (fLane && fLane.type==='water') {
+      let carried = false;
       for (const obj of fLane.objects) {
-        if (frogOnObject(f.x, obj)) {
-          // drift frog's visual float position (non-integer)
-          // We track a sub-pixel offset separately so integer stays stable
-          if (!gameState.waterOffset) gameState.waterOffset = 0;
-          gameState.waterOffset += fLane.speed * dt;
-          // once offset accumulates ≥1, shift integer position
-          if (gameState.waterOffset >= 0.5) {
-            f.x = Math.min(GRID_COLS-1, f.x+1);
-            gameState.waterOffset -= 1;
-          } else if (gameState.waterOffset <= -0.5) {
-            f.x = Math.max(0, f.x-1);
-            gameState.waterOffset += 1;
-          }
+        if (frogOnObject(frogActualX(), obj, 0.1)) {
+          carried = true;
+          f.carryX += fLane.speed * dt;
+
+          while (f.carryX >= 1) { f.x += 1; f.carryX -= 1; }
+          while (f.carryX <= -1) { f.x -= 1; f.carryX += 1; }
           break;
         }
       }
+      const fx = frogActualX();
+      if (carried && (fx < -0.2 || fx > GRID_COLS - 0.8)) {
+        triggerDeath('water', '#00f5ff');
+        return;
+      }
     } else {
-      gameState.waterOffset = 0;
+      f.carryX = 0;
     }
   }
 
@@ -702,7 +717,7 @@ function draw(time) {
 
   // frog position: interpolate during animation
   const f = gameState.frog;
-  let renderX = f.x, renderZ = f.z;
+  let renderX = frogActualX(), renderZ = f.z;
   let jumpT = 0;
 
   if (gameState.anim.active) {
