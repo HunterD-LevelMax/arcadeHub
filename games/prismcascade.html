@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>PRISM CASCADE — ARCADE HUB</title>
+  <link rel="stylesheet" href="../style/game.css">
+  <link rel="stylesheet" href="../style/prismcascade.css">
+</head>
+<body>
+
+  <div class="page">
+    <div class="header">
+      <a href="../index.html" class="back-btn">← BACK</a>
+      <div class="game-title">PRISM CASCADE</div>
+      <div class="header-stats">
+        <div class="timer-display">TIME: <span id="timerVal">60</span></div>
+        <div class="score-display">SCORE: <span id="scoreVal">0</span></div>
+      </div>
+    </div>
+
+    <div class="game-container" id="gameContainer">
+      <canvas id="c"></canvas>
+
+      <div class="overlay" id="startOverlay">
+        <div class="overlay-title" style="color: var(--game-accent); text-shadow: 0 0 30px var(--game-accent);">PRISM CASCADE</div>
+        <div class="overlay-sub">DRAG TO MATCH · MATCHES ADD TIME</div>
+        <button class="start-btn" id="startBtn">PLAY</button>
+      </div>
+
+      <div class="overlay hidden" id="gameoverOverlay">
+        <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
+        <div class="overlay-sub">TIME'S UP</div>
+        <div class="overlay-score" id="finalScore">0</div>
+        <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <button class="start-btn" id="restartBtn">RETRY</button>
+      </div>
+    </div>
+
+    <div class="footer">TAP TO SELECT, TAP NEIGHBOR TO SWAP · OR DRAG · CHAIN COMBOS FOR BONUS TIME</div>
+  </div>
+
+<script src="../js/game.js"></script>
+<script>
+const BASE_W = 400, BASE_H = 600;
+const GRID_SIZE = 8;
+const GEM_TYPES = 6;
+const GAME_TIME = 60;
+const TIME_BONUS_MOVE = 4;
+const TIME_BONUS_CASCADE = 2;
+const MAX_TIME = 99;
+const SWAP_ANIM_MS = 150;
+const FALL_ANIM_MS = 200;
+const CLEAR_ANIM_MS = 200;
+const GEM_SIZE_RATIO = 0.78;
+const SELECT_PULSE_MS = 200;
+const PRESS_PULSE_MS = 120;
+
+const GEM_DEFS = [
+  { shape: 'circle', color: '#00f5ff', core: '#00b8cc', rim: '#ccfcff', bg: '#031820', pad: 'rgba(0, 245, 255, 0.12)' },
+  { shape: 'diamond', color: '#ff00ff', core: '#cc00cc', rim: '#ff99ff', bg: '#180818', pad: 'rgba(255, 0, 255, 0.12)' },
+  { shape: 'triangle', color: '#39ff14', core: '#28cc10', rim: '#b8ff9e', bg: '#061408', pad: 'rgba(57, 255, 20, 0.12)' },
+  { shape: 'hex', color: '#ffff00', core: '#cccc00', rim: '#ffffaa', bg: '#181800', pad: 'rgba(255, 255, 0, 0.12)' },
+  { shape: 'star', color: '#ff8800', core: '#cc6600', rim: '#ffcc88', bg: '#180c00', pad: 'rgba(255, 136, 0, 0.12)' },
+  { shape: 'square', color: '#aa00ff', core: '#8800cc', rim: '#dd99ff', bg: '#120018', pad: 'rgba(170, 0, 255, 0.12)' },
+];
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+initGameCommon(canvas, BASE_W, BASE_H);
+
+function W() { return canvas.width; }
+function H() { return canvas.height; }
+
+const ui = {
+  score: document.getElementById('scoreVal'),
+  timer: document.getElementById('timerVal'),
+  finalScore: document.getElementById('finalScore'),
+  bestScore: document.getElementById('bestScore'),
+  startOverlay: document.getElementById('startOverlay'),
+  gameoverOverlay: document.getElementById('gameoverOverlay'),
+  gameContainer: document.getElementById('gameContainer'),
+};
+
+let grid = [];
+let boardState = 'idle';
+let particles = [];
+let floatTexts = [];
+let selectedCell = null;
+let selectedAt = 0;
+let pressedCell = null;
+let pressedAt = 0;
+let pointerDown = null;
+let dragHandled = false;
+let anim = null;
+let reshuffleFlash = 0;
+let timeLeft = GAME_TIME;
+let timerInterval = null;
+let gridMetrics = null;
+let timerPop = 0;
+
+let gameState = {
+  score: 0,
+  best: getHighScore('prismcascade'),
+  state: 'title',
+};
+
+ui.bestScore.textContent = `BEST: ${gameState.best}`;
+
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function easeOutBack(t) {
+  const c = 1.70158;
+  return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+}
+
+function computeGridMetrics() {
+  const pad = 11;
+  const size = Math.min(W() - pad * 2, H() - pad * 2);
+  const cellSize = size / GRID_SIZE;
+  return {
+    cellSize,
+    offsetX: (W() - size) / 2,
+    offsetY: (H() - size) / 2,
+    size,
+  };
+}
+
+function getDragThreshold() {
+  return gridMetrics ? gridMetrics.cellSize * 0.28 : 15;
+}
+
+function isAdjacent(a, b) {
+  return Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
+}
+
+function getSelectionScale(now) {
+  if (!selectedAt) return 1;
+  const elapsed = now - selectedAt;
+  if (elapsed > SELECT_PULSE_MS) return 1;
+  const pulseT = Math.min(1, elapsed / 120);
+  return 1 + 0.15 * (1 - elapsed / SELECT_PULSE_MS) * easeOutBack(pulseT);
+}
+
+function getPressScale(now) {
+  if (!pressedAt) return 1;
+  const elapsed = now - pressedAt;
+  if (elapsed > PRESS_PULSE_MS) return 1;
+  return 1 + 0.12 * easeOutBack(elapsed / PRESS_PULSE_MS);
+}
+
+function cellCenter(r, c) {
+  const m = gridMetrics;
+  return {
+    x: m.offsetX + c * m.cellSize + m.cellSize / 2,
+    y: m.offsetY + r * m.cellSize + m.cellSize / 2,
+    size: m.cellSize * GEM_SIZE_RATIO,
+  };
+}
+
+function getCellFromPointer(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+  const m = gridMetrics;
+  const c = Math.floor((x - m.offsetX) / m.cellSize);
+  const r = Math.floor((y - m.offsetY) / m.cellSize);
+  if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) return null;
+  return { r, c };
+}
+
+function randomGemType() {
+  return Math.floor(Math.random() * GEM_TYPES);
+}
+
+function randomGemAvoidingMatch(board, r, c) {
+  const forbidden = new Set();
+  if (c >= 2 && board[r][c - 1] >= 0 && board[r][c - 1] === board[r][c - 2]) {
+    forbidden.add(board[r][c - 1]);
+  }
+  if (r >= 2 && board[r - 1][c] >= 0 && board[r - 1][c] === board[r - 2][c]) {
+    forbidden.add(board[r - 1][c]);
+  }
+  let type;
+  let guard = 0;
+  do {
+    type = randomGemType();
+    guard++;
+  } while (forbidden.has(type) && guard < 20);
+  return type;
+}
+
+function createEmptyBoard() {
+  return Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0));
+}
+
+function swapCells(board, r1, c1, r2, c2) {
+  const tmp = board[r1][c1];
+  board[r1][c1] = board[r2][c2];
+  board[r2][c2] = tmp;
+}
+
+function findMatches(board) {
+  const groups = [];
+
+  for (let r = 0; r < GRID_SIZE; r++) {
+    let c = 0;
+    while (c < GRID_SIZE) {
+      const type = board[r][c];
+      if (type < 0) { c++; continue; }
+      let len = 1;
+      while (c + len < GRID_SIZE && board[r][c + len] === type) len++;
+      if (len >= 3) {
+        const cells = [];
+        for (let i = 0; i < len; i++) cells.push({ r, c: c + i });
+        groups.push({ type, cells, len });
+      }
+      c += len;
+    }
+  }
+
+  for (let c = 0; c < GRID_SIZE; c++) {
+    let r = 0;
+    while (r < GRID_SIZE) {
+      const type = board[r][c];
+      if (type < 0) { r++; continue; }
+      let len = 1;
+      while (r + len < GRID_SIZE && board[r + len][c] === type) len++;
+      if (len >= 3) {
+        const cells = [];
+        for (let i = 0; i < len; i++) cells.push({ r: r + i, c });
+        groups.push({ type, cells, len });
+      }
+      r += len;
+    }
+  }
+
+  return groups;
+}
+
+function hasValidMove(board) {
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const neighbors = [[0, 1], [1, 0]];
+      for (const [dr, dc] of neighbors) {
+        const r2 = r + dr;
+        const c2 = c + dc;
+        if (r2 >= GRID_SIZE || c2 >= GRID_SIZE) continue;
+        swapCells(board, r, c, r2, c2);
+        const matches = findMatches(board);
+        swapCells(board, r, c, r2, c2);
+        if (matches.length > 0) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function applyGravity(board) {
+  const falls = [];
+  for (let c = 0; c < GRID_SIZE; c++) {
+    let write = GRID_SIZE - 1;
+    for (let r = GRID_SIZE - 1; r >= 0; r--) {
+      if (board[r][c] >= 0) {
+        if (write !== r) {
+          falls.push({ fromR: r, toR: write, c, type: board[r][c] });
+          board[write][c] = board[r][c];
+          board[r][c] = -1;
+        }
+        write--;
+      }
+    }
+    for (let r = write; r >= 0; r--) {
+      const type = randomGemType();
+      board[r][c] = type;
+      falls.push({ fromR: -1, toR: r, c, type });
+    }
+  }
+  return falls;
+}
+
+function shuffleBoard(board) {
+  let attempts = 0;
+  while (attempts < 80) {
+    const flat = [];
+    for (let r = 0; r < GRID_SIZE; r++) {
+      for (let c = 0; c < GRID_SIZE; c++) flat.push(board[r][c] >= 0 ? board[r][c] : randomGemType());
+    }
+    for (let i = flat.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [flat[i], flat[j]] = [flat[j], flat[i]];
+    }
+    let idx = 0;
+    for (let r = 0; r < GRID_SIZE; r++) {
+      for (let c = 0; c < GRID_SIZE; c++) board[r][c] = flat[idx++];
+    }
+    if (findMatches(board).length === 0 && hasValidMove(board)) return true;
+    attempts++;
+  }
+  return fillBoardNoMatches(board);
+}
+
+function fillBoardNoMatches(board) {
+  let attempts = 0;
+  do {
+    for (let r = 0; r < GRID_SIZE; r++) {
+      for (let c = 0; c < GRID_SIZE; c++) {
+        board[r][c] = randomGemAvoidingMatch(board, r, c);
+      }
+    }
+    attempts++;
+  } while ((findMatches(board).length > 0 || !hasValidMove(board)) && attempts < 60);
+  return attempts < 60;
+}
+
+function initBoard() {
+  grid = createEmptyBoard();
+  fillBoardNoMatches(grid);
+}
+
+function addFloatText(x, y, text, color) {
+  floatTexts.push({ x, y, text, color, life: 1, vy: -0.7 });
+}
+
+function burstParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.5 + Math.random() * 3;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 1,
+      life: 1,
+      decay: 0.03 + Math.random() * 0.025,
+      color,
+      size: 2 + Math.random() * 3,
+    });
+  }
+}
+
+function addTime(seconds) {
+  if (seconds <= 0 || gameState.state !== 'playing') return;
+  timeLeft = Math.min(MAX_TIME, timeLeft + seconds);
+  ui.timer.textContent = timeLeft;
+  timerPop = 1;
+  const timerEl = ui.timer.parentElement;
+  if (timerEl) {
+    timerEl.classList.remove('timer-bonus-pop');
+    void timerEl.offsetWidth;
+    timerEl.classList.add('timer-bonus-pop');
+  }
+  addFloatText(W() * 0.78, H() * 0.1, `+${seconds}s`, '#39ff14');
+}
+
+function traceGemPath(def, x, y, s) {
+  if (def.shape === 'circle') {
+    ctx.arc(x, y, s * 0.38, 0, Math.PI * 2);
+  } else if (def.shape === 'diamond') {
+    ctx.moveTo(x, y - s * 0.42);
+    ctx.lineTo(x + s * 0.34, y);
+    ctx.lineTo(x, y + s * 0.42);
+    ctx.lineTo(x - s * 0.34, y);
+    ctx.closePath();
+  } else if (def.shape === 'triangle') {
+    ctx.moveTo(x, y - s * 0.4);
+    ctx.lineTo(x + s * 0.36, y + s * 0.28);
+    ctx.lineTo(x - s * 0.36, y + s * 0.28);
+    ctx.closePath();
+  } else if (def.shape === 'hex') {
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 3) * i - Math.PI / 6;
+      const px = x + Math.cos(a) * s * 0.36;
+      const py = y + Math.sin(a) * s * 0.36;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  } else if (def.shape === 'star') {
+    for (let i = 0; i < 10; i++) {
+      const a = (Math.PI / 5) * i - Math.PI / 2;
+      const rad = i % 2 ? s * 0.16 : s * 0.38;
+      const px = x + Math.cos(a) * rad;
+      const py = y + Math.sin(a) * rad;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  } else {
+    const hs = s * 0.32;
+    roundRect(ctx, x - hs, y - hs, hs * 2, hs * 2, 6);
+  }
+}
+
+function drawGemShape(def, x, y, size, alpha, scale) {
+  ctx.save();
+  ctx.globalAlpha = alpha == null ? 1 : alpha;
+  const s = size * (scale || 1);
+
+  ctx.fillStyle = def.pad;
+  ctx.beginPath();
+  ctx.arc(x, y, s * 0.46, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.shadowColor = def.color;
+  ctx.shadowBlur = 18;
+  ctx.beginPath();
+  traceGemPath(def, x, y, s);
+  const grad = ctx.createRadialGradient(x - s * 0.12, y - s * 0.14, s * 0.05, x, y, s * 0.42);
+  grad.addColorStop(0, def.rim);
+  grad.addColorStop(0.35, def.color);
+  grad.addColorStop(1, def.core);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  traceGemPath(def, x, y, s);
+  ctx.stroke();
+
+  ctx.strokeStyle = def.rim;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  traceGemPath(def, x, y, s);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+  ctx.beginPath();
+  ctx.arc(x - s * 0.1, y - s * 0.14, s * 0.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawCellSlots() {
+  const m = gridMetrics;
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const x = m.offsetX + c * m.cellSize;
+      const y = m.offsetY + r * m.cellSize;
+      const inset = 4;
+      const w = m.cellSize - inset * 2;
+      const h = m.cellSize - inset * 2;
+
+      ctx.fillStyle = (r + c) % 2 === 0 ? 'rgba(14, 4, 24, 0.95)' : 'rgba(22, 6, 36, 0.92)';
+      roundRect(ctx, x + inset, y + inset, w, h, 7);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(170, 0, 255, 0.22)';
+      ctx.lineWidth = 1;
+      roundRect(ctx, x + inset, y + inset, w, h, 7);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.lineWidth = 1;
+      roundRect(ctx, x + inset + 1, y + inset + 1, w - 2, h - 2, 6);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawBoard(now) {
+  const m = gridMetrics;
+
+  ctx.fillStyle = 'rgba(10, 2, 18, 0.85)';
+  roundRect(ctx, m.offsetX - 6, m.offsetY - 6, m.size + 12, m.size + 12, 10);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(170, 0, 255, 0.45)';
+  ctx.lineWidth = 2;
+  roundRect(ctx, m.offsetX - 6, m.offsetY - 6, m.size + 12, m.size + 12, 10);
+  ctx.stroke();
+
+  drawCellSlots();
+
+  ctx.strokeStyle = 'rgba(170, 0, 255, 0.12)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= GRID_SIZE; i++) {
+    const x = m.offsetX + i * m.cellSize;
+    const y = m.offsetY + i * m.cellSize;
+    ctx.beginPath();
+    ctx.moveTo(x, m.offsetY);
+    ctx.lineTo(x, m.offsetY + m.size);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(m.offsetX, y);
+    ctx.lineTo(m.offsetX + m.size, y);
+    ctx.stroke();
+  }
+
+  const clearSet = anim && anim.type === 'clear' ? anim.clearSet : null;
+  const clearT = anim && anim.type === 'clear' ? easeOutCubic(Math.min(1, (now - anim.start) / CLEAR_ANIM_MS)) : 0;
+  const swapT = anim && anim.type === 'swap' ? easeOutCubic(Math.min(1, (now - anim.start) / SWAP_ANIM_MS)) : 0;
+  const fallT = anim && anim.type === 'fall' ? easeOutCubic(Math.min(1, (now - anim.start) / FALL_ANIM_MS)) : 0;
+
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      let type = grid[r][c];
+      if (type < 0) continue;
+
+      let drawR = r;
+      let drawC = c;
+      let alpha = 1;
+      let scale = 1;
+
+      if (anim && anim.type === 'swap') {
+        const { r1, c1, r2, c2, reverse } = anim;
+        if (r === r1 && c === c1) {
+          if (reverse) {
+            drawR = r2 + (r1 - r2) * swapT;
+            drawC = c2 + (c1 - c2) * swapT;
+          } else {
+            drawR = r + (r2 - r1) * swapT;
+            drawC = c + (c2 - c1) * swapT;
+          }
+        } else if (r === r2 && c === c2) {
+          if (reverse) {
+            drawR = r1 + (r2 - r1) * swapT;
+            drawC = c1 + (c2 - c1) * swapT;
+          } else {
+            drawR = r + (r1 - r2) * swapT;
+            drawC = c + (c1 - c2) * swapT;
+          }
+        }
+      }
+
+      if (anim && anim.type === 'fall') {
+        const fall = anim.falls.find((f) => f.toR === r && f.c === c);
+        if (fall) {
+          const fromR = fall.fromR < 0 ? -1.2 : fall.fromR;
+          drawR = fromR + (fall.toR - fromR) * fallT;
+        }
+      }
+
+      if (clearSet && clearSet.has(`${r},${c}`)) {
+        alpha = 1 - clearT;
+        scale = 1 + clearT * 0.35;
+      }
+
+      if (selectedCell && selectedCell.r === r && selectedCell.c === c && boardState === 'idle') {
+        scale *= getSelectionScale(now);
+      }
+      if (pressedCell && pressedCell.r === r && pressedCell.c === c && boardState === 'idle') {
+        scale *= getPressScale(now);
+      }
+
+      const pos = {
+        x: m.offsetX + drawC * m.cellSize + m.cellSize / 2,
+        y: m.offsetY + drawR * m.cellSize + m.cellSize / 2,
+        size: m.cellSize * GEM_SIZE_RATIO,
+      };
+
+      drawGemShape(GEM_DEFS[type], pos.x, pos.y, pos.size, alpha, scale);
+
+      if (selectedCell && selectedCell.r === r && selectedCell.c === c && boardState === 'idle') {
+        ctx.save();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 14;
+        roundRect(ctx, pos.x - pos.size * 0.5, pos.y - pos.size * 0.5, pos.size, pos.size, 8);
+        ctx.stroke();
+        ctx.strokeStyle = GEM_DEFS[type].color;
+        ctx.shadowColor = GEM_DEFS[type].color;
+        ctx.shadowBlur = 18;
+        roundRect(ctx, pos.x - pos.size * 0.44, pos.y - pos.size * 0.44, pos.size * 0.88, pos.size * 0.88, 7);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  if (anim && anim.type === 'clear' && clearT >= 1) anim.particlesSpawned = true;
+}
+
+function spawnClearParticles(clearSet) {
+  clearSet.forEach((key) => {
+    const [r, c] = key.split(',').map(Number);
+    const type = grid[r][c];
+    if (type < 0) return;
+    const pos = cellCenter(r, c);
+    burstParticles(pos.x, pos.y, GEM_DEFS[type].color, 8);
+  });
+}
+
+function drawParticles() {
+  particles.forEach((p) => {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+function drawFloatTexts() {
+  floatTexts.forEach((f) => {
+    ctx.save();
+    ctx.globalAlpha = f.life;
+    ctx.font = "bold 22px 'Orbitron', sans-serif";
+    ctx.textAlign = 'center';
+    ctx.fillStyle = f.color;
+    ctx.shadowColor = f.color;
+    ctx.shadowBlur = 14;
+    ctx.fillText(f.text, f.x, f.y);
+    ctx.restore();
+  });
+}
+
+function updateParticles(dt) {
+  const step = dt / 16.67;
+  particles.forEach((p) => {
+    p.x += p.vx * step;
+    p.y += p.vy * step;
+    p.vy += 0.08 * step;
+    p.life -= p.decay * step;
+  });
+  particles = particles.filter((p) => p.life > 0);
+
+  floatTexts.forEach((f) => {
+    f.y += f.vy * step;
+    f.life -= 0.018 * step;
+  });
+  floatTexts = floatTexts.filter((f) => f.life > 0);
+}
+
+function waitAnim(type, duration, data) {
+  return new Promise((resolve) => {
+    anim = { type, start: performance.now(), duration, resolve, particlesSpawned: false, ...data };
+  });
+}
+
+function checkAnimComplete(now) {
+  if (!anim) return;
+  if (now - anim.start >= anim.duration) {
+    const resolve = anim.resolve;
+    anim = null;
+    resolve();
+  }
+}
+
+function scoreMatches(matches, comboLevel) {
+  const unique = new Set();
+  let points = 0;
+  matches.forEach((group) => {
+    group.cells.forEach(({ r, c }) => unique.add(`${r},${c}`));
+    points += Math.max(0, group.len - 3) * 20;
+  });
+  points += unique.size * 10;
+  points *= comboLevel;
+  gameState.score += points;
+  ui.score.textContent = gameState.score;
+
+  if (comboLevel === 1) addTime(TIME_BONUS_MOVE);
+  else addTime(TIME_BONUS_CASCADE);
+
+  if (comboLevel > 1) {
+    addFloatText(W() / 2, H() * 0.38, `COMBO x${comboLevel}`, '#ffff00');
+    haptic('light');
+  } else {
+    haptic('tick');
+  }
+}
+
+async function resolveCascades(comboLevel) {
+  const matches = findMatches(grid);
+  if (matches.length === 0) {
+    if (!hasValidMove(grid)) {
+      await doReshuffle();
+    }
+    boardState = 'idle';
+    return;
+  }
+
+  scoreMatches(matches, comboLevel);
+
+  const clearSet = new Set();
+  matches.forEach((g) => g.cells.forEach(({ r, c }) => clearSet.add(`${r},${c}`)));
+
+  boardState = 'resolving';
+  spawnClearParticles(clearSet);
+  await waitAnim('clear', CLEAR_ANIM_MS, { clearSet });
+
+  clearSet.forEach((key) => {
+    const [r, c] = key.split(',').map(Number);
+    grid[r][c] = -1;
+  });
+
+  const falls = applyGravity(grid);
+  await waitAnim('fall', FALL_ANIM_MS, { falls });
+
+  await resolveCascades(comboLevel + 1);
+}
+
+async function doReshuffle() {
+  boardState = 'noMoves';
+  addFloatText(W() / 2, H() * 0.5, 'RESHUFFLE', '#aa00ff');
+  ui.gameContainer.classList.add('reshuffle-flash');
+  reshuffleFlash = 1;
+  shuffleBoard(grid);
+  await waitAnim('reshuffle', 400, {});
+  ui.gameContainer.classList.remove('reshuffle-flash');
+  reshuffleFlash = 0;
+}
+
+async function trySwap(r1, c1, r2, c2) {
+  if (boardState !== 'idle' || gameState.state !== 'playing') return;
+  boardState = 'swapping';
+
+  await waitAnim('swap', SWAP_ANIM_MS, { r1, c1, r2, c2 });
+  swapCells(grid, r1, c1, r2, c2);
+
+  const matches = findMatches(grid);
+  if (matches.length === 0) {
+    await waitAnim('swap', SWAP_ANIM_MS, { r1, c1, r2, c2, reverse: true });
+    swapCells(grid, r1, c1, r2, c2);
+    boardState = 'idle';
+    haptic('error');
+    return;
+  }
+
+  boardState = 'resolving';
+  await resolveCascades(1);
+}
+
+function startTimer() {
+  stopTimer();
+  timeLeft = GAME_TIME;
+  ui.timer.textContent = timeLeft;
+  timerInterval = setInterval(() => {
+    if (gameState.state !== 'playing') return;
+    timeLeft--;
+    ui.timer.textContent = Math.max(0, timeLeft);
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function endGame() {
+  if (gameState.state === 'gameover') return;
+  gameState.state = 'gameover';
+  stopTimer();
+  boardState = 'idle';
+  anim = null;
+  pointerDown = null;
+  selectedCell = null;
+  selectedAt = 0;
+  pressedCell = null;
+  pressedAt = 0;
+
+  ui.finalScore.textContent = gameState.score;
+  if (gameState.score > gameState.best) {
+    gameState.best = gameState.score;
+    setHighScore('prismcascade', gameState.best);
+  }
+  ui.bestScore.textContent = `BEST: ${gameState.best}`;
+  ui.gameoverOverlay.classList.remove('hidden');
+  haptic('error');
+}
+
+function init() {
+  gameState.score = 0;
+  gameState.state = 'title';
+  boardState = 'idle';
+  anim = null;
+  particles = [];
+  floatTexts = [];
+  selectedCell = null;
+  selectedAt = 0;
+  pressedCell = null;
+  pressedAt = 0;
+  pointerDown = null;
+  dragHandled = false;
+  timeLeft = GAME_TIME;
+  ui.score.textContent = '0';
+  ui.timer.textContent = GAME_TIME;
+  ui.bestScore.textContent = `BEST: ${gameState.best}`;
+  initBoard();
+}
+
+function draw(now) {
+  gridMetrics = computeGridMetrics();
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0, 0, W(), H());
+
+  if (reshuffleFlash > 0) {
+    ctx.fillStyle = `rgba(170, 0, 255, ${reshuffleFlash * 0.12})`;
+    ctx.fillRect(0, 0, W(), H());
+  }
+
+  drawBoard(now);
+  drawParticles();
+  drawFloatTexts();
+  checkAnimComplete(now);
+}
+
+function update(dt) {
+  updateParticles(dt);
+  if (timerPop > 0) timerPop = Math.max(0, timerPop - 0.04 * (dt / 16.67));
+}
+
+createGameLoop(update, () => draw(performance.now()));
+
+function handleTap(cell) {
+  if (boardState !== 'idle' || gameState.state !== 'playing') return;
+
+  if (!selectedCell) {
+    selectedCell = { r: cell.r, c: cell.c };
+    selectedAt = performance.now();
+    hapticLight();
+    return;
+  }
+
+  if (selectedCell.r === cell.r && selectedCell.c === cell.c) {
+    selectedCell = null;
+    selectedAt = 0;
+    hapticLight();
+    return;
+  }
+
+  if (isAdjacent(selectedCell, cell)) {
+    const r1 = selectedCell.r;
+    const c1 = selectedCell.c;
+    selectedCell = null;
+    selectedAt = 0;
+    trySwap(r1, c1, cell.r, cell.c);
+    return;
+  }
+
+  selectedCell = { r: cell.r, c: cell.c };
+  selectedAt = performance.now();
+  hapticLight();
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (boardState !== 'idle' || gameState.state !== 'playing') return;
+  e.preventDefault();
+  gridMetrics = computeGridMetrics();
+  const cell = getCellFromPointer(e);
+  if (!cell) return;
+  pointerDown = { ...cell, x: e.clientX, y: e.clientY, id: e.pointerId };
+  pressedCell = { r: cell.r, c: cell.c };
+  pressedAt = performance.now();
+  dragHandled = false;
+  canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!pointerDown || dragHandled || pointerDown.id !== e.pointerId) return;
+  const dx = e.clientX - pointerDown.x;
+  const dy = e.clientY - pointerDown.y;
+  const threshold = getDragThreshold();
+  if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
+
+  let dr = 0;
+  let dc = 0;
+  if (Math.abs(dx) > Math.abs(dy)) dc = dx > 0 ? 1 : -1;
+  else dr = dy > 0 ? 1 : -1;
+
+  const r2 = pointerDown.r + dr;
+  const c2 = pointerDown.c + dc;
+  if (r2 >= 0 && r2 < GRID_SIZE && c2 >= 0 && c2 < GRID_SIZE) {
+    dragHandled = true;
+    const r1 = pointerDown.r;
+    const c1 = pointerDown.c;
+    selectedCell = null;
+    selectedAt = 0;
+    pressedCell = null;
+    pressedAt = 0;
+    trySwap(r1, c1, r2, c2);
+  }
+});
+
+function releasePointer(e) {
+  if (!pointerDown || pointerDown.id !== e.pointerId) return;
+
+  if (!dragHandled) {
+    gridMetrics = computeGridMetrics();
+    const releaseCell = getCellFromPointer(e);
+    const cell = releaseCell || { r: pointerDown.r, c: pointerDown.c };
+    handleTap(cell);
+  }
+
+  pointerDown = null;
+  pressedCell = null;
+  pressedAt = 0;
+  try { canvas.releasePointerCapture(e.pointerId); } catch (_e) { /* ignore */ }
+}
+
+canvas.addEventListener('pointerup', releasePointer);
+canvas.addEventListener('pointercancel', releasePointer);
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  init();
+  gameState.state = 'playing';
+  ui.startOverlay.classList.add('hidden');
+  startTimer();
+  haptic('medium');
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+  init();
+  gameState.state = 'playing';
+  ui.gameoverOverlay.classList.add('hidden');
+  startTimer();
+  haptic('medium');
+});
+
+init();
+</script>
+
+</body>
+</html>

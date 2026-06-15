@@ -779,5 +779,169 @@
         tick();
       })();
 
+      // Animated preview for PRISM CASCADE
+      (function() {
+        const canvas = document.getElementById('prismcascadeCanvas');
+        if (!canvas) return;
+        const card = canvas.closest('.card-preview');
+        canvas.width = card.offsetWidth || 320;
+        canvas.height = card.offsetHeight || 180;
+        const ctx = canvas.getContext('2d');
+
+        const PREVIEW_SIZE = 4;
+        const GEM_COLORS = ['#00f5ff', '#ff00ff', '#39ff14', '#ffff00', '#ff8800', '#aa00ff'];
+        const SHAPES = ['circle', 'diamond', 'triangle', 'hex', 'star', 'square'];
+        const grid = [];
+        let t = 0;
+        let matchCell = { r: 1, c: 2 };
+        let matchPhase = 0;
+        let particles = [];
+
+        for (let r = 0; r < PREVIEW_SIZE; r++) {
+          grid[r] = [];
+          for (let c = 0; c < PREVIEW_SIZE; c++) {
+            grid[r][c] = (r * PREVIEW_SIZE + c) % 6;
+          }
+        }
+
+        function cellPos(r, c) {
+          const pad = 14;
+          const size = Math.min(canvas.width, canvas.height) - pad * 2;
+          const cell = size / PREVIEW_SIZE;
+          return {
+            x: pad + c * cell + cell / 2,
+            y: pad + r * cell + cell / 2,
+            s: cell * 0.72,
+          };
+        }
+
+        function drawShape(type, x, y, s, color, alpha, glow) {
+          ctx.save();
+          ctx.globalAlpha = alpha == null ? 1 : alpha;
+          ctx.shadowColor = color;
+          ctx.shadowBlur = glow || 8;
+          ctx.fillStyle = color;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          if (type === 'circle') {
+            ctx.arc(x, y, s * 0.42, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (type === 'diamond') {
+            ctx.moveTo(x, y - s * 0.45);
+            ctx.lineTo(x + s * 0.38, y);
+            ctx.lineTo(x, y + s * 0.45);
+            ctx.lineTo(x - s * 0.38, y);
+            ctx.closePath();
+            ctx.fill();
+          } else if (type === 'triangle') {
+            ctx.moveTo(x, y - s * 0.42);
+            ctx.lineTo(x + s * 0.4, y + s * 0.32);
+            ctx.lineTo(x - s * 0.4, y + s * 0.32);
+            ctx.closePath();
+            ctx.fill();
+          } else if (type === 'hex') {
+            for (let i = 0; i < 6; i++) {
+              const a = (Math.PI / 3) * i - Math.PI / 6;
+              const px = x + Math.cos(a) * s * 0.4;
+              const py = y + Math.sin(a) * s * 0.4;
+              if (i === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+          } else if (type === 'star') {
+            for (let i = 0; i < 10; i++) {
+              const a = (Math.PI / 5) * i - Math.PI / 2;
+              const rad = i % 2 ? s * 0.18 : s * 0.42;
+              const px = x + Math.cos(a) * rad;
+              const py = y + Math.sin(a) * rad;
+              if (i === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+          } else {
+            const hs = s * 0.36;
+            ctx.roundRect(x - hs, y - hs, hs * 2, hs * 2, 5);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        function spawnParticles(x, y, color) {
+          for (let i = 0; i < 10; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1 + Math.random() * 2;
+            particles.push({
+              x, y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              life: 1,
+              color,
+              size: 2 + Math.random() * 2,
+            });
+          }
+        }
+
+        function tick() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          t++;
+
+          if (t % 90 === 0) {
+            matchCell = {
+              r: Math.floor(Math.random() * PREVIEW_SIZE),
+              c: Math.floor(Math.random() * PREVIEW_SIZE),
+            };
+            matchPhase = 0;
+          }
+
+          if (matchPhase < 30) matchPhase++;
+
+          for (let r = 0; r < PREVIEW_SIZE; r++) {
+            for (let c = 0; c < PREVIEW_SIZE; c++) {
+              const type = grid[r][c];
+              const pos = cellPos(r, c);
+              const color = GEM_COLORS[type];
+              const shape = SHAPES[type];
+              let alpha = 1;
+              let glow = 8;
+              if (r === matchCell.r && c === matchCell.c) {
+                if (matchPhase > 0 && matchPhase < 12) {
+                  glow = 16 + matchPhase;
+                  alpha = 1;
+                } else if (matchPhase >= 12 && matchPhase < 22) {
+                  alpha = 1 - (matchPhase - 12) / 10;
+                  glow = 20;
+                } else if (matchPhase === 22) {
+                  spawnParticles(pos.x, pos.y, color);
+                  grid[r][c] = Math.floor(Math.random() * 6);
+                }
+              }
+              if (alpha > 0.05) drawShape(shape, pos.x, pos.y, pos.s, color, alpha, glow);
+            }
+          }
+
+          particles.forEach((p) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= 0.04;
+            ctx.globalAlpha = Math.max(0, p.life);
+            ctx.fillStyle = p.color;
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          ctx.globalAlpha = 1;
+          ctx.shadowBlur = 0;
+          particles = particles.filter((p) => p.life > 0);
+
+          requestAnimationFrame(tick);
+        }
+        tick();
+      })();
+
 
 

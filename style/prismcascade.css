@@ -1,0 +1,104 @@
+:root {
+  --game-accent: #aa00ff;
+}
+
+.back-btn { color: var(--game-accent); border-color: var(--game-accent); }
+.back-btn:hover { box-shadow: 0 0 12px var(--game-accent); }
+.game-title { color: var(--game-accent); text-shadow: 0 0 20px var(--game-accent); }
+.score-display { color: var(--game-accent); }
+.timer-display { color: var(--game-accent); }
+
+canvas {
+  border-color: rgba(170, 0, 255, 0.3);
+  box-shadow:
+    0 0 40px rgba(170, 0, 255, 0.15),
+    inset 0 0 30px rgba(170, 0, 255, 0.04);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#c {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.game-container {
+  filter: drop-shadow(0 0 18px rgba(170, 0, 255, 0.12));
+}
+
+.overlay {
+  border: 1px solid rgba(170, 0, 255, 0.2);
+  box-shadow: 0 0 40px rgba(170, 0, 255, 0.1);
+}
+
+.overlay-title {
+  color: var(--game-accent);
+  text-shadow: 0 0 30px var(--game-accent);
+}
+
+.overlay-score {
+  color: var(--game-accent);
+  text-shadow: 0 0 30px var(--game-accent);
+}
+
+.start-btn {
+  border-color: var(--game-accent);
+  color: var(--game-accent);
+}
+
+.start-btn:hover {
+  box-shadow: 0 0 30px var(--game-accent);
+}
+
+.header-stats {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.timer-display,
+.score-display {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-shadow: 0 0 12px rgba(170, 0, 255, 0.5);
+  padding: 4px 8px;
+  border: 1px solid rgba(170, 0, 255, 0.25);
+  background: rgba(170, 0, 255, 0.06);
+}
+
+.timer-bonus-pop {
+  animation: timerBonusPop 0.45s ease-out;
+  border-color: rgba(57, 255, 20, 0.6) !important;
+  box-shadow: 0 0 16px rgba(57, 255, 20, 0.35);
+}
+
+.timer-bonus-pop #timerVal {
+  color: #39ff14;
+  text-shadow: 0 0 14px rgba(57, 255, 20, 0.8);
+}
+
+@keyframes timerBonusPop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 480px) {
+  .timer-display,
+  .score-display {
+    font-size: 10px;
+  }
+}
+
+.reshuffle-flash {
+  animation: reshuffleFlash 0.45s ease-out;
+}
+
+@keyframes reshuffleFlash {
+  0% { filter: brightness(1); }
+  30% { filter: brightness(2.2); }
+  100% { filter: brightness(1); }
+}

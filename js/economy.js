@@ -1,7 +1,7 @@
 (function () {
   const STORAGE_KEY = "arcade_hub_player_v1";
   const LOG_KEY = "arcade_hub_economy_log_v1";
-  const DEFAULT_UNLOCKED_GAMES = ["doodle", "tetris", "snake"];
+  const DEFAULT_UNLOCKED_GAMES = ["prismcascade", "doodle", "tetris", "snake"];
   const FIRST_LAUNCH_REWARD = 50;
   const GAME_ENTRY_REWARD = 5;
   const PLAYER_NAME = "Player 1";
