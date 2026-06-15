@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>SPACE BLOCKS — ARCADE VAULT</title>
+  <title>SPACE BLOCKS — ARCADE HUB</title>
   <link rel="stylesheet" href="../style/game.css">
   <link rel="stylesheet" href="../style/tetris.css">
 </head>
@@ -34,7 +34,15 @@
       </div>
     </div>
 
-    <div class="footer">ARROWS: MOVE/ROTATE · DOWN: SOFT DROP · SPACE: HARD DROP</div>
+    <div class="tetris-controls" id="tetrisControls">
+      <button type="button" class="tctrl" data-action="left" aria-label="Move left">◀</button>
+      <button type="button" class="tctrl tctrl-rotate" data-action="rotate" aria-label="Rotate">↻</button>
+      <button type="button" class="tctrl" data-action="right" aria-label="Move right">▶</button>
+      <button type="button" class="tctrl tctrl-soft" data-action="soft" aria-label="Soft drop">↓</button>
+      <button type="button" class="tctrl tctrl-drop" data-action="drop" aria-label="Hard drop">⬇</button>
+    </div>
+
+    <div class="footer" id="controlsHint">ARROWS: MOVE/ROTATE · DOWN: SOFT DROP · SPACE: HARD DROP</div>
   </div>
 
 <script src="../js/game.js"></script>
@@ -372,45 +380,156 @@ document.addEventListener('keyup', e => {
   keys[e.code] = false;
 });
 
-// Touch controls
+// Touch controls — dedicated buttons + horizontal swipe on the board
+const TOUCH_STEP_RATIO = 0.55;
+const REPEAT_DELAY = 180;
+const REPEAT_INTERVAL = 90;
+
+let touchStart = null;
+let touchLastStepX = 0;
+let repeatTimer = null;
+let repeatInterval = null;
+
+function moveLeft() {
+  if (gameState.state !== 'playing') return;
+  if (isValidPosition(gameState.currentX - 1, gameState.currentY, gameState.currentPiece)) {
+    gameState.currentX--;
+  }
+}
+
+function moveRight() {
+  if (gameState.state !== 'playing') return;
+  if (isValidPosition(gameState.currentX + 1, gameState.currentY, gameState.currentPiece)) {
+    gameState.currentX++;
+  }
+}
+
+function softDropStep() {
+  if (gameState.state !== 'playing') return;
+  if (isValidPosition(gameState.currentX, gameState.currentY + 1, gameState.currentPiece)) {
+    gameState.currentY++;
+    gameState.score += 1;
+    ui.score.textContent = gameState.score;
+  } else {
+    lockPiece();
+  }
+}
+
+function performTouchAction(action) {
+  switch (action) {
+    case 'left': moveLeft(); break;
+    case 'right': moveRight(); break;
+    case 'rotate': rotatePiece(); break;
+    case 'soft': softDropStep(); break;
+    case 'drop': hardDrop(); break;
+  }
+}
+
+function stopRepeat() {
+  clearTimeout(repeatTimer);
+  clearInterval(repeatInterval);
+  repeatTimer = null;
+  repeatInterval = null;
+  document.querySelectorAll('.tctrl.is-active').forEach(btn => btn.classList.remove('is-active'));
+}
+
+function startRepeat(action, btn) {
+  stopRepeat();
+  if (btn) btn.classList.add('is-active');
+  performTouchAction(action);
+  repeatTimer = setTimeout(() => {
+    repeatInterval = setInterval(() => performTouchAction(action), REPEAT_INTERVAL);
+  }, REPEAT_DELAY);
+}
+
+let suppressMouseUntil = 0;
+
+document.querySelectorAll('.tctrl').forEach(btn => {
+  const action = btn.dataset.action;
+  const isRepeatable = action === 'left' || action === 'right' || action === 'soft';
+
+  const onPress = () => {
+    if (isRepeatable) {
+      startRepeat(action, btn);
+    } else {
+      stopRepeat();
+      btn.classList.add('is-active');
+      performTouchAction(action);
+    }
+  };
+
+  const onRelease = () => {
+    btn.classList.remove('is-active');
+    if (isRepeatable) stopRepeat();
+  };
+
+  btn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    suppressMouseUntil = Date.now() + 500;
+    onPress();
+  }, { passive: false });
+
+  btn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    suppressMouseUntil = Date.now() + 500;
+    onRelease();
+  }, { passive: false });
+
+  btn.addEventListener('touchcancel', () => {
+    onRelease();
+  });
+
+  btn.addEventListener('mousedown', (e) => {
+    if (Date.now() < suppressMouseUntil) return;
+    e.preventDefault();
+    onPress();
+  });
+
+  btn.addEventListener('mouseup', onRelease);
+  btn.addEventListener('mouseleave', onRelease);
+  btn.addEventListener('click', (e) => e.preventDefault());
+});
+
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   if (gameState.state !== 'playing') return;
-  
-  const touch = e.touches[0];
-  const rect = canvas.getBoundingClientRect();
-  const x = touch.clientX - rect.left;
-  
-  if (x < rect.width / 3 && isValidPosition(gameState.currentX - 1, gameState.currentY, gameState.currentPiece)) {
-    gameState.currentX--;
-  } else if (x > rect.width * 2 / 3 && isValidPosition(gameState.currentX + 1, gameState.currentY, gameState.currentPiece)) {
-    gameState.currentX++;
-  } else if (x >= rect.width / 3 && x <= rect.width * 2 / 3) {
-    rotatePiece();
-  }
-});
+  const t = e.touches[0];
+  touchStart = { x: t.clientX, y: t.clientY };
+  touchLastStepX = t.clientX;
+}, { passive: false });
 
-let touchHold = null;
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
-  if (gameState.state !== 'playing') return;
-  
-  const touch = e.touches[0];
+  if (!touchStart || gameState.state !== 'playing') return;
+
+  const t = e.touches[0];
+  const dx = t.clientX - touchStart.x;
+  const dy = t.clientY - touchStart.y;
+
+  if (Math.abs(dx) <= Math.abs(dy)) return;
+
   const rect = canvas.getBoundingClientRect();
-  const y = touch.clientY - rect.top;
-  
-  if (y > rect.height * 0.7) {
-    if (isValidPosition(gameState.currentX, gameState.currentY + 1, gameState.currentPiece)) {
-      gameState.currentY++;
+  const stepSize = (rect.width / COLS) * TOUCH_STEP_RATIO;
+
+  while (Math.abs(t.clientX - touchLastStepX) >= stepSize) {
+    if (t.clientX > touchLastStepX) {
+      moveRight();
+      touchLastStepX += stepSize;
+    } else {
+      moveLeft();
+      touchLastStepX -= stepSize;
     }
   }
-});
+}, { passive: false });
 
-canvas.addEventListener('touchend', e => {
-  if (e.touches.length === 0) {
-    clearTimeout(touchHold);
-  }
-});
+canvas.addEventListener('touchend', () => {
+  touchStart = null;
+}, { passive: false });
+
+if ('ontouchstart' in window) {
+  document.getElementById('controlsHint').textContent =
+    'BUTTONS: MOVE · ↻ ROTATE · ↓ SOFT · ⬇ DROP · SWIPE FIELD TO MOVE';
+}
 
 // Buttons
 document.getElementById('startBtn').addEventListener('click', () => {

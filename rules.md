@@ -1,4 +1,4 @@
-# ARCADE VAULT — Game Development Rules
+# ARCADE HUB — Game Development Rules
 
 This document describes how to create new games for the Arcade Vault project. Follow these rules to maintain consistency across all games.
 
@@ -42,7 +42,7 @@ arcadeHub/
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>GAME NAME — ARCADE VAULT</title>
+  <title>GAME NAME — ARCADE HUB</title>
   <link rel="stylesheet" href="../style/game.css">
   <link rel="stylesheet" href="../style/game-name.css">
 </head>

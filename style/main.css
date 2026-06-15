@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+@import url('fonts.css');
 
 :root {
   --neon-cyan: #00f5ff;
@@ -200,7 +200,7 @@ body::after {
 }
 
 .header h1::after {
-  content: 'ARCADE VAULT';
+  content: 'ARCADE HUB';
   position: absolute;
   left: 0;
   top: 3px;
@@ -546,6 +546,17 @@ body::after {
   text-transform: uppercase;
 }
 
+.page-footer .footer-link {
+  color: rgba(0, 245, 255, 0.45);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+
+.page-footer .footer-link:hover {
+  color: var(--neon-cyan);
+}
+
 .arcade-modal-overlay {
   position: fixed;
   inset: 0;
@@ -627,7 +638,7 @@ body::after {
 }
 
 .header h1:hover::before {
-  content: 'ARCADE VAULT';
+  content: 'ARCADE HUB';
   position: absolute;
   left: 0;
   top: 0;

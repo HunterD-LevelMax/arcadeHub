@@ -1,5 +1,5 @@
 /**
- * Common utilities for ARCADE VAULT games
+ * Common utilities for Arcade Hub games
  */
 
 function roundRect(ctx, x, y, w, h, r) {
