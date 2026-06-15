@@ -50,24 +50,17 @@
       </div>
     </div>
 
-    <div class="game2048-controls" id="touchControls">
-      <button type="button" class="g2048-btn up" data-dir="up" aria-label="Up">▲</button>
-      <button type="button" class="g2048-btn left" data-dir="left" aria-label="Left">◀</button>
-      <button type="button" class="g2048-btn down" data-dir="down" aria-label="Down">▼</button>
-      <button type="button" class="g2048-btn right" data-dir="right" aria-label="Right">▶</button>
-    </div>
-
-    <div class="footer" id="controlsHint">ARROWS / WASD · SWIPE TO SLIDE</div>
+    <div class="footer" id="controlsHint">ARROWS / WASD · DRAG OR SWIPE TO SLIDE</div>
   </div>
 
 <script src="../js/game.js"></script>
 <script>
 const BASE_W = 400, BASE_H = 520;
 const SIZE = 4;
-const SWIPE_MIN = 24;
-const SLIDE_MS = 130;
-const MERGE_MS = 160;
-const SPAWN_MS = 200;
+const SWIPE_MIN = 18;
+const SLIDE_MS = 50;
+const MERGE_MS = 55;
+const SPAWN_MS = 60;
 
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -454,7 +447,11 @@ function tryMove(direction) {
     merges,
     gained,
     onDone() {
-      anim = { phase: 'merge', start: performance.now(), merges, gained, onDone: () => finishMove(gained, merges) };
+      if (merges.length > 0) {
+        anim = { phase: 'merge', start: performance.now(), merges, gained, onDone: () => finishMove(gained, merges) };
+      } else {
+        finishMove(gained, merges);
+      }
     },
   };
 
@@ -751,49 +748,38 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-let touchStart = null;
-let suppressMouseUntil = 0;
+let dragStart = null;
+let activePointerId = null;
 
-canvas.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  if (gameState.state !== 'playing') return;
-  touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-}, { passive: false });
-
-canvas.addEventListener('touchend', (e) => {
-  e.preventDefault();
-  if (!touchStart || gameState.state !== 'playing') {
-    touchStart = null;
-    return;
-  }
-  const t = e.changedTouches[0];
-  const dx = t.clientX - touchStart.x;
-  const dy = t.clientY - touchStart.y;
-  touchStart = null;
+function resolveSwipe(dx, dy) {
   if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
   if (Math.abs(dx) > Math.abs(dy)) tryMove(dx > 0 ? 'right' : 'left');
   else tryMove(dy > 0 ? 'down' : 'up');
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (gameState.state !== 'playing' || anim) return;
+  e.preventDefault();
+  dragStart = { x: e.clientX, y: e.clientY };
+  activePointerId = e.pointerId;
+  canvas.setPointerCapture(e.pointerId);
 }, { passive: false });
 
-document.querySelectorAll('.g2048-btn').forEach((btn) => {
-  const direction = btn.dataset.dir;
-  const press = (e) => {
-    e.preventDefault();
-    suppressMouseUntil = Date.now() + 400;
-    tryMove(direction);
-  };
-  btn.addEventListener('touchstart', press, { passive: false });
-  btn.addEventListener('mousedown', (e) => {
-    if (Date.now() < suppressMouseUntil) return;
-    e.preventDefault();
-    tryMove(direction);
-  });
-  btn.addEventListener('click', (e) => e.preventDefault());
-});
+canvas.addEventListener('pointerup', (e) => {
+  if (activePointerId !== e.pointerId || !dragStart) return;
+  e.preventDefault();
+  resolveSwipe(e.clientX - dragStart.x, e.clientY - dragStart.y);
+  dragStart = null;
+  activePointerId = null;
+  if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+}, { passive: false });
 
-if ('ontouchstart' in window) {
-  document.getElementById('controlsHint').textContent = 'SWIPE OR PAD · MERGE UP TO 2048';
-}
+canvas.addEventListener('pointercancel', (e) => {
+  if (activePointerId !== e.pointerId) return;
+  dragStart = null;
+  activePointerId = null;
+  if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+});
 
 document.getElementById('startBtn').addEventListener('click', () => {
   initBoard();
