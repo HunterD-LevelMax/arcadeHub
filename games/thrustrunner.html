@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>THRUST RUNNER — ARCADE HUB</title>
+  <link rel="stylesheet" href="../style/game.css">
+  <link rel="stylesheet" href="../style/thrustrunner.css">
+</head>
+<body>
+
+  <div class="page">
+    <div class="header">
+      <a href="../index.html" class="back-btn">← BACK</a>
+      <div class="game-title">THRUST RUNNER</div>
+      <div class="score-display">SCORE: <span id="scoreVal">0</span></div>
+    </div>
+
+    <div class="game-container">
+      <canvas id="c"></canvas>
+
+      <div class="overlay" id="startOverlay">
+        <div class="overlay-title" style="color: var(--game-accent); text-shadow: 0 0 30px var(--game-accent);">THRUST RUNNER</div>
+        <div class="overlay-sub">HOLD TO THRUST · DODGE THE TUNNEL</div>
+        <button class="start-btn" id="startBtn">PLAY</button>
+      </div>
+
+      <div class="overlay hidden" id="gameoverOverlay">
+        <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
+        <div class="overlay-sub">YOU HIT THE TUNNEL WALL</div>
+        <div class="overlay-score" id="finalScore">0</div>
+        <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <button class="start-btn" id="restartBtn">RETRY</button>
+      </div>
+    </div>
+
+    <div class="footer">HOLD TO RISE · RELEASE TO FALL · SPACE · ENTER</div>
+  </div>
+
+<script src="../js/game.js"></script>
+<script>
+const BASE_W = 400, BASE_H = 600;
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function W() { return canvas.width; }
+function H() { return canvas.height; }
+
+const ui = {
+  score: document.getElementById('scoreVal'),
+  finalScore: document.getElementById('finalScore'),
+  bestScore: document.getElementById('bestScore'),
+  startOverlay: document.getElementById('startOverlay'),
+  gameoverOverlay: document.getElementById('gameoverOverlay'),
+};
+
+const KEYS = {
+  THRUST: ['Space', 'Enter', 'NumpadEnter'],
+};
+
+const GRAVITY = 0.35;
+const THRUST = 0.6;
+const MAX_VY = 6;
+const ACCENT = '#ff6600';
+const ACCENT_RGB = '255, 102, 0';
+
+const CONFIG = {
+  PLAYER_X: 0.28,
+  PLAYER_R: 12,
+  SCROLL_SPEED: 2.6,
+  SEGMENT_W: 10,
+  GAP_SHIFT_RATIO: 0.032,
+  SAFE_ZONE: 580,
+  WALL_PADDING: 8,
+  DIST_SCORE: 12,
+  COIN_VALUE: 5,
+  OBSTACLE_MIN: 280,
+  OBSTACLE_MAX: 540,
+  OBSTACLE_START: 360,
+  COIN_MIN: 140,
+  COIN_MAX: 300,
+  POWERUP_CHANCE: 0.07,
+  MAGNET_DURATION: 360,
+  MAGNET_RADIUS: 90,
+};
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function getDifficulty() {
+  return Math.min(gameState.score / 1000, 1);
+}
+
+function getScrollSpeed() {
+  return CONFIG.SCROLL_SPEED + Math.min(gameState.score * 0.003, 3.5);
+}
+
+function getSpeedMultiplier() {
+  return getScrollSpeed() / CONFIG.SCROLL_SPEED;
+}
+
+function getGapSizes() {
+  const h = H();
+  const difficulty = getDifficulty();
+  const minGapRatio = lerp(0.66, 0.44, difficulty);
+  const maxGapRatio = lerp(0.86, 0.58, difficulty);
+  return {
+    minGap: h * minGapRatio,
+    maxGap: h * maxGapRatio,
+    gapShift: h * CONFIG.GAP_SHIFT_RATIO * (1 + difficulty * 0.5),
+    wallMargin: h * 0.05,
+  };
+}
+
+function getObstacleIntervals() {
+  const d = getDifficulty();
+  return {
+    start: lerp(CONFIG.OBSTACLE_START, 240, d),
+    min: lerp(CONFIG.OBSTACLE_MIN, CONFIG.OBSTACLE_MIN * 0.55, d),
+    max: lerp(CONFIG.OBSTACLE_MAX, CONFIG.OBSTACLE_MAX * 0.58, d),
+  };
+}
+
+function smoothstep(t) {
+  return t * t * (3 - 2 * t);
+}
+
+function createAsteroidShape(seed) {
+  const verts = 8 + Math.floor(seed * 3) % 3;
+  const pts = [];
+  for (let i = 0; i < verts; i++) {
+    const a = (i / verts) * Math.PI * 2;
+    const rr = 0.62 + (((seed * 997 + i * 131) % 100) / 100) * 0.45;
+    pts.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+  }
+  return pts;
+}
+
+function getCoinMultiplier() {
+  if (gameState.coinCombo >= 5) return 3;
+  if (gameState.coinCombo >= 2) return 2;
+  return 1;
+}
+
+let isThrusting = false;
+let wasThrusting = false;
+
+let gameState = {
+  score: 0,
+  best: getHighScore('thrustrunner'),
+  state: 'title',
+  distance: 0,
+  distAccumulator: 0,
+  player: null,
+  segments: [],
+  obstacles: [],
+  coins: [],
+  powerups: [],
+  particles: [],
+  stars: [],
+  nebulae: [],
+  nextSegmentX: 0,
+  gapCenter: 300,
+  obstacleTimer: 0,
+  coinTimer: 0,
+  frameCount: 0,
+  coinCombo: 0,
+  shieldActive: false,
+  shieldFlash: 0,
+  magnetTimer: 0,
+  thrustShake: 0,
+  collisionShake: 0,
+  deathTimer: 0,
+  comboFlash: 0,
+};
+
+ui.bestScore.textContent = `BEST: ${gameState.best}`;
+
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+
+function playerScreenX() {
+  return W() * CONFIG.PLAYER_X;
+}
+
+function worldToScreen(worldX) {
+  return worldX - gameState.distance + playerScreenX();
+}
+
+function init() {
+  gameState.score = 0;
+  gameState.distance = 0;
+  gameState.distAccumulator = 0;
+  gameState.state = 'title';
+  gameState.segments = [];
+  gameState.obstacles = [];
+  gameState.coins = [];
+  gameState.powerups = [];
+  gameState.particles = [];
+  gameState.nextSegmentX = 0;
+  gameState.gapCenter = H() / 2;
+  gameState.obstacleTimer = CONFIG.OBSTACLE_MIN;
+  gameState.coinTimer = CONFIG.COIN_MIN;
+  gameState.frameCount = 0;
+  gameState.player = { y: H() / 2, vy: 0, angle: 0 };
+  gameState.coinCombo = 0;
+  gameState.shieldActive = false;
+  gameState.shieldFlash = 0;
+  gameState.magnetTimer = 0;
+  gameState.thrustShake = 0;
+  gameState.collisionShake = 0;
+  gameState.deathTimer = 0;
+  gameState.comboFlash = 0;
+  isThrusting = false;
+  wasThrusting = false;
+
+  ui.score.textContent = '0';
+  ui.bestScore.textContent = `BEST: ${gameState.best}`;
+
+  if (!gameState.stars.length) {
+    for (let i = 0; i < 60; i++) {
+      gameState.stars.push({
+        x: Math.random(),
+        y: Math.random(),
+        size: 0.5 + Math.random() * 1.5,
+        speed: 0.2 + Math.random() * 0.8,
+        alpha: 0.15 + Math.random() * 0.5,
+      });
+    }
+    for (let i = 0; i < 24; i++) {
+      gameState.stars.push({
+        x: Math.random(),
+        y: Math.random(),
+        size: 1.5 + Math.random() * 2,
+        speed: 0.05 + Math.random() * 0.15,
+        alpha: 0.08 + Math.random() * 0.2,
+        far: true,
+      });
+    }
+    gameState.nebulae = Array.from({ length: 4 }, () => ({
+      x: Math.random(),
+      y: Math.random(),
+      r: 40 + Math.random() * 70,
+      hue: 20 + Math.random() * 30,
+      speed: 0.02 + Math.random() * 0.04,
+    }));
+  }
+
+  while (gameState.nextSegmentX < W() + 200) {
+    addTunnelSegment();
+  }
+}
+
+function getGapAt(worldX) {
+  const segs = gameState.segments;
+  if (!segs.length) return { top: 80, bottom: 80, center: H() / 2, gap: H() - 160 };
+
+  if (worldX <= segs[0].x) {
+    if (segs.length > 1) {
+      const a = segs[0];
+      const b = segs[1];
+      const span = b.x - a.x || 1;
+      const t = clamp((worldX - a.x) / span, -1.5, 0);
+      const top = a.topHeight + (b.topHeight - a.topHeight) * t;
+      const bottom = a.bottomHeight + (b.bottomHeight - a.bottomHeight) * t;
+      return { top, bottom, gapCenter: (top + H() - bottom) / 2, gap: H() - top - bottom };
+    }
+    const s = segs[0];
+    return { top: s.topHeight, bottom: s.bottomHeight, center: s.gapCenter, gap: s.gap };
+  }
+
+  for (let i = 0; i < segs.length - 1; i++) {
+    const a = segs[i];
+    const b = segs[i + 1];
+    if (worldX >= a.x && worldX < b.x) {
+      const t = smoothstep((worldX - a.x) / (b.x - a.x));
+      const top = a.topHeight + (b.topHeight - a.topHeight) * t;
+      const bottom = a.bottomHeight + (b.bottomHeight - a.bottomHeight) * t;
+      const gapCenter = (top + H() - bottom) / 2;
+      return { top, bottom, gapCenter, gap: H() - top - bottom };
+    }
+  }
+
+  const last = segs[segs.length - 1];
+  const prev = segs.length > 1 ? segs[segs.length - 2] : last;
+  const span = last.x - prev.x || 1;
+  const t = clamp((worldX - last.x) / span, 0, 1.5);
+  const top = last.topHeight + (last.topHeight - prev.topHeight) * t * 0.35;
+  const bottom = last.bottomHeight + (last.bottomHeight - prev.bottomHeight) * t * 0.35;
+  return { top, bottom, gapCenter: (top + H() - bottom) / 2, gap: H() - top - bottom };
+}
+
+function addTunnelSegment() {
+  const { minGap, maxGap, gapShift, wallMargin } = getGapSizes();
+  const inSafeZone = gameState.nextSegmentX < CONFIG.SAFE_ZONE;
+
+  if (inSafeZone) {
+    gameState.gapCenter = H() / 2;
+    const gap = H() * 0.8;
+    const topHeight = gameState.gapCenter - gap / 2;
+    const bottomHeight = H() - gameState.gapCenter - gap / 2;
+    gameState.segments.push({
+      x: gameState.nextSegmentX,
+      topHeight: Math.max(topHeight, wallMargin),
+      bottomHeight: Math.max(bottomHeight, wallMargin),
+      gapCenter: gameState.gapCenter,
+      gap,
+    });
+  } else {
+    const minCenter = minGap / 2 + wallMargin;
+    const maxCenter = H() - minGap / 2 - wallMargin;
+    gameState.gapCenter = clamp(
+      gameState.gapCenter + (Math.random() - 0.5) * gapShift,
+      minCenter,
+      maxCenter
+    );
+    const gap = minGap + Math.random() * (maxGap - minGap);
+    const topHeight = gameState.gapCenter - gap / 2;
+    const bottomHeight = H() - gameState.gapCenter - gap / 2;
+    gameState.segments.push({
+      x: gameState.nextSegmentX,
+      topHeight,
+      bottomHeight,
+      gapCenter: gameState.gapCenter,
+      gap,
+    });
+  }
+
+  gameState.nextSegmentX += CONFIG.SEGMENT_W;
+}
+
+function ensureTunnel() {
+  while (gameState.nextSegmentX < gameState.distance + W() + 200) {
+    addTunnelSegment();
+  }
+  gameState.segments = gameState.segments.filter(s => s.x > gameState.distance - W() - 120);
+}
+
+function spawnObstacle() {
+  const spawnX = gameState.distance + W() + 40;
+  const gapInfo = getGapAt(spawnX);
+  if (gapInfo.gap < 80) return;
+
+  const difficulty = getDifficulty();
+  const margin = 20;
+  const roll = Math.random();
+  const laserChance = difficulty > 0.5 ? 0.52 : 0.38;
+  const moveBlockChance = 0.28 + difficulty * 0.28;
+
+  if (difficulty > 0.5 && roll < 0.1) {
+    const passage = lerp(58, 42, difficulty);
+    const center = gapInfo.gapCenter;
+    const halfPass = passage / 2;
+    if (gapInfo.gap < passage + margin * 2) return;
+    gameState.obstacles.push({
+      type: 'gate',
+      x: spawnX,
+      topY: center - halfPass - 4,
+      botY: center + halfPass + 4,
+      w: 70 + Math.random() * 30,
+      h: 4,
+      phase: Math.random() * Math.PI * 2,
+      nearMissed: false,
+    });
+    return;
+  }
+
+  if (roll < laserChance + (difficulty > 0.5 ? 0.1 : 0)) {
+    const y = gapInfo.top + margin + Math.random() * (gapInfo.gap - margin * 2);
+    gameState.obstacles.push({
+      type: 'laser',
+      x: spawnX,
+      y,
+      w: 65 + Math.random() * 45,
+      phase: Math.random() * Math.PI * 2,
+      nearMissed: false,
+    });
+    return;
+  }
+
+  const r = 14 + Math.random() * 16;
+  const minY = gapInfo.top + margin + r;
+  const maxY = H() - gapInfo.bottom - r - margin;
+  if (maxY <= minY) return;
+  const y = minY + Math.random() * (maxY - minY);
+  const moveY = Math.random() < moveBlockChance;
+  const moveRange = (24 + Math.random() * 32) * (1 + difficulty * 0.7);
+  const seed = Math.random();
+  gameState.obstacles.push({
+    type: 'asteroid',
+    x: spawnX,
+    y,
+    r,
+    pts: createAsteroidShape(seed),
+    rot: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.035,
+    moveY,
+    moveRange,
+    baseY: y,
+    nearMissed: false,
+    seed,
+  });
+}
+
+function spawnPowerup(spawnX, gapInfo) {
+  const margin = 36;
+  const minY = gapInfo.top + margin;
+  const maxY = H() - gapInfo.bottom - margin;
+  if (maxY <= minY) return;
+  gameState.powerups.push({
+    type: Math.random() < 0.5 ? 'shield' : 'magnet',
+    x: spawnX,
+    y: minY + Math.random() * (maxY - minY),
+    r: 11,
+    spin: Math.random() * Math.PI * 2,
+    collected: false,
+  });
+}
+
+function spawnCoin() {
+  const spawnX = gameState.distance + W() + 60;
+  const gapInfo = getGapAt(spawnX);
+  const margin = 30;
+  const minY = gapInfo.top + margin;
+  const maxY = H() - gapInfo.bottom - margin;
+  if (maxY <= minY) return;
+
+  if (Math.random() < CONFIG.POWERUP_CHANCE) {
+    spawnPowerup(spawnX, gapInfo);
+    return;
+  }
+
+  gameState.coins.push({
+    x: spawnX,
+    y: minY + Math.random() * (maxY - minY),
+    r: 10,
+    collected: false,
+    spin: Math.random() * Math.PI * 2,
+  });
+}
+
+function spawnThrustParticle() {
+  if (!isThrusting) return;
+  const px = playerScreenX();
+  const py = gameState.player.y;
+  for (let i = 0; i < 3; i++) {
+    gameState.particles.push({
+      x: px - CONFIG.PLAYER_R - 4 + Math.random() * 2,
+      y: py + (Math.random() - 0.5) * 14,
+      vx: -2.5 - Math.random() * 3.5,
+      vy: (Math.random() - 0.5) * 4.5,
+      life: 8 + Math.random() * 10,
+      maxLife: 18,
+      r: 1 + Math.random() * 2,
+      color: Math.random() < 0.55 ? '#ff6600' : '#ffcc00',
+    });
+  }
+}
+
+function spawnExplosion(x, y, count) {
+  const n = count || 20;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = 1.5 + Math.random() * 5;
+    gameState.particles.push({
+      x, y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s,
+      life: 20 + Math.random() * 25,
+      maxLife: 45,
+      r: 2 + Math.random() * 5,
+      color: Math.random() < 0.5 ? '#ff6600' : '#ff3344',
+    });
+  }
+}
+
+function getPlayerHitbox() {
+  const p = gameState.player;
+  return { x: playerScreenX() - CONFIG.PLAYER_R + 4, y: p.y - CONFIG.PLAYER_R + 4, w: CONFIG.PLAYER_R * 2 - 8, h: CONFIG.PLAYER_R * 2 - 8 };
+}
+
+function circleRectOverlap(cx, cy, cr, rect) {
+  const closestX = clamp(cx, rect.x, rect.x + rect.w);
+  const closestY = clamp(cy, rect.y, rect.y + rect.h);
+  const dx = cx - closestX;
+  const dy = cy - closestY;
+  return dx * dx + dy * dy < cr * cr;
+}
+
+function circleCircleOverlap(x1, y1, r1, x2, y2, r2) {
+  const dx = x1 - x2;
+  const dy = y1 - y2;
+  return dx * dx + dy * dy < (r1 + r2) * (r1 + r2);
+}
+
+function obstacleActive(obs) {
+  if (obs.type === 'asteroid') return true;
+  return Math.sin(gameState.frameCount * 0.07 + obs.phase) > 0;
+}
+
+function laserWarning(obs) {
+  const v = Math.sin(gameState.frameCount * 0.07 + obs.phase);
+  return v <= 0 && v > -0.45;
+}
+
+function closestObstacleDist(cx, cy, cr, obs, sx) {
+  if (obs.type === 'asteroid') {
+    const ay = obs.moveY ? obs.y : obs.y;
+    return Math.sqrt((cx - sx) ** 2 + (cy - ay) ** 2) - cr - obs.r * 0.82;
+  }
+  if (obs.type === 'gate') {
+    const topRect = { x: sx - obs.w / 2, y: obs.topY - 3, w: obs.w, h: 6 };
+    const botRect = { x: sx - obs.w / 2, y: obs.botY - 3, w: obs.w, h: 6 };
+    const d1 = Math.sqrt(
+      Math.pow(cx - clamp(cx, topRect.x, topRect.x + topRect.w), 2) +
+      Math.pow(cy - clamp(cy, topRect.y, topRect.y + topRect.h), 2)
+    ) - cr;
+    const d2 = Math.sqrt(
+      Math.pow(cx - clamp(cx, botRect.x, botRect.x + botRect.w), 2) +
+      Math.pow(cy - clamp(cy, botRect.y, botRect.y + botRect.h), 2)
+    ) - cr;
+    return Math.min(d1, d2);
+  }
+  const beamH = 8;
+  const rect = { x: sx - obs.w / 2, y: obs.y - beamH / 2, w: obs.w, h: beamH };
+  const closestX = clamp(cx, rect.x, rect.x + rect.w);
+  const closestY = clamp(cy, rect.y, rect.y + rect.h);
+  const dx = cx - closestX;
+  const dy = cy - closestY;
+  return Math.sqrt(dx * dx + dy * dy) - cr;
+}
+
+function checkCollisions() {
+  const cx = playerScreenX();
+  const cy = gameState.player.y;
+  const cr = CONFIG.PLAYER_R - 5;
+  const pad = CONFIG.WALL_PADDING;
+  const checkX = gameState.distance;
+
+  const gapInfo = getGapAt(checkX);
+  if (cy - cr < gapInfo.top + pad || cy + cr > H() - gapInfo.bottom - pad) {
+    return true;
+  }
+
+  const obsIntervals = getObstacleIntervals();
+  if (gameState.distance < obsIntervals.start) return false;
+
+  for (const obs of gameState.obstacles) {
+    const sx = worldToScreen(obs.x);
+    if (sx < -80 || sx > W() + 80) continue;
+    if (!obstacleActive(obs)) continue;
+
+    let hit = false;
+    if (obs.type === 'asteroid') {
+      hit = circleCircleOverlap(cx, cy, cr, sx, obs.y, obs.r * 0.82);
+    } else if (obs.type === 'gate') {
+      hit = circleRectOverlap(cx, cy, cr, { x: sx - obs.w / 2, y: obs.topY - 3, w: obs.w, h: 6 })
+        || circleRectOverlap(cx, cy, cr, { x: sx - obs.w / 2, y: obs.botY - 3, w: obs.w, h: 6 });
+    } else {
+      hit = circleRectOverlap(cx, cy, cr, { x: sx - obs.w / 2, y: obs.y - 4, w: obs.w, h: 8 });
+    }
+
+    if (hit) {
+      if (gameState.shieldActive) {
+        gameState.shieldActive = false;
+        gameState.shieldFlash = 24;
+        gameState.coinCombo = 0;
+        spawnExplosion(cx, cy, 14);
+        hapticMedium();
+        return false;
+      }
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function checkNearMisses() {
+  const cx = playerScreenX();
+  const cy = gameState.player.y;
+  const cr = CONFIG.PLAYER_R - 5;
+
+  for (const obs of gameState.obstacles) {
+    if (obs.nearMissed) continue;
+    const sx = worldToScreen(obs.x);
+    if (sx > cx + 10) continue;
+    if (sx < cx - 50) {
+      obs.nearMissed = true;
+      continue;
+    }
+    if (!obstacleActive(obs)) continue;
+
+    const dist = closestObstacleDist(cx, cy, cr, obs, sx);
+    if (dist > 0 && dist < 10) {
+      obs.nearMissed = true;
+      gameState.coinCombo = 0;
+      gameState.comboFlash = 18;
+      hapticLight();
+    }
+  }
+}
+
+function updatePlayer() {
+  const p = gameState.player;
+  p.vy += isThrusting ? -THRUST : GRAVITY;
+  p.vy = clamp(p.vy, -MAX_VY, MAX_VY);
+  p.y += p.vy;
+  p.angle = clamp(p.vy * 0.08, -0.6, 0.6);
+
+  if (isThrusting && !wasThrusting) {
+    gameState.thrustShake = 5;
+  }
+  if (gameState.thrustShake > 0) gameState.thrustShake--;
+
+  if (gameState.state === 'playing') {
+    spawnThrustParticle();
+  }
+
+  wasThrusting = isThrusting;
+}
+
+function updateWorld() {
+  const speed = getScrollSpeed();
+  gameState.distance += speed;
+  gameState.distAccumulator += speed;
+
+  if (gameState.distAccumulator >= CONFIG.DIST_SCORE) {
+    const points = Math.floor(gameState.distAccumulator / CONFIG.DIST_SCORE);
+    gameState.score += points;
+    gameState.distAccumulator -= points * CONFIG.DIST_SCORE;
+    ui.score.textContent = gameState.score;
+  }
+
+  ensureTunnel();
+
+  const obsIntervals = getObstacleIntervals();
+  gameState.obstacleTimer -= speed;
+  if (gameState.distance >= obsIntervals.start && gameState.obstacleTimer <= 0) {
+    spawnObstacle();
+    gameState.obstacleTimer = obsIntervals.min + Math.random() * (obsIntervals.max - obsIntervals.min);
+  }
+
+  gameState.coinTimer -= speed;
+  if (gameState.coinTimer <= 0) {
+    spawnCoin();
+    gameState.coinTimer = CONFIG.COIN_MIN + Math.random() * (CONFIG.COIN_MAX - CONFIG.COIN_MIN);
+  }
+
+  const difficulty = getDifficulty();
+  const blockSpeed = 0.04 * (1 + difficulty * 0.6);
+  gameState.obstacles.forEach(obs => {
+    if (obs.type === 'asteroid') {
+      obs.rot += obs.rotSpeed;
+    }
+    if (obs.moveY) {
+      obs.y = obs.baseY + Math.sin(gameState.frameCount * blockSpeed + obs.x * 0.01) * obs.moveRange;
+    }
+  });
+
+  gameState.obstacles = gameState.obstacles.filter(o => o.x > gameState.distance - 100);
+
+  const cx = playerScreenX();
+  const cy = gameState.player.y;
+  const cr = CONFIG.PLAYER_R;
+  const magnetOn = gameState.magnetTimer > 0;
+
+  if (magnetOn) gameState.magnetTimer--;
+
+  gameState.coins.forEach(coin => {
+    if (coin.collected) return;
+    const sx = worldToScreen(coin.x);
+    if (magnetOn) {
+      const dx = cx - sx;
+      const dy = cy - coin.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < CONFIG.MAGNET_RADIUS && dist > 1) {
+        coin.x += (dx / dist) * 4;
+        coin.y += (dy / dist) * 4;
+      }
+    }
+    const csx = worldToScreen(coin.x);
+    const dx = csx - cx;
+    const dy = coin.y - cy;
+    if (dx * dx + dy * dy < (cr + coin.r) * (cr + coin.r)) {
+      coin.collected = true;
+      gameState.coinCombo++;
+      const mult = getCoinMultiplier();
+      gameState.score += CONFIG.COIN_VALUE * mult;
+      ui.score.textContent = gameState.score;
+      if (mult > 1) gameState.comboFlash = 20;
+      hapticTick();
+      for (let i = 0; i < 6; i++) {
+        gameState.particles.push({
+          x: csx, y: coin.y,
+          vx: (Math.random() - 0.5) * 3,
+          vy: (Math.random() - 0.5) * 3,
+          life: 15 + Math.random() * 10,
+          maxLife: 25,
+          r: 2 + Math.random() * 2,
+          color: mult > 1 ? '#ffff00' : '#ffcc00',
+        });
+      }
+    }
+    coin.spin += 0.08;
+  });
+
+  gameState.coins = gameState.coins.filter(c => !c.collected && c.x > gameState.distance - 50);
+
+  gameState.powerups.forEach(pu => {
+    const sx = worldToScreen(pu.x);
+    const dx = sx - cx;
+    const dy = pu.y - cy;
+    if (dx * dx + dy * dy < (cr + pu.r) * (cr + pu.r)) {
+      pu.collected = true;
+      if (pu.type === 'shield') {
+        gameState.shieldActive = true;
+        gameState.shieldFlash = 30;
+      } else {
+        gameState.magnetTimer = CONFIG.MAGNET_DURATION;
+      }
+      hapticSuccess();
+      spawnExplosion(sx, pu.y, 10);
+    }
+    pu.spin += 0.06;
+  });
+
+  gameState.powerups = gameState.powerups.filter(p => !p.collected && p.x > gameState.distance - 50);
+
+  if (gameState.shieldFlash > 0) gameState.shieldFlash--;
+  if (gameState.comboFlash > 0) gameState.comboFlash--;
+
+  checkNearMisses();
+
+  gameState.particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+  });
+  gameState.particles = gameState.particles.filter(p => p.life > 0);
+}
+
+function endGame() {
+  if (gameState.state === 'dying') return;
+  gameState.state = 'dying';
+  gameState.deathTimer = 28;
+  gameState.collisionShake = 14;
+  hapticHeavy();
+  spawnExplosion(playerScreenX(), gameState.player.y, 38);
+
+  if (gameState.score > gameState.best) {
+    gameState.best = gameState.score;
+    setHighScore('thrustrunner', gameState.best);
+  }
+
+  ui.finalScore.textContent = gameState.score;
+  ui.bestScore.textContent = `BEST: ${gameState.best}`;
+}
+
+function startPlaying() {
+  init();
+  gameState.state = 'playing';
+  ui.startOverlay.classList.add('hidden');
+  ui.gameoverOverlay.classList.add('hidden');
+}
+
+document.getElementById('startBtn').addEventListener('click', startPlaying);
+document.getElementById('restartBtn').addEventListener('click', startPlaying);
+
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  isThrusting = true;
+});
+canvas.addEventListener('pointerup', () => { isThrusting = false; });
+canvas.addEventListener('pointerleave', () => { isThrusting = false; });
+canvas.addEventListener('pointercancel', () => { isThrusting = false; });
+
+document.addEventListener('keydown', e => {
+  if (KEYS.THRUST.includes(e.code)) {
+    e.preventDefault();
+    isThrusting = true;
+  }
+});
+document.addEventListener('keyup', e => {
+  if (KEYS.THRUST.includes(e.code)) isThrusting = false;
+});
+
+function drawBackground() {
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0, 0, W(), H());
+
+  gameState.nebulae.forEach(n => {
+    const nx = ((n.x * W() - gameState.distance * n.speed) % (W() + n.r * 2) + W() + n.r * 2) % (W() + n.r * 2) - n.r;
+    const ny = n.y * H();
+    const grad = ctx.createRadialGradient(nx, ny, 0, nx, ny, n.r);
+    grad.addColorStop(0, `hsla(${n.hue}, 80%, 45%, 0.09)`);
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fillRect(nx - n.r, ny - n.r, n.r * 2, n.r * 2);
+  });
+
+  gameState.stars.forEach(s => {
+    const parallax = s.far ? 0.015 : 0.05;
+    const sx = ((s.x * W() - gameState.distance * s.speed * parallax) % (W() + 20) + W() + 20) % (W() + 20) - 10;
+    const sy = s.y * H();
+    ctx.fillStyle = s.far ? `rgba(200, 220, 255, ${s.alpha})` : `rgba(${ACCENT_RGB}, ${s.alpha})`;
+    if (s.far) {
+      ctx.beginPath();
+      ctx.arc(sx, sy, s.size, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillRect(sx, sy, s.size, s.size);
+    }
+  });
+
+  ctx.strokeStyle = 'rgba(255, 102, 0, 0.04)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 8; i++) {
+    const lx = ((i * 80 - gameState.distance * 0.3) % (W() + 80) + W() + 80) % (W() + 80) - 40;
+    ctx.beginPath();
+    ctx.moveTo(lx, 0);
+    ctx.lineTo(lx - 40, H());
+    ctx.stroke();
+  }
+}
+
+function drawTunnel() {
+  const segs = gameState.segments;
+  if (!segs.length) return;
+
+  const step = 2;
+  const topEdge = [];
+  const botEdge = [];
+
+  for (let sx = 0; sx <= W(); sx += step) {
+    const worldX = gameState.distance + sx - playerScreenX();
+    const gap = getGapAt(worldX);
+    topEdge.push(sx, gap.top);
+    botEdge.push(sx, H() - gap.bottom);
+  }
+
+  ctx.save();
+  ctx.shadowColor = ACCENT;
+  ctx.shadowBlur = 10;
+
+  const topGrad = ctx.createLinearGradient(0, 0, 0, H() * 0.35);
+  topGrad.addColorStop(0, `rgba(${ACCENT_RGB}, 0.95)`);
+  topGrad.addColorStop(1, `rgba(${ACCENT_RGB}, 0.55)`);
+
+  const botGrad = ctx.createLinearGradient(0, H() * 0.65, 0, H());
+  botGrad.addColorStop(0, `rgba(${ACCENT_RGB}, 0.55)`);
+  botGrad.addColorStop(1, `rgba(${ACCENT_RGB}, 0.95)`);
+
+  ctx.fillStyle = topGrad;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  for (let i = 0; i < topEdge.length; i += 2) ctx.lineTo(topEdge[i], topEdge[i + 1]);
+  ctx.lineTo(W(), 0);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = botGrad;
+  ctx.beginPath();
+  ctx.moveTo(0, H());
+  for (let i = 0; i < botEdge.length; i += 2) ctx.lineTo(botEdge[i], botEdge[i + 1]);
+  ctx.lineTo(W(), H());
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = `rgba(255, 220, 160, 0.55)`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < topEdge.length; i += 2) {
+    i === 0 ? ctx.moveTo(topEdge[i], topEdge[i + 1]) : ctx.lineTo(topEdge[i], topEdge[i + 1]);
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = `rgba(255, 220, 160, 0.55)`;
+  ctx.beginPath();
+  for (let i = 0; i < botEdge.length; i += 2) {
+    i === 0 ? ctx.moveTo(botEdge[i], botEdge[i + 1]) : ctx.lineTo(botEdge[i], botEdge[i + 1]);
+  }
+  ctx.stroke();
+
+  ctx.fillStyle = `rgba(${ACCENT_RGB}, 0.18)`;
+  for (let i = 0; i < topEdge.length; i += 2) {
+    ctx.fillRect(topEdge[i], topEdge[i + 1] - 5, step, 5);
+  }
+  for (let i = 0; i < botEdge.length; i += 2) {
+    ctx.fillRect(botEdge[i], botEdge[i + 1], step, 5);
+  }
+
+  ctx.restore();
+}
+
+function drawAsteroid(sx, obs) {
+  ctx.save();
+  ctx.translate(sx, obs.y);
+  ctx.rotate(obs.rot);
+
+  const shade = 0.35 + (obs.seed % 1) * 0.15;
+  ctx.shadowColor = '#cc5533';
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = `rgba(80, 45, 25, ${shade + 0.25})`;
+  ctx.strokeStyle = '#ff6644';
+  ctx.lineWidth = 1.8;
+
+  ctx.beginPath();
+  obs.pts.forEach(([px, py], i) => {
+    const x = px * obs.r;
+    const y = py * obs.r;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255, 180, 120, 0.25)';
+  ctx.beginPath();
+  ctx.arc(-obs.r * 0.2, -obs.r * 0.15, obs.r * 0.22, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function drawLaserBeam(sx, y, w, active, warning) {
+  const x0 = sx - w / 2;
+  const x1 = sx + w / 2;
+  const pulse = 0.7 + Math.sin(gameState.frameCount * 0.25) * 0.3;
+
+  ctx.save();
+
+  if (warning) {
+    ctx.shadowColor = '#ffcc00';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = 'rgba(255, 204, 0, 0.35)';
+    ctx.beginPath();
+    ctx.arc(x0, y, 5, 0, Math.PI * 2);
+    ctx.arc(x1, y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 204, 0, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(x0, y);
+    ctx.lineTo(x1, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    return;
+  }
+
+  if (!active) {
+    ctx.fillStyle = 'rgba(255, 80, 80, 0.15)';
+    ctx.beginPath();
+    ctx.arc(x0, y, 4, 0, Math.PI * 2);
+    ctx.arc(x1, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  const glow = ctx.createLinearGradient(x0, y - 14, x0, y + 14);
+  glow.addColorStop(0, 'rgba(255, 50, 80, 0)');
+  glow.addColorStop(0.35, `rgba(255, 60, 90, ${0.35 * pulse})`);
+  glow.addColorStop(0.5, `rgba(255, 200, 220, ${0.75 * pulse})`);
+  glow.addColorStop(0.65, `rgba(255, 60, 90, ${0.35 * pulse})`);
+  glow.addColorStop(1, 'rgba(255, 50, 80, 0)');
+
+  ctx.shadowColor = '#ff2244';
+  ctx.shadowBlur = 22;
+  ctx.fillStyle = glow;
+  ctx.fillRect(x0, y - 14, w, 28);
+
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = `rgba(255, 255, 255, ${0.85 * pulse})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x0, y);
+  ctx.lineTo(x1, y);
+  ctx.stroke();
+
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = `rgba(255, 100, 120, ${0.6 * pulse})`;
+  ctx.beginPath();
+  ctx.moveTo(x0, y - 3);
+  ctx.lineTo(x1, y - 3);
+  ctx.moveTo(x0, y + 3);
+  ctx.lineTo(x1, y + 3);
+  ctx.stroke();
+
+  ctx.fillStyle = '#fff';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.arc(x0, y, 5, 0, Math.PI * 2);
+  ctx.arc(x1, y, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ff3355';
+  ctx.beginPath();
+  ctx.arc(x0, y, 3, 0, Math.PI * 2);
+  ctx.arc(x1, y, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (gameState.frameCount % 3 === 0) {
+    const sparkX = x0 + Math.random() * w;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.fillRect(sparkX, y - 1 + (Math.random() - 0.5) * 4, 2, 2);
+  }
+
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function drawGateLaser(sx, obs) {
+  const active = obstacleActive(obs);
+  const warning = laserWarning(obs);
+  drawLaserBeam(sx, obs.topY, obs.w, active, warning);
+  drawLaserBeam(sx, obs.botY, obs.w, active, warning);
+
+  if (active) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 80, 100, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.moveTo(sx, obs.topY + 4);
+    ctx.lineTo(sx, obs.botY - 4);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+}
+
+function drawObstacles() {
+  gameState.obstacles.forEach(obs => {
+    const sx = worldToScreen(obs.x);
+    if (sx < -120 || sx > W() + 120) return;
+
+    if (obs.type === 'asteroid') {
+      drawAsteroid(sx, obs);
+    } else if (obs.type === 'gate') {
+      drawGateLaser(sx, obs);
+    } else {
+      const active = obstacleActive(obs);
+      const warning = laserWarning(obs);
+      drawLaserBeam(sx, obs.y, obs.w, active, warning);
+    }
+  });
+}
+
+function drawCoins() {
+  gameState.coins.forEach(coin => {
+    if (coin.collected) return;
+    const sx = worldToScreen(coin.x);
+    if (sx < -30 || sx > W() + 30) return;
+
+    ctx.save();
+    ctx.translate(sx, coin.y);
+    ctx.rotate(coin.spin);
+    ctx.shadowColor = '#ffcc00';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath();
+    ctx.moveTo(0, -coin.r);
+    ctx.lineTo(coin.r * 0.6, 0);
+    ctx.lineTo(0, coin.r);
+    ctx.lineTo(-coin.r * 0.6, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.globalAlpha = 0.4;
+    ctx.fillRect(-2, -coin.r + 3, 4, coin.r - 2);
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  });
+}
+
+function drawPowerups() {
+  gameState.powerups.forEach(pu => {
+    if (pu.collected) return;
+    const sx = worldToScreen(pu.x);
+    if (sx < -30 || sx > W() + 30) return;
+
+    const col = pu.type === 'shield' ? '#00f5ff' : '#ff00ff';
+    ctx.save();
+    ctx.translate(sx, pu.y);
+    ctx.rotate(pu.spin);
+    ctx.shadowColor = col;
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2;
+    ctx.fillStyle = col + '33';
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const px = Math.cos(a) * pu.r;
+      const py = Math.sin(a) * pu.r;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 9px Orbitron';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(pu.type === 'shield' ? 'S' : 'M', 0, 1);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  });
+}
+
+function drawExhaust(ctx) {
+  const pulse = 0.5 + Math.sin(gameState.frameCount * 0.2) * 0.3;
+  const tailX = -17;
+
+  ctx.save();
+  ctx.shadowColor = ACCENT;
+  ctx.shadowBlur = 6 + pulse * 6;
+  ctx.fillStyle = `rgba(255, 102, 0, ${0.25 + pulse * 0.15})`;
+  ctx.beginPath();
+  ctx.ellipse(tailX, 0, 5 + pulse * 2, 3 + pulse, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  if (isThrusting) {
+    const flicker = 10 + Math.random() * 8;
+    const layers = [
+      { len: flicker, spread: 5, color: '#ff6600', alpha: 0.85 },
+      { len: flicker * 0.75, spread: 3.5, color: '#ff8800', alpha: 0.7 },
+      { len: flicker * 0.5, spread: 2, color: '#ffcc00', alpha: 0.9 },
+    ];
+    layers.forEach(layer => {
+      ctx.fillStyle = layer.color;
+      ctx.globalAlpha = layer.alpha;
+      ctx.shadowColor = layer.color;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.moveTo(tailX - 2, 0);
+      ctx.lineTo(tailX - 2 - layer.len, layer.spread);
+      ctx.lineTo(tailX - 2 - layer.len, -layer.spread);
+      ctx.closePath();
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+
+    const glow = ctx.createRadialGradient(tailX - 4, 0, 0, tailX - 4, 0, 22);
+    glow.addColorStop(0, 'rgba(255, 204, 0, 0.25)');
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.fillRect(tailX - 30, -18, 30, 36);
+  }
+  ctx.restore();
+}
+
+function drawShip(ctx) {
+  const hullGrad = ctx.createLinearGradient(-18, 0, 22, 0);
+  hullGrad.addColorStop(0, '#1a0d00');
+  hullGrad.addColorStop(0.45, '#2a1506');
+  hullGrad.addColorStop(1, '#3a1f08');
+
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = ACCENT;
+  ctx.fillStyle = hullGrad;
+
+  ctx.beginPath();
+  ctx.moveTo(-13, -2);
+  ctx.lineTo(-7, -9);
+  ctx.lineTo(-3, -3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(-13, 2);
+  ctx.lineTo(-7, 9);
+  ctx.lineTo(-3, 3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.shadowColor = ACCENT;
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.moveTo(22, 0);
+  ctx.quadraticCurveTo(10, -9, -12, -6);
+  ctx.lineTo(-17, -2);
+  ctx.lineTo(-17, 2);
+  ctx.lineTo(-12, 6);
+  ctx.quadraticCurveTo(10, 9, 22, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  ctx.save();
+  ctx.globalAlpha = 0.65;
+  ctx.fillStyle = '#88ccff';
+  ctx.beginPath();
+  ctx.ellipse(9, -1, 5.5, 4.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 0.4;
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(10, -2, 2.2, -Math.PI * 0.85, -Math.PI * 0.15);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.fillStyle = ACCENT;
+  ctx.fillRect(-15, -1, 4, 2);
+}
+
+function drawPlayer() {
+  const px = playerScreenX();
+  const py = gameState.player.y;
+  const p = gameState.player;
+
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.rotate(p.angle);
+
+  if (gameState.shieldActive || gameState.shieldFlash > 0) {
+    const alpha = gameState.shieldActive ? 0.35 + Math.sin(gameState.frameCount * 0.15) * 0.15 : gameState.shieldFlash / 24 * 0.5;
+    ctx.strokeStyle = `rgba(0, 245, 255, ${alpha})`;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#00f5ff';
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.arc(0, 0, CONFIG.PLAYER_R + 8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  ctx.fillStyle = `rgba(255, 102, 0, ${0.12 + Math.sin(gameState.frameCount * 0.2) * 0.06})`;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, CONFIG.PLAYER_R + 8, CONFIG.PLAYER_R + 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  drawExhaust(ctx);
+  drawShip(ctx);
+
+  ctx.restore();
+}
+
+function drawHud() {
+  if (gameState.state !== 'playing' && gameState.state !== 'dying') return;
+
+  const mult = getSpeedMultiplier();
+  ctx.font = '11px Orbitron';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = `rgba(${ACCENT_RGB}, 0.75)`;
+  ctx.shadowColor = ACCENT;
+  ctx.shadowBlur = 6;
+  ctx.fillText(`SPEED x${mult.toFixed(1)}`, W() - 10, 18);
+  ctx.shadowBlur = 0;
+
+  if (gameState.magnetTimer > 0) {
+    ctx.fillStyle = 'rgba(255, 0, 255, 0.8)';
+    ctx.textAlign = 'left';
+    ctx.fillText('MAGNET', 10, 18);
+  }
+
+  const comboMult = getCoinMultiplier();
+  if (comboMult > 1 || gameState.comboFlash > 0) {
+    ctx.textAlign = 'left';
+    ctx.fillStyle = gameState.comboFlash > 0 ? '#ffff00' : `rgba(255, 204, 0, 0.85)`;
+    ctx.shadowColor = '#ffcc00';
+    ctx.shadowBlur = gameState.comboFlash > 0 ? 10 : 4;
+    ctx.fillText(`COMBO x${comboMult}`, 10, gameState.magnetTimer > 0 ? 34 : 18);
+    ctx.shadowBlur = 0;
+  }
+}
+
+function drawParticles() {
+  gameState.particles.forEach(p => {
+    const alpha = p.life / p.maxLife;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color || ACCENT;
+    ctx.shadowColor = p.color || ACCENT;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * alpha, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+}
+
+function draw() {
+  ctx.save();
+  const shake = gameState.collisionShake + gameState.thrustShake * 0.6;
+  if (shake > 0.4) {
+    ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+  }
+
+  drawBackground();
+  drawTunnel();
+  drawObstacles();
+  drawCoins();
+  drawPowerups();
+  drawParticles();
+  drawPlayer();
+  drawHud();
+
+  ctx.restore();
+}
+
+function update() {
+  gameState.frameCount++;
+
+  if (gameState.state === 'dying') {
+    if (gameState.collisionShake > 0.4) gameState.collisionShake *= 0.84;
+    gameState.particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life--;
+    });
+    gameState.particles = gameState.particles.filter(p => p.life > 0);
+    gameState.deathTimer--;
+    if (gameState.deathTimer <= 0) {
+      gameState.state = 'dead';
+      ui.gameoverOverlay.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (gameState.state === 'playing') {
+    updatePlayer();
+    updateWorld();
+    if (checkCollisions()) {
+      endGame();
+    }
+  }
+}
+
+init();
+initGameCommon(canvas, BASE_W, BASE_H, () => {
+  if (gameState.state === 'title') init();
+});
+createGameLoop(update, draw);
+
+</script>
+
+</body>
+</html>

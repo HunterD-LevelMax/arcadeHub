@@ -10,6 +10,11 @@
     rare: 50,
     epic: 70
   };
+  const RARITY_LABEL = {
+    common: "COMMON",
+    rare: "RARE",
+    epic: "EPIC"
+  };
 
   function logEvent(type, payload) {
     const entry = {
@@ -87,16 +92,60 @@
     const coinsEl = document.getElementById("playerCoins");
     if (nameEl) nameEl.textContent = state.playerName;
     if (coinsEl) coinsEl.textContent = `Coins: ${state.coins}`;
+    renderNextUnlock(state);
   }
 
   function renderGameLocks(state) {
     document.querySelectorAll(".game-card[data-game-id]").forEach((card) => {
       const gameId = card.dataset.gameId;
+      const rarity = card.dataset.rarity || "common";
       const unlocked = state.unlockedGames.includes(gameId);
       const cost = getGameCost(card);
       card.dataset.unlockCost = String(cost);
+      card.dataset.unlockRarity = RARITY_LABEL[rarity] || RARITY_LABEL.common;
       card.classList.toggle("locked", !unlocked);
     });
+    renderNextUnlock(state);
+  }
+
+  function getNextUnlockTarget(state) {
+    const locked = [];
+    document.querySelectorAll(".game-card[data-game-id]").forEach((card) => {
+      const gameId = card.dataset.gameId;
+      if (state.unlockedGames.includes(gameId)) return;
+      locked.push({
+        title: card.querySelector(".card-title")?.textContent?.trim() || gameId,
+        cost: getGameCost(card),
+        rarity: card.dataset.rarity || "common"
+      });
+    });
+    if (locked.length === 0) return null;
+
+    locked.sort((a, b) => a.cost - b.cost);
+    const affordable = locked.find((game) => game.cost <= state.coins);
+    return affordable || locked[0];
+  }
+
+  function renderNextUnlock(state) {
+    const el = document.getElementById("nextUnlock");
+    if (!el) return;
+
+    const next = getNextUnlockTarget(state);
+    if (!next) {
+      el.textContent = "All games unlocked";
+      el.className = "next-unlock all-unlocked";
+      return;
+    }
+
+    const rarity = RARITY_LABEL[next.rarity] || RARITY_LABEL.common;
+    const coinsNeeded = Math.max(0, next.cost - state.coins);
+    el.className = "next-unlock";
+
+    if (coinsNeeded === 0) {
+      el.innerHTML = `Next unlock: <strong>${next.title}</strong> · ${next.cost} coins · ${rarity}`;
+    } else {
+      el.innerHTML = `Next: <strong>${next.title}</strong> · ${next.cost} coins · ${rarity} · need ${coinsNeeded} more`;
+    }
   }
 
   function showModal({ title, text, showCancel = false }) {
@@ -145,6 +194,7 @@
     savePlayerState(playerState);
     logEvent("first_launch_reward", { reward: FIRST_LAUNCH_REWARD, coins: playerState.coins });
     setTimeout(() => {
+      hapticSuccess();
       showInfoModal("Welcome Bonus", "You launched Arcade Hub for the first time and received 50 coins.");
     }, 200);
   }
@@ -166,11 +216,15 @@
             unlockCost,
             coins: playerState.coins
           });
+          hapticError();
           await showInfoModal("Not enough coins", `You need ${unlockCost} coins, you have ${playerState.coins}.`);
           return;
         }
 
-        const confirmUnlock = await showConfirmModal("Unlock game", `Open this game for ${unlockCost} coins?`);
+        const confirmUnlock = await showConfirmModal(
+          "Unlock game",
+          `Unlock ${card.querySelector(".card-title")?.textContent?.trim() || "this game"} for ${unlockCost} coins?\nRarity: ${RARITY_LABEL[card.dataset.rarity] || RARITY_LABEL.common}`
+        );
         if (!confirmUnlock) return;
 
         playerState.coins -= unlockCost;
@@ -181,6 +235,7 @@
         savePlayerState(playerState);
         animateCoins();
         animateUnlock(card);
+        hapticSuccess();
         logEvent("unlock_success", { gameId, unlockCost, coins: playerState.coins });
       }
 
@@ -188,6 +243,7 @@
       renderProfile(playerState);
       savePlayerState(playerState);
       animateCoins();
+      hapticTick();
       logEvent("game_entry_reward", { gameId, reward: GAME_ENTRY_REWARD, coins: playerState.coins });
     });
   });

@@ -217,6 +217,7 @@ function checkCollision() {
 
 function endGame() {
   gameState.state = 'dead';
+  hapticHeavy();
   spawnExplosion(gameState.bird.x, gameState.bird.y);
   
   if (gameState.score > gameState.best) {
@@ -399,6 +400,7 @@ function updatePipes() {
       p.scored = true;
       gameState.score++;
       ui.score.textContent = gameState.score;
+      hapticTick();
     }
   });
 

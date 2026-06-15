@@ -207,6 +207,7 @@ function startGame() {
 
 function endGame() {
   gameState.state = 'dead';
+  hapticHeavy();
   spawnExplosion(gameState.ship.x, gameState.ship.y, CONFIG.PARTICLE_EXPLOSION_COUNT);
   
   if (gameState.score > gameState.best) {
@@ -501,6 +502,7 @@ function handleBulletAsteroidCollisions() {
         gameState.bullets.splice(bi, 1);
         spawnExplosion(asteroid.x, asteroid.y);
         gameState.score += Math.floor(50 / asteroid.size * 10);
+        hapticLight();
         updateUI();
 
         if (asteroid.size > 12) {
@@ -520,6 +522,7 @@ function handleShipAsteroidCollisions() {
     if (collides(gameState.ship, asteroid, CONFIG.SHIP_SIZE, asteroid.size)) {
       gameState.ship.lives--;
       gameState.ship.invincible = CONFIG.INVINCIBLE_TIME;
+      hapticMedium();
       spawnExplosion(gameState.ship.x, gameState.ship.y);
       updateUI();
       
@@ -534,6 +537,7 @@ function checkLevelUp() {
   if (gameState.asteroids.length === 0) {
     gameState.level++;
     gameState.score += 200;
+    hapticSuccess();
     
     if (gameState.level % 3 === 0) {
       gameState.ship.lives++;

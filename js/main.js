@@ -574,5 +574,210 @@
         tick();
       })();
 
+      // Animated preview for NEON 2048
+      (function() {
+        const canvas = document.getElementById('game2048Canvas');
+        const card = canvas.closest('.card-preview');
+        canvas.width = card.offsetWidth || 320;
+        canvas.height = card.offsetHeight || 180;
+        const ctx = canvas.getContext('2d');
+
+        const SIZE = 4;
+        let grid = [
+          [2, 4, 0, 0],
+          [0, 2, 4, 0],
+          [0, 0, 2, 0],
+          [0, 0, 0, 0],
+        ];
+        let t = 0;
+
+        const COLORS = {
+          2: '#00f5ff',
+          4: '#ff00ff',
+          8: '#ff8800',
+          16: '#39ff14',
+        };
+
+        function drawGrid() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          const gap = 6;
+          const cell = (canvas.width - gap * (SIZE + 1)) / SIZE;
+
+          for (let y = 0; y < SIZE; y++) {
+            for (let x = 0; x < SIZE; x++) {
+              const value = grid[y][x];
+              const px = gap + x * (cell + gap);
+              const py = gap + y * (cell + gap);
+              ctx.fillStyle = value ? `${COLORS[value] || '#ff8800'}33` : 'rgba(255,255,255,0.04)';
+              ctx.fillRect(px, py, cell, cell);
+              if (!value) continue;
+              ctx.shadowColor = COLORS[value] || '#ff8800';
+              ctx.shadowBlur = 8;
+              ctx.fillStyle = COLORS[value] || '#ff8800';
+              ctx.font = 'bold 11px Orbitron';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(String(value), px + cell / 2, py + cell / 2);
+              ctx.shadowBlur = 0;
+            }
+          }
+        }
+
+        function tick() {
+          t++;
+          if (t % 45 === 0) {
+            for (let y = 0; y < SIZE; y++) {
+              const line = grid[y];
+              const filtered = line.filter((v) => v !== 0);
+              while (filtered.length < SIZE) filtered.push(0);
+              grid[y] = filtered;
+            }
+            const empty = [];
+            for (let y = 0; y < SIZE; y++) {
+              for (let x = 0; x < SIZE; x++) {
+                if (grid[y][x] === 0) empty.push({ x, y });
+              }
+            }
+            if (empty.length) {
+              const spot = empty[Math.floor(Math.random() * empty.length)];
+              grid[spot.y][spot.x] = Math.random() < 0.8 ? 2 : 4;
+            }
+          }
+          drawGrid();
+          requestAnimationFrame(tick);
+        }
+        tick();
+      })();
+
+      // Animated preview for STACK TOWER
+      (function() {
+        const canvas = document.getElementById('stacktowerCanvas');
+        const card = canvas.closest('.card-preview');
+        canvas.width = card.offsetWidth || 320;
+        canvas.height = card.offsetHeight || 180;
+        const ctx = canvas.getContext('2d');
+
+        const COLORS = ['#00f5ff', '#ff00ff', '#ff8800', '#39ff14', '#ffff00'];
+        const blocks = [];
+        let mover = { x: 20, w: 90, dir: 1 };
+        let t = 0;
+
+        for (let i = 0; i < 5; i++) {
+          blocks.push({
+            x: 40 + i * 2,
+            y: canvas.height - 18 - i * 14,
+            w: 90 - i * 6,
+            color: COLORS[i % COLORS.length],
+          });
+        }
+
+        function tick() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          t++;
+
+          mover.x += mover.dir * 1.8;
+          if (mover.x < 10 || mover.x + mover.w > canvas.width - 10) mover.dir *= -1;
+
+          blocks.forEach((b) => {
+            ctx.shadowColor = b.color;
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = b.color + '55';
+            ctx.fillRect(b.x, b.y, b.w, 12);
+            ctx.fillStyle = b.color;
+            ctx.fillRect(b.x, b.y, b.w, 3);
+          });
+
+          const top = blocks[blocks.length - 1];
+          const y = top.y - 16;
+          const color = COLORS[blocks.length % COLORS.length];
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 10;
+          ctx.fillStyle = color + '88';
+          ctx.fillRect(mover.x, y, top.w, 12);
+          ctx.fillStyle = color;
+          ctx.fillRect(mover.x, y, top.w, 3);
+          ctx.shadowBlur = 0;
+
+          if (t % 55 === 0 && blocks.length < 8) {
+            blocks.push({
+              x: mover.x,
+              y: top.y - 14,
+              w: top.w - 4,
+              color,
+            });
+            mover.w = top.w - 4;
+          }
+
+          requestAnimationFrame(tick);
+        }
+        tick();
+      })();
+
+      // Animated preview for THRUST RUNNER
+      (function() {
+        const canvas = document.getElementById('thrustrunnerCanvas');
+        const card = canvas.closest('.card-preview');
+        canvas.width = card.offsetWidth || 320;
+        canvas.height = card.offsetHeight || 180;
+        const ctx = canvas.getContext('2d');
+
+        const ACCENT = '#ff6600';
+        const w = canvas.width;
+        const h = canvas.height;
+        let t = 0;
+        let scroll = 0;
+
+        function tick() {
+          ctx.clearRect(0, 0, w, h);
+          t += 0.04;
+          scroll += 1.2;
+
+          const playerX = w * 0.32;
+          const playerY = h / 2 + Math.sin(t) * 18;
+
+          // Tunnel walls
+          ctx.fillStyle = 'rgba(255, 102, 0, 0.35)';
+          ctx.strokeStyle = 'rgba(255, 102, 0, 0.7)';
+          ctx.lineWidth = 2;
+          for (let i = -1; i < 12; i++) {
+            const sx = ((i * 28 - scroll * 0.8) % (w + 28) + w + 28) % (w + 28) - 14;
+            const topH = 28 + Math.sin(i * 0.7 + t * 0.5) * 12;
+            const botH = 28 + Math.cos(i * 0.9 + t * 0.4) * 12;
+            ctx.fillRect(sx, 0, 6, topH);
+            ctx.fillRect(sx, h - botH, 6, botH);
+          }
+
+          // Thrust particles
+          for (let i = 0; i < 4; i++) {
+            const px = playerX - 16 - i * 5 - Math.sin(t * 3 + i) * 3;
+            const py = playerY + Math.sin(t * 2 + i) * 4;
+            ctx.fillStyle = i % 2 ? '#ffcc00' : ACCENT;
+            ctx.shadowColor = ACCENT;
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.arc(px, py, 2 + Math.random(), 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.shadowBlur = 0;
+
+          // Player capsule
+          ctx.shadowColor = ACCENT;
+          ctx.shadowBlur = 12;
+          ctx.fillStyle = '#1a0d00';
+          ctx.strokeStyle = ACCENT;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(playerX - 10, playerY - 8, 20, 16, 5);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = ACCENT;
+          ctx.fillRect(playerX - 3, playerY - 4, 6, 3);
+          ctx.shadowBlur = 0;
+
+          requestAnimationFrame(tick);
+        }
+        tick();
+      })();
+
 
 

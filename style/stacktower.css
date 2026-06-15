@@ -1,0 +1,49 @@
+:root {
+  --game-accent: #ffff00;
+}
+
+.back-btn { color: var(--game-accent); border-color: var(--game-accent); }
+.back-btn:hover { box-shadow: 0 0 12px var(--game-accent); }
+.game-title { color: var(--game-accent); text-shadow: 0 0 20px var(--game-accent); }
+.score-badge { color: var(--game-accent); }
+
+canvas {
+  border-color: rgba(255, 255, 0, 0.35);
+  box-shadow:
+    0 0 40px rgba(255, 255, 0, 0.16),
+    inset 0 0 24px rgba(255, 255, 0, 0.04);
+}
+
+.overlay {
+  border: 1px solid rgba(255, 255, 0, 0.25);
+  box-shadow: 0 0 40px rgba(255, 255, 0, 0.12);
+}
+
+.overlay-title {
+  color: var(--game-accent);
+  text-shadow: 0 0 30px var(--game-accent);
+}
+
+.overlay-score {
+  color: var(--game-accent);
+  text-shadow: 0 0 30px var(--game-accent);
+}
+
+.start-btn {
+  border-color: var(--game-accent);
+  color: var(--game-accent);
+}
+
+.start-btn:hover {
+  box-shadow: 0 0 30px var(--game-accent);
+}
+
+.perfect-flash {
+  animation: perfectPop 0.45s ease-out;
+}
+
+@keyframes perfectPop {
+  0% { filter: brightness(1); }
+  35% { filter: brightness(1.8); }
+  100% { filter: brightness(1); }
+}

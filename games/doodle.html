@@ -368,6 +368,7 @@ function handlePlatformCollision(platform) {
     jumpVel = CONFIG.BONUS_JUMP_VEL;
     gameState.score += platform.bonus.score;
     ui.score.textContent = gameState.score;
+    hapticLight();
   }
 
   if (platform.type === PLATFORM_TYPES.BREAK) {
@@ -424,6 +425,7 @@ function update(dt) {
 
 function endGame() {
   gameState.running = false;
+  hapticHeavy();
   if (gameState.score > gameState.best) {
     gameState.best = gameState.score;
     setHighScore('doodle', gameState.best);

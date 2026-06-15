@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>STACK TOWER — ARCADE HUB</title>
+  <link rel="stylesheet" href="../style/game.css">
+  <link rel="stylesheet" href="../style/stacktower.css">
+</head>
+<body>
+
+  <div class="page">
+    <div class="header">
+      <a href="../index.html" class="back-btn">🡰 BACK</a>
+      <div class="game-title">STACK TOWER</div>
+      <div class="score-badge">FLOORS: <span id="scoreVal">0</span></div>
+    </div>
+
+    <div class="game-container">
+      <canvas id="c"></canvas>
+
+      <div class="overlay" id="startOverlay">
+        <div class="overlay-title" style="color: var(--game-accent); text-shadow: 0 0 30px var(--game-accent);">STACK TOWER</div>
+        <div class="overlay-sub">TAP TO DROP · ALIGN OVER THE TOWER</div>
+        <button class="start-btn" id="startBtn">PLAY</button>
+      </div>
+
+      <div class="overlay hidden" id="gameoverOverlay">
+        <div class="overlay-title" style="color: #ff3344;">TOWER FALLS</div>
+        <div class="overlay-sub" id="deathMsg">MISALIGNED BLOCK</div>
+        <div class="overlay-score" id="finalScore">0</div>
+        <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <button class="start-btn" id="restartBtn">RETRY</button>
+      </div>
+    </div>
+
+    <div class="footer" id="controlsHint">TAP · SPACE · STACK AS HIGH AS YOU CAN</div>
+  </div>
+
+<script src="../js/game.js"></script>
+<script>
+const BASE_W = 400, BASE_H = 620;
+const BLOCK_H = 26;
+const MIN_W = 8;
+const INITIAL_W = 148;
+const SPEED_BASE = 2.2;
+const SPEED_INC = 0.08;
+const PERFECT_EPS = 3;
+const MARGIN_BOTTOM = 32;
+const MOVER_GAP_ABOVE = 60;
+const TARGET_TOP_SCREEN_RATIO = 0.58;
+const GRAVITY = 0.5;
+const FALL_INITIAL_VY = 0.5;
+const CAMERA_LERP = 0.14;
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+initGameCommon(canvas, BASE_W, BASE_H);
+
+function W() { return canvas.width; }
+function H() { return canvas.height; }
+
+const ui = {
+  score: document.getElementById('scoreVal'),
+  finalScore: document.getElementById('finalScore'),
+  bestScore: document.getElementById('bestScore'),
+  deathMsg: document.getElementById('deathMsg'),
+  startOverlay: document.getElementById('startOverlay'),
+  gameoverOverlay: document.getElementById('gameoverOverlay'),
+};
+
+const PALETTE = [
+  { bg: ['#061828', '#0d2848'], glow: '#00f5ff', rim: '#66fbff' },
+  { bg: ['#140820', '#2a1040'], glow: '#ff00ff', rim: '#ff88ff' },
+  { bg: ['#281004', '#4a2208'], glow: '#ff8800', rim: '#ffcc66' },
+  { bg: ['#0a2010', '#143820'], glow: '#39ff14', rim: '#9dff96' },
+  { bg: ['#181028', '#281040'], glow: '#8800ff', rim: '#cc88ff' },
+  { bg: ['#102028', '#183040'], glow: '#00f5ff', rim: '#aafcff' },
+];
+
+const KEYS = { DROP: ['Space', 'Enter'] };
+
+let stack = [];
+let mover = null;
+let debris = [];
+let particles = [];
+let floatTexts = [];
+let cameraY = 0;
+let targetCameraY = 0;
+let perfectStreak = 0;
+let flashPerfect = 0;
+let shake = 0;
+
+let gameState = {
+  score: 0,
+  best: getHighScore('stacktower'),
+  state: 'title',
+};
+
+ui.bestScore.textContent = `BEST: ${gameState.best}`;
+
+function palette(level) {
+  return PALETTE[level % PALETTE.length];
+}
+
+function drawRoundedRect(x, y, w, h, r) {
+  const radius = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + w - radius, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+  ctx.lineTo(x + w, y + h - radius);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+  ctx.lineTo(x + radius, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
+function drawBlock(x, y, w, h, style, alpha) {
+  if (w <= 0 || h <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha == null ? 1 : alpha;
+  ctx.shadowColor = style.glow;
+  ctx.shadowBlur = 14;
+  drawRoundedRect(x, y, w, h, 7);
+  const grad = ctx.createLinearGradient(x, y, x + w, y + h);
+  grad.addColorStop(0, style.bg[0]);
+  grad.addColorStop(1, style.bg[1]);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = `${style.rim}cc`;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  drawRoundedRect(x + 3, y + 3, Math.max(0, w - 6), Math.max(0, h * 0.35), 5);
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.fill();
+  ctx.restore();
+}
+
+function baseWorldY() { return H() - BLOCK_H - MARGIN_BOTTOM; }
+function targetTopScreenY() { return H() * TARGET_TOP_SCREEN_RATIO; }
+function landingWorldY() { return stack[stack.length - 1].y - BLOCK_H; }
+
+function computeTargetCamera() {
+  if (!stack.length) return 0;
+  const top = stack[stack.length - 1];
+  if (stack.length <= 1) return 0;
+
+  const idealCam = top.y - targetTopScreenY();
+  const minCam = stack[0].y - baseWorldY();
+  const topScreenAtMinCam = top.y - minCam;
+
+  if (topScreenAtMinCam >= targetTopScreenY()) return minCam;
+  return idealCam;
+}
+
+function updateCamera() {
+  targetCameraY = computeTargetCamera();
+  cameraY += (targetCameraY - cameraY) * CAMERA_LERP;
+}
+
+function syncMoverSlideBand() {
+  if (!mover || mover.state !== 'moving') return;
+  mover.targetY = landingWorldY();
+  mover.y = mover.targetY - MOVER_GAP_ABOVE;
+}
+
+function spawnMover() {
+  const top = stack[stack.length - 1];
+  const level = stack.length;
+  const targetY = landingWorldY();
+  mover = {
+    x: W() / 2 - top.w / 2,
+    y: targetY - MOVER_GAP_ABOVE,
+    w: top.w,
+    h: BLOCK_H,
+    dir: 1,
+    speed: SPEED_BASE + (level - 1) * SPEED_INC,
+    style: palette(level),
+    state: 'moving',
+    vy: 0,
+    targetY,
+  };
+}
+
+function resetTower() {
+  stack = [];
+  debris = [];
+  particles = [];
+  floatTexts = [];
+  cameraY = 0;
+  targetCameraY = 0;
+  perfectStreak = 0;
+  flashPerfect = 0;
+  shake = 0;
+  gameState.score = 0;
+  ui.score.textContent = '0';
+
+  const baseX = W() / 2 - INITIAL_W / 2;
+  stack.push({
+    x: baseX,
+    y: baseWorldY(),
+    w: INITIAL_W,
+    h: BLOCK_H,
+    style: palette(0),
+  });
+  spawnMover();
+}
+
+function init() {
+  gameState.state = 'title';
+  resetTower();
+  ui.bestScore.textContent = `BEST: ${gameState.best}`;
+}
+
+function spawnDebris(piece, vx) {
+  debris.push({
+    x: piece.x,
+    y: piece.y,
+    w: piece.w,
+    h: piece.h,
+    vx: vx || 0,
+    vy: 0.5,
+    style: piece.style,
+    life: 1,
+  });
+}
+
+function burstParticles(cx, cy, color) {
+  for (let i = 0; i < 10; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.2 + Math.random() * 2.5;
+    particles.push({
+      x: cx,
+      y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 1,
+      life: 1,
+      decay: 0.03 + Math.random() * 0.02,
+      color,
+      size: 2 + Math.random() * 2,
+    });
+  }
+}
+
+function addFloatText(x, y, text, color) {
+  floatTexts.push({ x, y, text, color, life: 1, vy: -0.7 });
+}
+
+function placeBlock() {
+  if (!mover || gameState.state !== 'playing' || mover.state !== 'falling') return;
+
+  const top = stack[stack.length - 1];
+  const left = Math.max(top.x, mover.x);
+  const right = Math.min(top.x + top.w, mover.x + mover.w);
+  const overlapW = right - left;
+
+  if (overlapW <= MIN_W) {
+    spawnDebris({ x: mover.x, y: mover.y, w: mover.w, h: BLOCK_H, style: mover.style }, mover.dir * 2);
+    mover = null;
+    ui.deathMsg.textContent = 'BLOCK MISSED THE TOWER';
+    endGame();
+    return;
+  }
+
+  const perfect =
+    Math.abs(mover.x - top.x) <= PERFECT_EPS && Math.abs(overlapW - top.w) <= PERFECT_EPS;
+
+  if (mover.x < left) {
+    spawnDebris({ x: mover.x, y: mover.y, w: left - mover.x, h: BLOCK_H, style: mover.style }, -1.5);
+  }
+  if (mover.x + mover.w > right) {
+    spawnDebris({ x: right, y: mover.y, w: mover.x + mover.w - right, h: BLOCK_H, style: mover.style }, 1.5);
+  }
+
+  let placedW = overlapW;
+  let placedX = left;
+
+  if (perfect) {
+    placedW = top.w;
+    placedX = top.x;
+    perfectStreak++;
+    flashPerfect = 1;
+    hapticLight();
+    burstParticles(placedX + placedW / 2, mover.y + BLOCK_H / 2, mover.style.glow);
+    if (perfectStreak >= 2) {
+      addFloatText(placedX + placedW / 2, mover.y - 10, `PERFECT x${perfectStreak}`, '#ffff00');
+    }
+    if (perfectStreak >= 3) hapticMedium();
+  } else {
+    perfectStreak = 0;
+    hapticTick();
+  }
+
+  stack.push({
+    x: placedX,
+    y: top.y - BLOCK_H,
+    w: placedW,
+    h: BLOCK_H,
+    style: mover.style,
+    perfect,
+  });
+
+  gameState.score++;
+  ui.score.textContent = String(gameState.score);
+
+  if (gameState.score % 10 === 0) hapticMedium();
+
+  if (gameState.score > gameState.best) {
+    gameState.best = gameState.score;
+    setHighScore('stacktower', gameState.best);
+    ui.bestScore.textContent = `BEST: ${gameState.best}`;
+  }
+
+  mover = null;
+  spawnMover();
+}
+
+function endGame() {
+  gameState.state = 'dead';
+  hapticHeavy();
+  shake = 6;
+  ui.finalScore.textContent = String(gameState.score);
+  ui.bestScore.textContent = `BEST: ${gameState.best}`;
+  ui.gameoverOverlay.classList.remove('hidden');
+}
+
+function updatePhysics() {
+  if (gameState.state === 'playing') {
+    updateCamera();
+  }
+
+  if (mover && gameState.state === 'playing') {
+    if (mover.state === 'moving') {
+      syncMoverSlideBand();
+      mover.x += mover.speed * mover.dir;
+      if (mover.x <= 0) {
+        mover.x = 0;
+        mover.dir = 1;
+      }
+      if (mover.x + mover.w >= W()) {
+        mover.x = W() - mover.w;
+        mover.dir = -1;
+      }
+    } else if (mover.state === 'falling') {
+      mover.vy += GRAVITY;
+      mover.y += mover.vy;
+      if (mover.y >= mover.targetY) {
+        mover.y = mover.targetY;
+        placeBlock();
+      }
+    }
+  }
+
+  const debrisLimit = stack.length ? stack[0].y + BLOCK_H + 40 : H();
+  debris.forEach((d) => {
+    d.vy += 0.5;
+    d.y += d.vy;
+    d.x += d.vx || 0;
+    d.life -= 0.018;
+  });
+  debris = debris.filter((d) => d.life > 0 && d.y < debrisLimit);
+
+  particles.forEach((p) => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05;
+    p.life -= p.decay;
+  });
+  particles = particles.filter((p) => p.life > 0);
+
+  floatTexts.forEach((f) => {
+    f.y += f.vy;
+    f.life -= 0.025;
+  });
+  floatTexts = floatTexts.filter((f) => f.life > 0);
+
+  if (flashPerfect > 0) flashPerfect *= 0.88;
+  if (shake > 0.4) shake *= 0.84;
+}
+
+function drawBackground() {
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0, 0, W(), H());
+
+  const grad = ctx.createLinearGradient(0, 0, 0, H());
+  grad.addColorStop(0, 'rgba(255, 255, 0, 0.06)');
+  grad.addColorStop(0.55, 'rgba(255, 0, 255, 0.03)');
+  grad.addColorStop(1, 'rgba(0, 245, 255, 0.04)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W(), H());
+
+  ctx.strokeStyle = 'rgba(255, 255, 0, 0.06)';
+  ctx.lineWidth = 1;
+  for (let y = 0; y < H(); y += 28) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W(), y);
+    ctx.stroke();
+  }
+}
+
+function draw() {
+  updatePhysics();
+  drawBackground();
+
+  ctx.save();
+  if (shake > 0.4) {
+    ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+  }
+
+  const cam = cameraY;
+
+  stack.forEach((block, index) => {
+    const screenY = block.y - cam;
+    drawBlock(block.x, screenY, block.w, block.h, block.style, 1);
+    if (index === stack.length - 1 && flashPerfect > 0.15) {
+      ctx.save();
+      ctx.globalAlpha = flashPerfect * 0.45;
+      ctx.shadowColor = '#ffff00';
+      ctx.shadowBlur = 24;
+      drawRoundedRect(block.x - 2, screenY - 2, block.w + 4, block.h + 4, 8);
+      ctx.strokeStyle = '#ffff00';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+  });
+
+  debris.forEach((d) => {
+    drawBlock(d.x, d.y - cam, d.w, d.h, d.style, d.life);
+  });
+
+  if (mover && gameState.state === 'playing') {
+    const y = mover.y - cam;
+    drawBlock(mover.x, y, mover.w, mover.h, mover.style, 1);
+
+    if (mover.state === 'moving') {
+      const top = stack[stack.length - 1];
+      const topScreenY = top.y - cam;
+      ctx.save();
+      ctx.globalAlpha = 0.2 + Math.sin(performance.now() * 0.01) * 0.08;
+      drawRoundedRect(top.x - 1, topScreenY - 1, top.w + 2, top.h + 2, 8);
+      ctx.strokeStyle = 'rgba(255, 255, 0, 0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      const landScreenY = mover.targetY - cam;
+      ctx.setLineDash([4, 4]);
+      ctx.globalAlpha = 0.25;
+      ctx.strokeStyle = 'rgba(255, 255, 0, 0.4)';
+      ctx.beginPath();
+      ctx.moveTo(0, landScreenY);
+      ctx.lineTo(W(), landScreenY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+  }
+
+  particles.forEach((p) => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y - cam, p.size * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  floatTexts.forEach((f) => {
+    ctx.globalAlpha = f.life;
+    ctx.font = '700 12px Orbitron';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = f.color;
+    ctx.shadowColor = f.color;
+    ctx.shadowBlur = 10;
+    ctx.fillText(f.text, f.x, f.y - cam);
+  });
+
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+
+  if (gameState.state === 'playing' && stack.length > 1) {
+    ctx.font = '10px Share Tech Mono';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(255,255,0,0.45)';
+    ctx.fillText(`SPEED ${(mover ? mover.speed : 0).toFixed(1)}`, W() - 10, 18);
+  }
+
+  ctx.restore();
+}
+
+function gameLoop() {
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+function tryPlace() {
+  if (gameState.state !== 'playing' || !mover || mover.state !== 'moving') return;
+  mover.state = 'falling';
+  mover.targetY = landingWorldY();
+  mover.vy = FALL_INITIAL_VY;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (KEYS.DROP.includes(e.code)) {
+    e.preventDefault();
+    tryPlace();
+  }
+});
+
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (gameState.state === 'playing') tryPlace();
+});
+
+if ('ontouchstart' in window) {
+  document.getElementById('controlsHint').textContent = 'TAP TO DROP · OVERHANG GETS CUT OFF';
+}
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  resetTower();
+  gameState.state = 'playing';
+  ui.startOverlay.classList.add('hidden');
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+  resetTower();
+  gameState.state = 'playing';
+  ui.gameoverOverlay.classList.add('hidden');
+});
+
+init();
+requestAnimationFrame(gameLoop);
+</script>
+
+</body>
+</html>

@@ -545,6 +545,7 @@ function triggerDeath(cause, color) {
   if (gameState.state !== 'playing') return;
   gameState.state = 'dying';
   gameState.combo = 0; updateComboUI();
+  hapticMedium();
 
   const p = gridToScreen(gameState.frog.x, gameState.frog.z);
   if (cause==='road') {
@@ -574,6 +575,7 @@ function triggerDeath(cause, color) {
 
 function endGame(cause) {
   gameState.state = 'dead';
+  hapticHeavy();
   const isNew = gameState.maxZ > gameState.best;
   if (isNew) { gameState.best = gameState.maxZ; setHighScore('crossyfrog', gameState.best); }
 
@@ -625,6 +627,7 @@ function hop(dx, dz) {
       const pts = gameState.combo>=5 ? 5 : gameState.combo>=3 ? 2 : 1;
       gameState.score += pts;
       ui.score.textContent = gameState.maxZ;
+      hapticLight();
       const color = pts>=5?'#ffff00':pts>=2?'#ff00ff':'#39ff14';
       const text  = pts>=5?`+${pts} 🔥`:pts>=2?`+${pts} COMBO`:'+1';
       spawnScorePopup(text, pp.x-20, pp.y-30, color);

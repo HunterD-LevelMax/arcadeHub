@@ -165,6 +165,7 @@ function spawnAliens() {
 }
 
 function nextWave() {
+  hapticMedium();
   gameState.wave++;
   gameState.alienSpeed += 0.15;
   gameState.bullets = [];
@@ -175,6 +176,7 @@ function nextWave() {
 
 function endGame() {
   gameState.state = 'dead';
+  hapticHeavy();
   
   if (gameState.score > gameState.best) {
     gameState.best = gameState.score;
@@ -216,6 +218,7 @@ function update(t) {
         const baseScore = [30, 20, 20, 10, 10];
         gameState.score += baseScore[a.type] * gameState.wave;
         ui.score.textContent = gameState.score;
+        hapticLight();
         return false;
       }
     }

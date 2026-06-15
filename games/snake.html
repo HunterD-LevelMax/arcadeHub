@@ -128,6 +128,7 @@ function spawnFood() {
 
 function endGame() {
   gameState.state = 'dead';
+  hapticHeavy();
   
   if (gameState.score > gameState.best) {
     gameState.best = gameState.score;
@@ -171,6 +172,7 @@ function update() {
   if (newHead.x === gameState.food.x && newHead.y === gameState.food.y) {
     gameState.score += 10;
     ui.score.textContent = gameState.score;
+    hapticLight();
     spawnFood();
   } else {
     gameState.snake.pop();

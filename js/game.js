@@ -90,3 +90,22 @@ function setHighScore(gameId, score) {
   localStorage.setItem(gameId + '_best', score);
   setCookie(gameId + '_best', score);
 }
+
+/**
+ * Haptic feedback via Android WebView bridge (ArcadeAndroid.vibrate).
+ * Kinds: tick, light, medium, heavy, success, error
+ */
+function haptic(kind) {
+  try {
+    if (window.ArcadeAndroid && typeof window.ArcadeAndroid.vibrate === 'function') {
+      window.ArcadeAndroid.vibrate(kind || 'light');
+    }
+  } catch (_e) {}
+}
+
+function hapticTick() { haptic('tick'); }
+function hapticLight() { haptic('light'); }
+function hapticMedium() { haptic('medium'); }
+function hapticHeavy() { haptic('heavy'); }
+function hapticSuccess() { haptic('success'); }
+function hapticError() { haptic('error'); }

@@ -196,6 +196,8 @@ function lockPiece() {
     gameState.score += CONFIG.LINE_POINTS[clearedLines] * gameState.level;
     ui.score.textContent = gameState.score;
     gameState.level = Math.floor(gameState.lines / 10) + 1;
+    if (clearedLines >= 3) hapticHeavy();
+    else hapticMedium();
   }
   
   spawnPiece();
@@ -212,12 +214,13 @@ function hardDrop() {
 
 function endGame() {
   gameState.state = 'dead';
-  
+  hapticHeavy();
+
   if (gameState.score > gameState.best) {
     gameState.best = gameState.score;
     setHighScore('tetris', gameState.best);
   }
-  
+
   ui.finalScore.textContent = gameState.score;
   ui.bestScore.textContent = `BEST: ${gameState.best}`;
   ui.gameoverOverlay.classList.remove('hidden');

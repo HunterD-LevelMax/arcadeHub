@@ -264,6 +264,32 @@ body::after {
   animation: coinPulse 0.35s ease-out;
 }
 
+.next-unlock {
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 0, 0.25);
+  background: rgba(255, 255, 0, 0.05);
+  font-size: 11px;
+  letter-spacing: 1px;
+  line-height: 1.5;
+  color: rgba(255, 255, 0, 0.85);
+  text-align: center;
+}
+
+.next-unlock strong {
+  color: #fff;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.next-unlock.all-unlocked {
+  border-color: rgba(57, 255, 20, 0.35);
+  background: rgba(57, 255, 20, 0.06);
+  color: rgba(57, 255, 20, 0.9);
+}
+
 @keyframes coinPulse {
   0% { transform: scale(1); box-shadow: 0 0 0 rgba(57, 255, 20, 0.2); }
   40% { transform: scale(1.08); box-shadow: 0 0 18px rgba(57, 255, 20, 0.75); }
@@ -334,18 +360,23 @@ body::after {
 }
 
 .game-card.locked::after {
-  content: 'LOCKED - ' attr(data-unlock-cost) ' COINS';
+  content: attr(data-unlock-rarity) ' · ' attr(data-unlock-cost) ' COINS';
   position: absolute;
-  right: 10px;
-  top: 10px;
-  z-index: 5;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
   font-family: 'Orbitron', sans-serif;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 1px;
+  text-transform: uppercase;
   color: #fff;
-  background: rgba(0, 0, 0, 0.78);
-  border: 1px solid rgba(255, 0, 255, 0.7);
-  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.88);
+  border: 1px solid rgba(255, 0, 255, 0.75);
+  padding: 8px 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 0 24px rgba(255, 0, 255, 0.25);
 }
 
 .game-card.locked .card-preview,

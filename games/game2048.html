@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>NEON 2048 — ARCADE HUB</title>
+  <link rel="stylesheet" href="../style/game.css">
+  <link rel="stylesheet" href="../style/game2048.css">
+</head>
+<body>
+
+  <div class="page">
+    <div class="header">
+      <a href="../index.html" class="back-btn">🡰 BACK</a>
+      <div class="game-title">NEON 2048</div>
+      <div class="header-stats">
+        <div class="stat-box" id="scoreBox">
+          <div class="stat-label">SCORE</div>
+          <div class="stat-value" id="scoreVal">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">BEST</div>
+          <div class="stat-value" id="bestVal">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="game-container">
+      <canvas id="c"></canvas>
+
+      <div class="overlay" id="startOverlay">
+        <div class="overlay-title" style="color: var(--game-accent); text-shadow: 0 0 30px var(--game-accent);">NEON 2048</div>
+        <div class="overlay-sub">MERGE TILES · REACH 2048</div>
+        <button class="start-btn" id="startBtn">PLAY</button>
+      </div>
+
+      <div class="overlay hidden" id="winOverlay">
+        <div class="overlay-title" style="color: var(--neon-yellow); text-shadow: 0 0 30px var(--neon-yellow);">YOU WIN</div>
+        <div class="overlay-sub">2048 TILE REACHED</div>
+        <div class="overlay-score" id="winScore">0</div>
+        <button class="start-btn" id="continueBtn">KEEP PLAYING</button>
+      </div>
+
+      <div class="overlay hidden" id="gameoverOverlay">
+        <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
+        <div class="overlay-sub">NO MOVES LEFT</div>
+        <div class="overlay-score" id="finalScore">0</div>
+        <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <button class="start-btn" id="restartBtn">RETRY</button>
+      </div>
+    </div>
+
+    <div class="game2048-controls" id="touchControls">
+      <button type="button" class="g2048-btn up" data-dir="up" aria-label="Up">▲</button>
+      <button type="button" class="g2048-btn left" data-dir="left" aria-label="Left">◀</button>
+      <button type="button" class="g2048-btn down" data-dir="down" aria-label="Down">▼</button>
+      <button type="button" class="g2048-btn right" data-dir="right" aria-label="Right">▶</button>
+    </div>
+
+    <div class="footer" id="controlsHint">ARROWS / WASD · SWIPE TO SLIDE</div>
+  </div>
+
+<script src="../js/game.js"></script>
+<script>
+const BASE_W = 400, BASE_H = 520;
+const SIZE = 4;
+const SWIPE_MIN = 24;
+const SLIDE_MS = 130;
+const MERGE_MS = 160;
+const SPAWN_MS = 200;
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+initGameCommon(canvas, BASE_W, BASE_H);
+
+function W() { return canvas.width; }
+function H() { return canvas.height; }
+
+const ui = {
+  score: document.getElementById('scoreVal'),
+  scoreBox: document.getElementById('scoreBox'),
+  best: document.getElementById('bestVal'),
+  finalScore: document.getElementById('finalScore'),
+  bestScore: document.getElementById('bestScore'),
+  winScore: document.getElementById('winScore'),
+  startOverlay: document.getElementById('startOverlay'),
+  winOverlay: document.getElementById('winOverlay'),
+  gameoverOverlay: document.getElementById('gameoverOverlay'),
+};
+
+const TILE_STYLE = {
+  2: { bg: ['#061828', '#0d2848'], fg: '#00f5ff', glow: '#00f5ff', rim: '#66fbff' },
+  4: { bg: ['#140820', '#2a1040'], fg: '#ff99ff', glow: '#ff00ff', rim: '#ff88ff' },
+  8: { bg: ['#281004', '#4a2208'], fg: '#ffcc66', glow: '#ff8800', rim: '#ffaa44' },
+  16: { bg: ['#0a2010', '#143820'], fg: '#9dff96', glow: '#39ff14', rim: '#7dff72' },
+  32: { bg: ['#061828', '#0c2840'], fg: '#88eeff', glow: '#00f5ff', rim: '#aafcff' },
+  64: { bg: ['#280810', '#401018'], fg: '#ff99aa', glow: '#ff3344', rim: '#ff6677' },
+  128: { bg: ['#140820', '#281040'], fg: '#dd99ff', glow: '#8800ff', rim: '#cc88ff' },
+  256: { bg: ['#0a2010', '#183820'], fg: '#c8ffbf', glow: '#39ff14', rim: '#9dff96' },
+  512: { bg: ['#081828', '#103040'], fg: '#99f0ff', glow: '#00f5ff', rim: '#ccfaff' },
+  1024: { bg: ['#282010', '#403018'], fg: '#ffe066', glow: '#ffff00', rim: '#fff099' },
+  2048: { bg: ['#302008', '#604010'], fg: '#fff8cc', glow: '#ff8800', rim: '#ffe066' },
+};
+
+const KEYS = {
+  UP: ['ArrowUp', 'KeyW'],
+  DOWN: ['ArrowDown', 'KeyS'],
+  LEFT: ['ArrowLeft', 'KeyA'],
+  RIGHT: ['ArrowRight', 'KeyD'],
+};
+
+let tileIdCounter = 0;
+let grid = emptyGrid();
+let particles = [];
+let floatTexts = [];
+let boardPulse = 0;
+let shake = 0;
+let anim = null;
+let bgPhase = 0;
+
+let gameState = {
+  score: 0,
+  best: getHighScore('game2048'),
+  state: 'title',
+  won: false,
+  keepPlaying: false,
+};
+
+ui.best.textContent = String(gameState.best);
+ui.bestScore.textContent = `BEST: ${gameState.best}`;
+
+function emptyGrid() {
+  return Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
+}
+
+function tileStyle(value) {
+  if (TILE_STYLE[value]) return TILE_STYLE[value];
+  return { bg: ['#1a1030', '#302050'], fg: '#ffffff', glow: '#ff8800', rim: '#ffcc88' };
+}
+
+function createTile(value, row, col) {
+  return {
+    id: ++tileIdCounter,
+    value,
+    row,
+    col,
+    prevRow: row,
+    prevCol: col,
+    spawnT: 0,
+    mergeT: 0,
+    pulse: Math.random() * Math.PI * 2,
+  };
+}
+
+function setGridCell(row, col, tile) {
+  grid[row][col] = tile;
+  if (tile) {
+    tile.row = row;
+    tile.col = col;
+  }
+}
+
+function syncTilePositions() {
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const tile = grid[y][x];
+      if (tile) {
+        tile.row = y;
+        tile.col = x;
+      }
+    }
+  }
+}
+
+function snapshotPrevPositions() {
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const tile = grid[y][x];
+      if (tile) {
+        tile.prevRow = tile.row;
+        tile.prevCol = tile.col;
+        tile.mergeT = 0;
+      }
+    }
+  }
+}
+
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function easeOutBack(t) {
+  const c = 1.70158;
+  return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+}
+
+function easeOutElastic(t) {
+  if (t === 0 || t === 1) return t;
+  return Math.pow(2, -10 * t) * Math.sin((t - 0.075) * (2 * Math.PI) / 0.3) + 1;
+}
+
+function initBoard() {
+  grid = emptyGrid();
+  particles = [];
+  floatTexts = [];
+  anim = null;
+  gameState.score = 0;
+  gameState.won = false;
+  gameState.keepPlaying = false;
+  ui.score.textContent = '0';
+  addRandomTile(true);
+  addRandomTile(true);
+}
+
+function init() {
+  gameState.state = 'title';
+  initBoard();
+  ui.bestScore.textContent = `BEST: ${gameState.best}`;
+}
+
+function listEmptyCells() {
+  const cells = [];
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      if (!grid[y][x]) cells.push({ x, y });
+    }
+  }
+  return cells;
+}
+
+function addRandomTile(isInitial) {
+  const empty = listEmptyCells();
+  if (empty.length === 0) return null;
+  const spot = empty[Math.floor(Math.random() * empty.length)];
+  const value = Math.random() < 0.9 ? 2 : 4;
+  const tile = createTile(value, spot.y, spot.x);
+  tile.spawnT = isInitial ? 1 : 0;
+  setGridCell(spot.y, spot.x, tile);
+  return tile;
+}
+
+function slideLineEntries(entries) {
+  const tiles = entries.filter(Boolean);
+  const result = Array(SIZE).fill(null);
+  const merges = [];
+  let points = 0;
+  let out = 0;
+  let i = 0;
+
+  while (i < tiles.length) {
+    if (i + 1 < tiles.length && tiles[i].value === tiles[i + 1].value) {
+      const merged = tiles[i];
+      merged.value *= 2;
+      merged.mergeT = 0.001;
+      merges.push(merged);
+      points += merged.value;
+      result[out++] = merged;
+      i += 2;
+    } else {
+      result[out++] = tiles[i];
+      i += 1;
+    }
+  }
+
+  const beforeIds = entries.filter(Boolean).map((t) => t.id).sort().join(',');
+  const afterIds = result.filter(Boolean).map((t) => t.id).sort().join(',');
+  const changed = beforeIds !== afterIds ||
+    entries.some((tile, index) => (tile && result[index] !== tile) || (!tile && result[index]));
+
+  return { result, points, changed, merges };
+}
+
+function moveRow(y, toLeft) {
+  const entries = toLeft
+    ? grid[y].slice()
+    : grid[y].slice().reverse();
+  const { result, points, changed, merges } = slideLineEntries(entries);
+  const finalRow = toLeft ? result : result.reverse();
+  for (let x = 0; x < SIZE; x++) setGridCell(y, x, finalRow[x]);
+  return { points, changed, merges };
+}
+
+function moveCol(x, toUp) {
+  const entries = toUp
+    ? grid.map((row) => row[x])
+    : grid.map((row) => row[x]).reverse();
+  const { result, points, changed, merges } = slideLineEntries(entries);
+  const finalCol = toUp ? result : result.reverse();
+  for (let y = 0; y < SIZE; y++) setGridCell(y, x, finalCol[y]);
+  return { points, changed, merges };
+}
+
+function applyMove(direction) {
+  snapshotPrevPositions();
+  let moved = false;
+  let gained = 0;
+  const merges = [];
+
+  if (direction === 'left') {
+    for (let y = 0; y < SIZE; y++) {
+      const res = moveRow(y, true);
+      if (res.changed) moved = true;
+      gained += res.points;
+      merges.push(...res.merges);
+    }
+  } else if (direction === 'right') {
+    for (let y = 0; y < SIZE; y++) {
+      const res = moveRow(y, false);
+      if (res.changed) moved = true;
+      gained += res.points;
+      merges.push(...res.merges);
+    }
+  } else if (direction === 'up') {
+    for (let x = 0; x < SIZE; x++) {
+      const res = moveCol(x, true);
+      if (res.changed) moved = true;
+      gained += res.points;
+      merges.push(...res.merges);
+    }
+  } else if (direction === 'down') {
+    for (let x = 0; x < SIZE; x++) {
+      const res = moveCol(x, false);
+      if (res.changed) moved = true;
+      gained += res.points;
+      merges.push(...res.merges);
+    }
+  }
+
+  syncTilePositions();
+  return { moved, gained, merges };
+}
+
+function canMove() {
+  if (listEmptyCells().length > 0) return true;
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const tile = grid[y][x];
+      if (!tile) continue;
+      if (x + 1 < SIZE && grid[y][x + 1] && tile.value === grid[y][x + 1].value) return true;
+      if (y + 1 < SIZE && grid[y + 1][x] && tile.value === grid[y + 1][x].value) return true;
+    }
+  }
+  return false;
+}
+
+function hasTile(value) {
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      if (grid[y][x] && grid[y][x].value === value) return true;
+    }
+  }
+  return false;
+}
+
+function burstParticles(cx, cy, color, intensity) {
+  const count = 8 + intensity * 6;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.5 + Math.random() * (2 + intensity);
+    particles.push({
+      x: cx,
+      y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: 0.025 + Math.random() * 0.03,
+      color,
+      size: 1.5 + Math.random() * (2 + intensity * 0.5),
+    });
+  }
+}
+
+function addFloatText(cx, cy, text, color) {
+  floatTexts.push({ x: cx, y: cy, text, color, life: 1, vy: -0.8 });
+}
+
+function flashScoreBox() {
+  ui.scoreBox.classList.remove('score-pop');
+  void ui.scoreBox.offsetWidth;
+  ui.scoreBox.classList.add('score-pop');
+}
+
+function finishMove(gained, merges) {
+  gameState.score += gained;
+  ui.score.textContent = String(gameState.score);
+  if (gained > 0) flashScoreBox();
+
+  if (merges.length > 0) {
+    const maxValue = Math.max(...merges.map((tile) => tile.value));
+    if (maxValue >= 128) hapticHeavy();
+    else if (maxValue >= 32) hapticMedium();
+    else hapticLight();
+  }
+
+  if (gameState.score > gameState.best) {
+    gameState.best = gameState.score;
+    setHighScore('game2048', gameState.best);
+    ui.best.textContent = String(gameState.best);
+    ui.bestScore.textContent = `BEST: ${gameState.best}`;
+  }
+
+  const metrics = boardMetrics();
+  merges.forEach((tile) => {
+    const pos = cellPos(tile.row, tile.col, metrics, 1);
+    const style = tileStyle(tile.value);
+    const intensity = Math.min(4, Math.log2(tile.value) - 1);
+    burstParticles(pos.cx, pos.cy, style.glow, intensity);
+    addFloatText(pos.cx, pos.cy - 8, `+${tile.value}`, style.fg);
+    if (tile.value >= 128) shake = Math.min(8, 2 + intensity);
+  });
+
+  const spawned = addRandomTile(false);
+  if (spawned) {
+    anim = { phase: 'spawn', start: performance.now(), tile: spawned, onDone: afterSpawn };
+  } else {
+    afterSpawn();
+  }
+}
+
+function afterSpawn() {
+  anim = null;
+
+  if (!gameState.won && hasTile(2048)) {
+    gameState.won = true;
+    hapticSuccess();
+    ui.winScore.textContent = String(gameState.score);
+    ui.winOverlay.classList.remove('hidden');
+    gameState.state = 'won';
+    boardPulse = 1;
+    return;
+  }
+
+  if (!canMove()) endGame();
+}
+
+function endGame() {
+  gameState.state = 'dead';
+  hapticHeavy();
+  ui.finalScore.textContent = String(gameState.score);
+  ui.bestScore.textContent = `BEST: ${gameState.best}`;
+  ui.gameoverOverlay.classList.remove('hidden');
+}
+
+function tryMove(direction) {
+  if (gameState.state !== 'playing' || anim) return false;
+
+  const { moved, gained, merges } = applyMove(direction);
+  if (!moved) return false;
+
+  anim = {
+    phase: 'slide',
+    start: performance.now(),
+    merges,
+    gained,
+    onDone() {
+      anim = { phase: 'merge', start: performance.now(), merges, gained, onDone: () => finishMove(gained, merges) };
+    },
+  };
+
+  return true;
+}
+
+function boardMetrics() {
+  const pad = Math.min(W(), H()) * 0.05;
+  const size = Math.min(W(), H()) - pad * 2;
+  const gap = size * 0.035;
+  const cell = (size - gap * (SIZE + 1)) / SIZE;
+  const ox = (W() - size) / 2;
+  const oy = (H() - size) / 2;
+  return { pad, size, gap, cell, ox, oy };
+}
+
+function cellPos(row, col, metrics, slideT) {
+  const { gap, cell, ox, oy } = metrics;
+  const x = ox + gap + col * (cell + gap);
+  const y = oy + gap + row * (cell + gap);
+  return { x, y, cx: x + cell / 2, cy: y + cell / 2, cell };
+}
+
+function drawRoundedRect(x, y, w, h, r) {
+  const radius = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + w - radius, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+  ctx.lineTo(x + w, y + h - radius);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+  ctx.lineTo(x + radius, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
+function drawBackground(metrics, now) {
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0, 0, W(), H());
+
+  bgPhase += 0.012;
+  const { ox, oy, size, cell, gap } = metrics;
+  const cx = ox + size / 2;
+  const cy = oy + size / 2;
+
+  const aura = ctx.createRadialGradient(cx, cy, size * 0.1, cx, cy, size * 0.75);
+  aura.addColorStop(0, 'rgba(255, 136, 0, 0.12)');
+  aura.addColorStop(0.55, 'rgba(255, 0, 255, 0.05)');
+  aura.addColorStop(1, 'transparent');
+  ctx.fillStyle = aura;
+  ctx.fillRect(0, 0, W(), H());
+
+  const boardW = cell * SIZE + gap * (SIZE + 1);
+  const boardH = boardW;
+  const bx = ox - gap * 0.35;
+  const by = oy - gap * 0.35;
+
+  drawRoundedRect(bx, by, boardW + gap * 0.7, boardH + gap * 0.7, 14);
+  ctx.fillStyle = 'rgba(255, 136, 0, 0.06)';
+  ctx.fill();
+  ctx.strokeStyle = `rgba(255, 136, 0, ${0.22 + Math.sin(bgPhase) * 0.08})`;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(0, 245, 255, 0.08)';
+  ctx.lineWidth = 1;
+  const scanY = by + ((now * 0.04) % (boardH + gap * 0.7));
+  ctx.beginPath();
+  ctx.moveTo(bx, scanY);
+  ctx.lineTo(bx + boardW + gap * 0.7, scanY);
+  ctx.stroke();
+
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const slot = cellPos(y, x, metrics, 1);
+      drawRoundedRect(slot.x, slot.y, slot.cell, slot.cell, 8);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.stroke();
+    }
+  }
+
+  const corners = [
+    [bx + 4, by + 4, 1, 1],
+    [bx + boardW + gap * 0.7 - 4, by + 4, -1, 1],
+    [bx + 4, by + boardH + gap * 0.7 - 4, 1, -1],
+    [bx + boardW + gap * 0.7 - 4, by + boardH + gap * 0.7 - 4, -1, -1],
+  ];
+  ctx.strokeStyle = 'rgba(255, 136, 0, 0.45)';
+  ctx.lineWidth = 2;
+  corners.forEach(([x, y, dx, dy]) => {
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + dx * 12, y);
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y + dy * 12);
+    ctx.stroke();
+  });
+}
+
+function drawTile(tile, metrics, now, slideT) {
+  const fromRow = tile.prevRow;
+  const fromCol = tile.prevCol;
+  const toRow = tile.row;
+  const toCol = tile.col;
+  const row = fromRow + (toRow - fromRow) * slideT;
+  const col = fromCol + (toCol - fromCol) * slideT;
+  const pos = cellPos(row, col, metrics, 1);
+  const style = tileStyle(tile.value);
+
+  let scale = 1;
+  if (tile.spawnT < 1) scale = easeOutBack(tile.spawnT);
+  if (tile.mergeT > 0 && tile.mergeT < 1) {
+    scale *= 1 + 0.22 * Math.sin(tile.mergeT * Math.PI);
+  }
+
+  const pulse = 1 + Math.sin(now * 0.004 + tile.pulse) * (tile.value >= 512 ? 0.04 : tile.value >= 128 ? 0.025 : 0);
+  scale *= pulse;
+
+  const size = pos.cell * scale;
+  const dx = pos.cx - size / 2;
+  const dy = pos.cy - size / 2;
+
+  ctx.save();
+  ctx.shadowColor = style.glow;
+  ctx.shadowBlur = 10 + Math.min(24, Math.log2(tile.value) * 3);
+  drawRoundedRect(dx, dy, size, size, 9);
+  const grad = ctx.createLinearGradient(dx, dy, dx + size, dy + size);
+  grad.addColorStop(0, style.bg[0]);
+  grad.addColorStop(1, style.bg[1]);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.strokeStyle = `${style.rim}aa`;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  drawRoundedRect(dx + 3, dy + 3, size - 6, (size - 6) * 0.35, 6);
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.fill();
+
+  if (tile.value >= 2048) {
+    const hue = (now * 0.12) % 360;
+    ctx.strokeStyle = `hsla(${hue}, 100%, 65%, 0.75)`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  ctx.shadowColor = style.glow;
+  ctx.shadowBlur = 14;
+  ctx.fillStyle = style.fg;
+  const fontSize = tile.value >= 1024 ? 17 : tile.value >= 128 ? 21 : 25;
+  ctx.font = `700 ${fontSize}px Orbitron`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(tile.value), pos.cx, pos.cy + 1);
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function drawParticles() {
+  particles.forEach((p) => {
+    ctx.globalAlpha = p.life;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+}
+
+function drawFloatTexts() {
+  floatTexts.forEach((f) => {
+    ctx.globalAlpha = f.life;
+    ctx.font = '700 13px Orbitron';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = f.color;
+    ctx.shadowColor = f.color;
+    ctx.shadowBlur = 10;
+    ctx.fillText(f.text, f.x, f.y);
+  });
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+}
+
+function updateEffects() {
+  particles = particles.filter((p) => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.06;
+    p.life -= p.decay;
+    return p.life > 0;
+  });
+
+  floatTexts = floatTexts.filter((f) => {
+    f.y += f.vy;
+    f.life -= 0.025;
+    return f.life > 0;
+  });
+
+  if (shake > 0) shake *= 0.82;
+  if (boardPulse > 0) boardPulse *= 0.96;
+}
+
+function updateAnimation(now) {
+  if (!anim) return;
+
+  if (anim.phase === 'slide') {
+    const t = Math.min(1, (now - anim.start) / SLIDE_MS);
+    if (t >= 1) anim.onDone();
+    return;
+  }
+
+  if (anim.phase === 'merge') {
+    const t = Math.min(1, (now - anim.start) / MERGE_MS);
+    anim.merges.forEach((tile) => { tile.mergeT = t; });
+    if (t >= 1) anim.onDone();
+    return;
+  }
+
+  if (anim.phase === 'spawn') {
+    const t = Math.min(1, (now - anim.start) / SPAWN_MS);
+    anim.tile.spawnT = easeOutBack(t);
+    if (t >= 1) {
+      anim.tile.spawnT = 1;
+      anim.onDone();
+    }
+  }
+}
+
+function getSlideT(now) {
+  if (!anim || anim.phase !== 'slide') return 1;
+  return easeOutCubic(Math.min(1, (now - anim.start) / SLIDE_MS));
+}
+
+function draw(now) {
+  updateEffects();
+  updateAnimation(now);
+
+  const metrics = boardMetrics();
+  ctx.save();
+  if (shake > 0.4) {
+    ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+  }
+
+  drawBackground(metrics, now);
+
+  const slideT = getSlideT(now);
+  const tiles = [];
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      if (grid[y][x]) tiles.push(grid[y][x]);
+    }
+  }
+  tiles.sort((a, b) => a.value - b.value);
+  tiles.forEach((tile) => drawTile(tile, metrics, now, slideT));
+
+  drawParticles();
+  drawFloatTexts();
+
+  if (boardPulse > 0.02) {
+    const { ox, oy, size } = metrics;
+    ctx.strokeStyle = `rgba(255, 255, 0, ${boardPulse * 0.35})`;
+    ctx.lineWidth = 3;
+    drawRoundedRect(ox - 6, oy - 6, size + 12, size + 12, 16);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function gameLoop(now) {
+  draw(now || performance.now());
+  requestAnimationFrame(gameLoop);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (gameState.state !== 'playing') return;
+  let direction = null;
+  if (KEYS.LEFT.includes(e.code)) direction = 'left';
+  if (KEYS.RIGHT.includes(e.code)) direction = 'right';
+  if (KEYS.UP.includes(e.code)) direction = 'up';
+  if (KEYS.DOWN.includes(e.code)) direction = 'down';
+  if (direction) {
+    e.preventDefault();
+    tryMove(direction);
+  }
+});
+
+let touchStart = null;
+let suppressMouseUntil = 0;
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (gameState.state !== 'playing') return;
+  touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  if (!touchStart || gameState.state !== 'playing') {
+    touchStart = null;
+    return;
+  }
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStart.x;
+  const dy = t.clientY - touchStart.y;
+  touchStart = null;
+  if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
+  if (Math.abs(dx) > Math.abs(dy)) tryMove(dx > 0 ? 'right' : 'left');
+  else tryMove(dy > 0 ? 'down' : 'up');
+}, { passive: false });
+
+document.querySelectorAll('.g2048-btn').forEach((btn) => {
+  const direction = btn.dataset.dir;
+  const press = (e) => {
+    e.preventDefault();
+    suppressMouseUntil = Date.now() + 400;
+    tryMove(direction);
+  };
+  btn.addEventListener('touchstart', press, { passive: false });
+  btn.addEventListener('mousedown', (e) => {
+    if (Date.now() < suppressMouseUntil) return;
+    e.preventDefault();
+    tryMove(direction);
+  });
+  btn.addEventListener('click', (e) => e.preventDefault());
+});
+
+if ('ontouchstart' in window) {
+  document.getElementById('controlsHint').textContent = 'SWIPE OR PAD · MERGE UP TO 2048';
+}
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  initBoard();
+  gameState.state = 'playing';
+  ui.startOverlay.classList.add('hidden');
+});
+
+document.getElementById('continueBtn').addEventListener('click', () => {
+  gameState.keepPlaying = true;
+  gameState.state = 'playing';
+  ui.winOverlay.classList.add('hidden');
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+  initBoard();
+  gameState.state = 'playing';
+  ui.gameoverOverlay.classList.add('hidden');
+});
+
+init();
+requestAnimationFrame(gameLoop);
+</script>
+
+</body>
+</html>
