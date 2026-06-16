@@ -109,3 +109,14 @@ function hapticMedium() { haptic('medium'); }
 function hapticHeavy() { haptic('heavy'); }
 function hapticSuccess() { haptic('success'); }
 function hapticError() { haptic('error'); }
+
+function beginCoinSession(currentBest) {
+  if (window.ArcadeEconomy) ArcadeEconomy.beginCoinSession(currentBest);
+}
+
+function awardAndShowCoins(gameId, score) {
+  if (!window.ArcadeEconomy) return null;
+  const reward = ArcadeEconomy.awardAndShowCoins(gameId, score);
+  if (reward && reward.earned > 0) hapticSuccess();
+  return reward;
+}

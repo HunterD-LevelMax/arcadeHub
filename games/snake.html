@@ -30,6 +30,11 @@
         <div class="overlay-sub">YOU HIT YOURSELF</div>
         <div class="overlay-score" id="finalScore">0</div>
         <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <div class="overlay-coins hidden" id="coinRewardBlock">
+          <div class="overlay-coins-earned" id="coinRewardEarned">+0 COINS</div>
+          <div class="overlay-coins-total" id="coinRewardTotal">TOTAL: 0</div>
+        </div>
+        <div class="overlay-coins-hint hidden" id="coinRewardHint"></div>
         <button class="start-btn" id="restartBtn">RETRY</button>
       </div>
     </div>
@@ -38,6 +43,7 @@
   </div>
 
 <script src="../js/game.js"></script>
+<script src="../js/economy-api.js"></script>
 <script>
 const BASE_W = 400, BASE_H = 600;
 const GRID = 20;
@@ -137,6 +143,7 @@ function endGame() {
   
   ui.finalScore.textContent = gameState.score;
   ui.bestScore.textContent = `BEST: ${gameState.best}`;
+  awardAndShowCoins('snake', gameState.score);
   ui.gameoverOverlay.classList.remove('hidden');
 }
 
@@ -301,12 +308,14 @@ canvas.addEventListener('touchend', e => {
 // Buttons
 document.getElementById('startBtn').addEventListener('click', () => {
   gameState.state = 'playing';
+  beginCoinSession(gameState.best);
   ui.startOverlay.classList.add('hidden');
 });
 
 document.getElementById('restartBtn').addEventListener('click', () => {
   init();
   gameState.state = 'playing';
+  beginCoinSession(gameState.best);
   ui.gameoverOverlay.classList.add('hidden');
 });
 

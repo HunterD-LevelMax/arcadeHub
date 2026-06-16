@@ -30,6 +30,11 @@
         <div class="overlay-sub" id="deathMsg">MISALIGNED BLOCK</div>
         <div class="overlay-score" id="finalScore">0</div>
         <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <div class="overlay-coins hidden" id="coinRewardBlock">
+          <div class="overlay-coins-earned" id="coinRewardEarned">+0 COINS</div>
+          <div class="overlay-coins-total" id="coinRewardTotal">TOTAL: 0</div>
+        </div>
+        <div class="overlay-coins-hint hidden" id="coinRewardHint"></div>
         <button class="start-btn" id="restartBtn">RETRY</button>
       </div>
     </div>
@@ -38,6 +43,7 @@
   </div>
 
 <script src="../js/game.js"></script>
+<script src="../js/economy-api.js"></script>
 <script>
 const BASE_W = 400, BASE_H = 620;
 const BLOCK_H = 26;
@@ -326,6 +332,7 @@ function endGame() {
   shake = 6;
   ui.finalScore.textContent = String(gameState.score);
   ui.bestScore.textContent = `BEST: ${gameState.best}`;
+  awardAndShowCoins('stacktower', gameState.score);
   ui.gameoverOverlay.classList.remove('hidden');
 }
 
@@ -525,12 +532,14 @@ if ('ontouchstart' in window) {
 document.getElementById('startBtn').addEventListener('click', () => {
   resetTower();
   gameState.state = 'playing';
+  beginCoinSession(gameState.best);
   ui.startOverlay.classList.add('hidden');
 });
 
 document.getElementById('restartBtn').addEventListener('click', () => {
   resetTower();
   gameState.state = 'playing';
+  beginCoinSession(gameState.best);
   ui.gameoverOverlay.classList.add('hidden');
 });
 

@@ -264,6 +264,24 @@ body::after {
   animation: coinPulse 0.35s ease-out;
 }
 
+.dev-coins-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 6px 10px;
+  border: 1px dashed rgba(255, 193, 7, 0.6);
+  color: #ffe082;
+  background: rgba(255, 193, 7, 0.08);
+  transition: box-shadow 0.2s, background 0.2s;
+}
+
+.dev-coins-btn:hover {
+  background: rgba(255, 193, 7, 0.16);
+  box-shadow: 0 0 12px rgba(255, 193, 7, 0.35);
+}
+
 .next-unlock {
   width: 100%;
   margin-top: 14px;

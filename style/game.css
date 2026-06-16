@@ -176,6 +176,48 @@ canvas {
   text-shadow: 0 0 15px var(--neon-yellow);
 }
 
+.overlay-coins {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.overlay-coins.hidden {
+  display: none;
+}
+
+.overlay-coins-earned {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--neon-green);
+  text-shadow: 0 0 15px var(--neon-green);
+  text-align: center;
+}
+
+.overlay-coins-total {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+}
+
+.overlay-coins-hint {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  text-align: center;
+  max-width: 260px;
+}
+
+.overlay-coins-hint.hidden {
+  display: none;
+}
+
 .start-btn {
   font-family: 'Orbitron', sans-serif;
   font-size: 14px;

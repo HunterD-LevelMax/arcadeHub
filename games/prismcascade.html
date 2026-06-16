@@ -33,6 +33,11 @@
         <div class="overlay-sub">TIME'S UP</div>
         <div class="overlay-score" id="finalScore">0</div>
         <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <div class="overlay-coins hidden" id="coinRewardBlock">
+          <div class="overlay-coins-earned" id="coinRewardEarned">+0 COINS</div>
+          <div class="overlay-coins-total" id="coinRewardTotal">TOTAL: 0</div>
+        </div>
+        <div class="overlay-coins-hint hidden" id="coinRewardHint"></div>
         <button class="start-btn" id="restartBtn">RETRY</button>
       </div>
     </div>
@@ -41,6 +46,7 @@
   </div>
 
 <script src="../js/game.js"></script>
+<script src="../js/economy-api.js"></script>
 <script>
 const BASE_W = 400, BASE_H = 600;
 const GRID_SIZE = 8;
@@ -767,6 +773,7 @@ function endGame() {
     setHighScore('prismcascade', gameState.best);
   }
   ui.bestScore.textContent = `BEST: ${gameState.best}`;
+  awardAndShowCoins('prismcascade', gameState.score);
   ui.gameoverOverlay.classList.remove('hidden');
   haptic('error');
 }
@@ -906,6 +913,7 @@ canvas.addEventListener('pointercancel', releasePointer);
 document.getElementById('startBtn').addEventListener('click', () => {
   init();
   gameState.state = 'playing';
+  beginCoinSession(gameState.best);
   ui.startOverlay.classList.add('hidden');
   startTimer();
   haptic('medium');
@@ -914,6 +922,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
 document.getElementById('restartBtn').addEventListener('click', () => {
   init();
   gameState.state = 'playing';
+  beginCoinSession(gameState.best);
   ui.gameoverOverlay.classList.add('hidden');
   startTimer();
   haptic('medium');

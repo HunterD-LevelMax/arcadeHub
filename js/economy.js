@@ -1,76 +1,15 @@
 (function () {
-  const STORAGE_KEY = "arcade_hub_player_v1";
-  const LOG_KEY = "arcade_hub_economy_log_v1";
-  const DEFAULT_UNLOCKED_GAMES = ["prismcascade", "doodle", "tetris", "snake"];
-  const FIRST_LAUNCH_REWARD = 50;
-  const GAME_ENTRY_REWARD = 5;
-  const PLAYER_NAME = "Player 1";
-  const RARITY_COST = {
-    common: 30,
-    rare: 50,
-    epic: 70
-  };
-  const RARITY_LABEL = {
-    common: "COMMON",
-    rare: "RARE",
-    epic: "EPIC"
-  };
-
-  function logEvent(type, payload) {
-    const entry = {
-      type,
-      payload,
-      at: new Date().toISOString()
-    };
-    console.info("[ArcadeEconomy]", entry);
-    try {
-      const raw = localStorage.getItem(LOG_KEY);
-      const current = raw ? JSON.parse(raw) : [];
-      current.push(entry);
-      if (current.length > 200) current.shift();
-      localStorage.setItem(LOG_KEY, JSON.stringify(current));
-    } catch (_e) {
-      // Ignore log storage errors.
-    }
-  }
+  const {
+    FIRST_LAUNCH_REWARD,
+    RARITY_LABEL,
+    logEvent,
+    loadPlayerState,
+    savePlayerState
+  } = window.ArcadeEconomy;
 
   function getGameCost(card) {
     const rarity = card.dataset.rarity || "common";
-    return RARITY_COST[rarity] || RARITY_COST.common;
-  }
-
-  function loadPlayerState() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        return {
-          playerName: PLAYER_NAME,
-          coins: 0,
-          firstLaunchRewarded: false,
-          unlockedGames: [...DEFAULT_UNLOCKED_GAMES]
-        };
-      }
-      const parsed = JSON.parse(raw);
-      const unlocked = Array.isArray(parsed.unlockedGames) ? parsed.unlockedGames : [];
-      const mergedUnlocked = Array.from(new Set([...DEFAULT_UNLOCKED_GAMES, ...unlocked]));
-      return {
-        playerName: parsed.playerName || PLAYER_NAME,
-        coins: Number.isFinite(parsed.coins) ? parsed.coins : 0,
-        firstLaunchRewarded: Boolean(parsed.firstLaunchRewarded),
-        unlockedGames: mergedUnlocked
-      };
-    } catch (_e) {
-      return {
-        playerName: PLAYER_NAME,
-        coins: 0,
-        firstLaunchRewarded: false,
-        unlockedGames: [...DEFAULT_UNLOCKED_GAMES]
-      };
-    }
-  }
-
-  function savePlayerState(state) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return window.ArcadeEconomy.getGameCostFromRarity(rarity);
   }
 
   function animateCoins() {
@@ -120,7 +59,6 @@
       });
     });
     if (locked.length === 0) return null;
-
     locked.sort((a, b) => a.cost - b.cost);
     const affordable = locked.find((game) => game.cost <= state.coins);
     return affordable || locked[0];
@@ -214,6 +152,20 @@
   renderProfile(playerState);
   renderGameLocks(playerState);
 
+  const devCoinsBtn = document.getElementById("devCoinsBtn");
+  if (devCoinsBtn) {
+    devCoinsBtn.addEventListener("click", () => {
+      const reward = 1000;
+      playerState.coins += reward;
+      savePlayerState(playerState);
+      renderProfile(playerState);
+      renderGameLocks(playerState);
+      animateCoins();
+      hapticSuccess();
+      logEvent("dev_test_coins", { reward, coins: playerState.coins });
+    });
+  }
+
   document.querySelectorAll(".game-card[data-game-id]").forEach((card) => {
     card.addEventListener("click", async (event) => {
       const gameId = card.dataset.gameId;
@@ -250,13 +202,6 @@
         hapticSuccess();
         logEvent("unlock_success", { gameId, unlockCost, coins: playerState.coins });
       }
-
-      playerState.coins += GAME_ENTRY_REWARD;
-      renderProfile(playerState);
-      savePlayerState(playerState);
-      animateCoins();
-      hapticTick();
-      logEvent("game_entry_reward", { gameId, reward: GAME_ENTRY_REWARD, coins: playerState.coins });
     });
   });
 })();
