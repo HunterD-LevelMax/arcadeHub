@@ -14,9 +14,16 @@
       <a href="../index.html" class="back-btn">← BACK</a>
       <div class="game-title">PRISM CASCADE</div>
       <div class="header-stats">
+        <div class="tier-display" id="tierDisplay">CALM</div>
         <div class="timer-display">TIME: <span id="timerVal">60</span></div>
         <div class="score-display">SCORE: <span id="scoreVal">0</span></div>
       </div>
+    </div>
+
+    <div class="objective-bar hidden" id="objectiveBar">
+      <span class="objective-label">GOAL</span>
+      <span class="objective-swatch" id="objectiveSwatch"></span>
+      <span class="objective-progress" id="objectiveProgress">0 / 0</span>
     </div>
 
     <div class="game-container" id="gameContainer">
@@ -24,7 +31,7 @@
 
       <div class="overlay" id="startOverlay">
         <div class="overlay-title" style="color: var(--game-accent); text-shadow: 0 0 30px var(--game-accent);">PRISM CASCADE</div>
-        <div class="overlay-sub">DRAG TO MATCH · MATCHES ADD TIME</div>
+        <div class="overlay-sub">DRAG TO MATCH · MATCHES ADD TIME<br>MATCH 4+ FOR BONUS CRYSTALS · SPECIALS EXPLODE IN ANY COMBO</div>
         <button class="start-btn" id="startBtn">PLAY</button>
       </div>
 
@@ -42,7 +49,22 @@
       </div>
     </div>
 
-    <div class="footer">TAP TO SELECT, TAP NEIGHBOR TO SWAP · OR DRAG · CHAIN COMBOS FOR BONUS TIME</div>
+    <div class="ability-bar" id="abilityBar">
+      <button class="ability-btn" id="abilityBomb" type="button">
+        <span class="ability-name">BOMB</span>
+        <span class="ability-charge" id="bombCharge">0</span>
+      </button>
+      <button class="ability-btn" id="abilityHammer" type="button">
+        <span class="ability-name">HAMMER</span>
+        <span class="ability-charge" id="hammerCharge">0</span>
+      </button>
+      <button class="ability-btn ability-btn-free" id="abilityShuffle" type="button">
+        <span class="ability-name">SHUFFLE</span>
+        <span class="ability-cost">-5s</span>
+      </button>
+    </div>
+
+    <div class="footer">MATCH 4+ FOR BONUS CRYSTALS · ICE &amp; CRATES BLOCK · USE ABILITIES &amp; HIT GOALS</div>
   </div>
 
 <script src="../js/game.js"></script>
@@ -61,6 +83,43 @@ const CLEAR_ANIM_MS = 200;
 const GEM_SIZE_RATIO = 0.78;
 const SELECT_PULSE_MS = 200;
 const PRESS_PULSE_MS = 120;
+const SHAKE_MS = 150;
+
+const SPECIAL = {
+  NOVA: 'nova',
+  BEAM_H: 'beam_h',
+  BEAM_V: 'beam_v',
+  PRISM: 'prism',
+  CROSS: 'cross',
+  CHRONO: 'chrono',
+};
+
+const BONUS_CONFIG = {
+  novaRadius: 1,
+  megaNovaRadius: 2,
+  chronoTimeBonus: 6,
+  comboSpawnThreshold: 4,
+  specialScoreMult: 1.5,
+  particleBurstLarge: 24,
+};
+
+const SPAWN_LABELS = {
+  nova: 'NOVA BORN!',
+  beam_h: 'BEAM BORN!',
+  beam_v: 'BEAM BORN!',
+  prism: 'PRISM BORN!',
+  cross: 'CROSS BORN!',
+  chrono: 'TIME SHARD!',
+};
+
+const ACTIVATION_LABELS = {
+  nova: 'NOVA!',
+  beam_h: 'BEAM!',
+  beam_v: 'BEAM!',
+  prism: 'PRISM!',
+  cross: 'CROSS!',
+  chrono: 'TIME!',
+};
 
 const GEM_DEFS = [
   { shape: 'circle', color: '#00f5ff', core: '#00b8cc', rim: '#ccfcff', bg: '#031820', pad: 'rgba(0, 245, 255, 0.12)' },
@@ -87,9 +146,28 @@ const ui = {
   startOverlay: document.getElementById('startOverlay'),
   gameoverOverlay: document.getElementById('gameoverOverlay'),
   gameContainer: document.getElementById('gameContainer'),
+  tierDisplay: document.getElementById('tierDisplay'),
+  objectiveBar: document.getElementById('objectiveBar'),
+  objectiveSwatch: document.getElementById('objectiveSwatch'),
+  objectiveProgress: document.getElementById('objectiveProgress'),
+  abilityBomb: document.getElementById('abilityBomb'),
+  abilityHammer: document.getElementById('abilityHammer'),
+  abilityShuffle: document.getElementById('abilityShuffle'),
+  bombCharge: document.getElementById('bombCharge'),
+  hammerCharge: document.getElementById('hammerCharge'),
 };
 
+const DIFFICULTY_TIERS = [
+  { atSec: 0, obstacleEvery: 0, ice: false, crate: false, label: 'CALM', color: '#39ff14' },
+  { atSec: 20, obstacleEvery: 5, ice: true, crate: false, label: 'HEATING', color: '#ffaa00' },
+  { atSec: 40, obstacleEvery: 4, ice: true, crate: true, label: 'INTENSE', color: '#ff3344' },
+];
+
 let grid = [];
+let specialGrid = [];
+let blockGrid = [];
+let lastSwapCell = null;
+let screenShake = 0;
 let boardState = 'idle';
 let particles = [];
 let floatTexts = [];
@@ -105,6 +183,16 @@ let timeLeft = GAME_TIME;
 let timerInterval = null;
 let gridMetrics = null;
 let timerPop = 0;
+let elapsed = 0;
+let moveCount = 0;
+let currentTier = 0;
+let activeTool = null;
+let charges = { bomb: 0, hammer: 0 };
+let shuffleCooldown = 0;
+let objective = null;
+let lastActionAt = 0;
+let hintCells = null;
+let slowmoUntil = 0;
 
 let gameState = {
   score: 0,
@@ -203,6 +291,280 @@ function createEmptyBoard() {
   return Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0));
 }
 
+function createEmptySpecialGrid() {
+  return Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(null));
+}
+
+function createEmptyBlockGrid() {
+  return Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(null));
+}
+
+function isSolidCell(r, c) {
+  return grid[r][c] >= 0 || (blockGrid[r][c] && blockGrid[r][c].type === 'crate');
+}
+
+function isMovable(r, c) {
+  return grid[r][c] >= 0 && !(blockGrid[r][c] && blockGrid[r][c].type === 'ice');
+}
+
+function cellKey(r, c) {
+  return `${r},${c}`;
+}
+
+function swapCellsBoth(r1, c1, r2, c2) {
+  swapCells(grid, r1, c1, r2, c2);
+  const tmpS = specialGrid[r1][c1];
+  specialGrid[r1][c1] = specialGrid[r2][c2];
+  specialGrid[r2][c2] = tmpS;
+  const tmpB = blockGrid[r1][c1];
+  blockGrid[r1][c1] = blockGrid[r2][c2];
+  blockGrid[r2][c2] = tmpB;
+}
+
+function addToClearSet(clearSet, r, c) {
+  if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE && grid[r][c] >= 0) {
+    clearSet.add(cellKey(r, c));
+  }
+}
+
+function addRadius(clearSet, r, c, radius) {
+  for (let dr = -radius; dr <= radius; dr++) {
+    for (let dc = -radius; dc <= radius; dc++) {
+      addToClearSet(clearSet, r + dr, c + dc);
+    }
+  }
+}
+
+function addRow(clearSet, r) {
+  for (let c = 0; c < GRID_SIZE; c++) addToClearSet(clearSet, r, c);
+}
+
+function addCol(clearSet, c) {
+  for (let r = 0; r < GRID_SIZE; r++) addToClearSet(clearSet, r, c);
+}
+
+function addColor(clearSet, color) {
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      if (grid[r][c] === color) addToClearSet(clearSet, r, c);
+    }
+  }
+}
+
+function triggerShake(intensity) {
+  screenShake = Math.max(screenShake, intensity);
+  ui.gameContainer.classList.remove('board-shake');
+  void ui.gameContainer.offsetWidth;
+  ui.gameContainer.classList.add('board-shake');
+}
+
+function applySingleExplosion(clearSet, r, c, special, partnerColor) {
+  switch (special) {
+    case SPECIAL.NOVA:
+      addRadius(clearSet, r, c, BONUS_CONFIG.novaRadius);
+      break;
+    case SPECIAL.BEAM_H:
+      addRow(clearSet, r);
+      break;
+    case SPECIAL.BEAM_V:
+      addCol(clearSet, c);
+      break;
+    case SPECIAL.PRISM:
+      addColor(clearSet, partnerColor != null ? partnerColor : grid[r][c]);
+      break;
+    case SPECIAL.CROSS:
+      addRow(clearSet, r);
+      addCol(clearSet, c);
+      break;
+    case SPECIAL.CHRONO:
+      addToClearSet(clearSet, r, c);
+      addTime(BONUS_CONFIG.chronoTimeBonus);
+      break;
+    default:
+      addToClearSet(clearSet, r, c);
+  }
+}
+
+function applySpecialCombo(clearSet, r1, c1, s1, r2, c2, s2) {
+  if (s1 === SPECIAL.CHRONO || s2 === SPECIAL.CHRONO) {
+    const other = s1 === SPECIAL.CHRONO ? s2 : s1;
+    const or1 = s1 === SPECIAL.CHRONO ? r2 : r1;
+    const oc1 = s1 === SPECIAL.CHRONO ? c2 : c1;
+    const or2 = s1 === SPECIAL.CHRONO ? r1 : r2;
+    const oc2 = s1 === SPECIAL.CHRONO ? c1 : c2;
+    applySingleExplosion(clearSet, or1, oc1, other);
+    applySingleExplosion(clearSet, or2, oc2, other);
+    addTime(BONUS_CONFIG.chronoTimeBonus * 2);
+    addFloatText(W() / 2, H() * 0.32, 'CHRONO BLAST!', '#39ff14');
+    triggerShake(1.2);
+    return [s1, s2];
+  }
+  if (s1 === SPECIAL.PRISM && s2 === SPECIAL.PRISM) {
+    for (let r = 0; r < GRID_SIZE; r++) {
+      for (let c = 0; c < GRID_SIZE; c++) {
+        if (grid[r][c] >= 0 && !specialGrid[r][c]) addToClearSet(clearSet, r, c);
+      }
+    }
+    addFloatText(W() / 2, H() * 0.32, 'PRISM SURGE!', '#ffffff');
+    triggerShake(1.5);
+    return [s1, s2];
+  }
+  if (s1 === SPECIAL.NOVA && s2 === SPECIAL.NOVA) {
+    const mr = Math.round((r1 + r2) / 2);
+    const mc = Math.round((c1 + c2) / 2);
+    addRadius(clearSet, mr, mc, BONUS_CONFIG.megaNovaRadius);
+    addFloatText(W() / 2, H() * 0.32, 'MEGA NOVA!', '#ff4466');
+    triggerShake(1.3);
+    return [s1, s2];
+  }
+  if ((s1 === SPECIAL.BEAM_H || s1 === SPECIAL.BEAM_V) && (s2 === SPECIAL.BEAM_H || s2 === SPECIAL.BEAM_V)) {
+    addRow(clearSet, r1);
+    addRow(clearSet, r2);
+    addCol(clearSet, c1);
+    addCol(clearSet, c2);
+    addFloatText(W() / 2, H() * 0.32, 'CROSS BEAM!', '#00f5ff');
+    triggerShake(1.1);
+    return [s1, s2];
+  }
+  if (s1 === SPECIAL.PRISM || s2 === SPECIAL.PRISM) {
+    const pr = s1 === SPECIAL.PRISM ? r1 : r2;
+    const pc = s1 === SPECIAL.PRISM ? c1 : c2;
+    const color = grid[pr][pc];
+    addColor(clearSet, color);
+    const or = s1 === SPECIAL.PRISM ? r2 : r1;
+    const oc = s1 === SPECIAL.PRISM ? c2 : c1;
+    const other = s1 === SPECIAL.PRISM ? s2 : s1;
+    applySingleExplosion(clearSet, or, oc, other);
+    addFloatText(W() / 2, H() * 0.32, 'PRISM COMBO!', '#ffffff');
+    triggerShake(1.2);
+    return [s1, s2];
+  }
+  applySingleExplosion(clearSet, r1, c1, s1);
+  applySingleExplosion(clearSet, r2, c2, s2);
+  triggerShake(0.8);
+  return [s1, s2];
+}
+
+function processSpecialExplosions(clearSet, comboPair) {
+  const activations = [];
+  const processed = new Set();
+
+  if (comboPair) {
+    const { r1, c1, s1, r2, c2, s2 } = comboPair;
+    processed.add(cellKey(r1, c1));
+    processed.add(cellKey(r2, c2));
+    const comboTypes = applySpecialCombo(clearSet, r1, c1, s1, r2, c2, s2);
+    comboTypes.forEach((t) => activations.push({ special: t, combo: true }));
+  }
+
+  let queue = [];
+  function enqueueFromClearSet() {
+    clearSet.forEach((key) => {
+      if (processed.has(key)) return;
+      const [r, c] = key.split(',').map(Number);
+      if (specialGrid[r][c]) queue.push({ r, c, key, special: specialGrid[r][c] });
+    });
+  }
+
+  enqueueFromClearSet();
+
+  while (queue.length > 0) {
+    const batch = queue;
+    queue = [];
+
+    if (batch.length >= 2) {
+      const a = batch[0];
+      const b = batch.find((item) => item.key !== a.key) || batch[1];
+      if (a && b && !processed.has(b.key)) {
+        processed.add(a.key);
+        processed.add(b.key);
+        const comboTypes = applySpecialCombo(clearSet, a.r, a.c, a.special, b.r, b.c, b.special);
+        comboTypes.forEach((t) => activations.push({ special: t, combo: true }));
+        enqueueFromClearSet();
+        continue;
+      }
+    }
+
+    for (const item of batch) {
+      if (processed.has(item.key)) continue;
+      processed.add(item.key);
+      const sizeBefore = clearSet.size;
+      applySingleExplosion(clearSet, item.r, item.c, item.special);
+      activations.push({ special: item.special, r: item.r, c: item.c });
+      if (clearSet.size - sizeBefore > 3) triggerShake(0.7);
+      enqueueFromClearSet();
+    }
+  }
+
+  return activations;
+}
+
+function pickSpawnCell(cells, swapOrigin) {
+  if (swapOrigin) {
+    const found = cells.find((c) => c.r === swapOrigin.r && c.c === swapOrigin.c);
+    if (found) return found;
+  }
+  return cells[Math.floor(cells.length / 2)];
+}
+
+function isGroupHorizontal(cells) {
+  return cells.every((c) => c.r === cells[0].r);
+}
+
+function detectCrossSpawns(matches) {
+  const spawns = new Map();
+  for (let i = 0; i < matches.length; i++) {
+    for (let j = i + 1; j < matches.length; j++) {
+      const a = matches[i];
+      const b = matches[j];
+      if (a.type !== b.type) continue;
+      const shared = a.cells.filter((ca) => b.cells.some((cb) => cb.r === ca.r && cb.c === ca.c));
+      if (shared.length !== 1) continue;
+      const union = new Set([
+        ...a.cells.map((c) => cellKey(c.r, c.c)),
+        ...b.cells.map((c) => cellKey(c.r, c.c)),
+      ]);
+      if (union.size >= 5) {
+        const pt = shared[0];
+        spawns.set(cellKey(pt.r, pt.c), {
+          r: pt.r,
+          c: pt.c,
+          special: SPECIAL.CROSS,
+          color: a.type,
+        });
+      }
+    }
+  }
+  return spawns;
+}
+
+function detectBonusSpawns(matches, swapOrigin) {
+  const spawns = detectCrossSpawns(matches);
+
+  for (const group of matches) {
+    const spawnCell = pickSpawnCell(group.cells, swapOrigin);
+    const key = cellKey(spawnCell.r, spawnCell.c);
+    if (spawns.has(key)) continue;
+
+    let special = null;
+    if (group.len >= 5) {
+      special = SPECIAL.PRISM;
+    } else if (group.len === 4) {
+      special = isGroupHorizontal(group.cells) ? SPECIAL.BEAM_H : SPECIAL.BEAM_V;
+    }
+
+    if (special) {
+      const existing = spawns.get(key);
+      const priority = { cross: 5, prism: 4, beam_h: 3, beam_v: 3, nova: 2, chrono: 1 };
+      if (!existing || (priority[special] || 0) > (priority[existing.special] || 0)) {
+        spawns.set(key, { r: spawnCell.r, c: spawnCell.c, special, color: group.type });
+      }
+    }
+  }
+
+  return spawns;
+}
+
 function swapCells(board, r1, c1, r2, c2) {
   const tmp = board[r1][c1];
   board[r1][c1] = board[r2][c2];
@@ -211,20 +573,39 @@ function swapCells(board, r1, c1, r2, c2) {
 
 function findMatches(board) {
   const groups = [];
+  const specs = specialGrid;
 
   for (let r = 0; r < GRID_SIZE; r++) {
     let c = 0;
     while (c < GRID_SIZE) {
       const type = board[r][c];
       if (type < 0) { c++; continue; }
-      let len = 1;
-      while (c + len < GRID_SIZE && board[r][c + len] === type) len++;
-      if (len >= 3) {
-        const cells = [];
-        for (let i = 0; i < len; i++) cells.push({ r, c: c + i });
-        groups.push({ type, cells, len });
+
+      let baseType = specs[r][c] ? null : type;
+      const cells = [{ r, c }];
+      c++;
+
+      while (c < GRID_SIZE) {
+        const t = board[r][c];
+        if (t < 0) break;
+        const sp = specs[r][c];
+        if (sp) {
+          cells.push({ r, c });
+          c++;
+        } else if (baseType === null) {
+          baseType = t;
+          cells.push({ r, c });
+          c++;
+        } else if (t === baseType) {
+          cells.push({ r, c });
+          c++;
+        } else break;
       }
-      c += len;
+
+      if (cells.length >= 3) {
+        const matchType = baseType != null ? baseType : board[cells[0].r][cells[0].c];
+        groups.push({ type: matchType, cells, len: cells.length, horizontal: true });
+      }
     }
   }
 
@@ -233,14 +614,32 @@ function findMatches(board) {
     while (r < GRID_SIZE) {
       const type = board[r][c];
       if (type < 0) { r++; continue; }
-      let len = 1;
-      while (r + len < GRID_SIZE && board[r + len][c] === type) len++;
-      if (len >= 3) {
-        const cells = [];
-        for (let i = 0; i < len; i++) cells.push({ r: r + i, c });
-        groups.push({ type, cells, len });
+
+      let baseType = specs[r][c] ? null : type;
+      const cells = [{ r, c }];
+      r++;
+
+      while (r < GRID_SIZE) {
+        const t = board[r][c];
+        if (t < 0) break;
+        const sp = specs[r][c];
+        if (sp) {
+          cells.push({ r, c });
+          r++;
+        } else if (baseType === null) {
+          baseType = t;
+          cells.push({ r, c });
+          r++;
+        } else if (t === baseType) {
+          cells.push({ r, c });
+          r++;
+        } else break;
       }
-      r += len;
+
+      if (cells.length >= 3) {
+        const matchType = baseType != null ? baseType : board[cells[0].r][cells[0].c];
+        groups.push({ type: matchType, cells, len: cells.length, horizontal: false });
+      }
     }
   }
 
@@ -250,13 +649,33 @@ function findMatches(board) {
 function hasValidMove(board) {
   for (let r = 0; r < GRID_SIZE; r++) {
     for (let c = 0; c < GRID_SIZE; c++) {
+      if (specialGrid[r][c]) {
+        const neighbors = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+        for (const [dr, dc] of neighbors) {
+          const r2 = r + dr;
+          const c2 = c + dc;
+          if (r2 >= 0 && r2 < GRID_SIZE && c2 >= 0 && c2 < GRID_SIZE && board[r2][c2] >= 0) return true;
+        }
+      }
+    }
+  }
+
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
       const neighbors = [[0, 1], [1, 0]];
       for (const [dr, dc] of neighbors) {
         const r2 = r + dr;
         const c2 = c + dc;
         if (r2 >= GRID_SIZE || c2 >= GRID_SIZE) continue;
+        if (!isMovable(r, c) || !isMovable(r2, c2)) continue;
         swapCells(board, r, c, r2, c2);
+        const tmpS1 = specialGrid[r][c];
+        const tmpS2 = specialGrid[r2][c2];
+        specialGrid[r][c] = tmpS2;
+        specialGrid[r2][c2] = tmpS1;
         const matches = findMatches(board);
+        specialGrid[r][c] = tmpS1;
+        specialGrid[r2][c2] = tmpS2;
         swapCells(board, r, c, r2, c2);
         if (matches.length > 0) return true;
       }
@@ -265,16 +684,52 @@ function hasValidMove(board) {
   return false;
 }
 
+function findHintMove() {
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const neighbors = [[0, 1], [1, 0]];
+      for (const [dr, dc] of neighbors) {
+        const r2 = r + dr;
+        const c2 = c + dc;
+        if (r2 >= GRID_SIZE || c2 >= GRID_SIZE) continue;
+        if (!isMovable(r, c) || !isMovable(r2, c2)) continue;
+        swapCells(grid, r, c, r2, c2);
+        const tmpS1 = specialGrid[r][c];
+        const tmpS2 = specialGrid[r2][c2];
+        specialGrid[r][c] = tmpS2;
+        specialGrid[r2][c2] = tmpS1;
+        const matches = findMatches(grid);
+        specialGrid[r][c] = tmpS1;
+        specialGrid[r2][c2] = tmpS2;
+        swapCells(grid, r, c, r2, c2);
+        if (matches.length > 0) return [{ r, c }, { r: r2, c: c2 }];
+      }
+    }
+  }
+  return null;
+}
+
 function applyGravity(board) {
   const falls = [];
   for (let c = 0; c < GRID_SIZE; c++) {
     let write = GRID_SIZE - 1;
     for (let r = GRID_SIZE - 1; r >= 0; r--) {
-      if (board[r][c] >= 0) {
+      if (isSolidCell(r, c)) {
         if (write !== r) {
-          falls.push({ fromR: r, toR: write, c, type: board[r][c] });
+          falls.push({
+            fromR: r,
+            toR: write,
+            c,
+            type: board[r][c],
+            special: specialGrid[r][c],
+            block: blockGrid[r][c],
+          });
           board[write][c] = board[r][c];
+          specialGrid[write][c] = specialGrid[r][c];
+          blockGrid[write][c] = blockGrid[r][c];
           board[r][c] = -1;
+          specialGrid[r][c] = null;
+          blockGrid[r][c] = null;
         }
         write--;
       }
@@ -282,30 +737,50 @@ function applyGravity(board) {
     for (let r = write; r >= 0; r--) {
       const type = randomGemType();
       board[r][c] = type;
-      falls.push({ fromR: -1, toR: r, c, type });
+      specialGrid[r][c] = null;
+      blockGrid[r][c] = null;
+      falls.push({ fromR: -1, toR: r, c, type, special: null, block: null });
     }
   }
   return falls;
 }
 
+function isCrateCell(r, c) {
+  return blockGrid[r][c] && blockGrid[r][c].type === 'crate';
+}
+
 function shuffleBoard(board) {
+  const positions = [];
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      if (!isCrateCell(r, c) && board[r][c] >= 0) positions.push({ r, c });
+    }
+  }
+
   let attempts = 0;
   while (attempts < 80) {
-    const flat = [];
-    for (let r = 0; r < GRID_SIZE; r++) {
-      for (let c = 0; c < GRID_SIZE; c++) flat.push(board[r][c] >= 0 ? board[r][c] : randomGemType());
-    }
+    const flat = positions.map(({ r, c }) => ({
+      type: board[r][c],
+      special: specialGrid[r][c],
+      block: blockGrid[r][c],
+    }));
     for (let i = flat.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [flat[i], flat[j]] = [flat[j], flat[i]];
     }
-    let idx = 0;
-    for (let r = 0; r < GRID_SIZE; r++) {
-      for (let c = 0; c < GRID_SIZE; c++) board[r][c] = flat[idx++];
-    }
+    positions.forEach((pos, idx) => {
+      board[pos.r][pos.c] = flat[idx].type;
+      specialGrid[pos.r][pos.c] = flat[idx].special;
+      blockGrid[pos.r][pos.c] = flat[idx].block;
+    });
     if (findMatches(board).length === 0 && hasValidMove(board)) return true;
     attempts++;
   }
+
+  positions.forEach(({ r, c }) => {
+    specialGrid[r][c] = null;
+    blockGrid[r][c] = null;
+  });
   return fillBoardNoMatches(board);
 }
 
@@ -314,6 +789,7 @@ function fillBoardNoMatches(board) {
   do {
     for (let r = 0; r < GRID_SIZE; r++) {
       for (let c = 0; c < GRID_SIZE; c++) {
+        if (isCrateCell(r, c)) { board[r][c] = -1; continue; }
         board[r][c] = randomGemAvoidingMatch(board, r, c);
       }
     }
@@ -324,7 +800,193 @@ function fillBoardNoMatches(board) {
 
 function initBoard() {
   grid = createEmptyBoard();
+  specialGrid = createEmptySpecialGrid();
+  blockGrid = createEmptyBlockGrid();
   fillBoardNoMatches(grid);
+}
+
+function blockParticleColor(type) {
+  return type === 'crate' ? '#d9a066' : '#bfefff';
+}
+
+function processObstacles(clearSet) {
+  const damage = new Map();
+  function addDmg(r, c) {
+    if (!blockGrid[r][c]) return;
+    const k = cellKey(r, c);
+    damage.set(k, (damage.get(k) || 0) + 1);
+  }
+  clearSet.forEach((key) => {
+    const [r, c] = key.split(',').map(Number);
+    addDmg(r, c);
+    const neigh = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+    for (const [dr, dc] of neigh) {
+      const nr = r + dr;
+      const nc = c + dc;
+      if (nr < 0 || nr >= GRID_SIZE || nc < 0 || nc >= GRID_SIZE) continue;
+      addDmg(nr, nc);
+    }
+  });
+
+  const finalClear = new Set(clearSet);
+  damage.forEach((cnt, key) => {
+    const [r, c] = key.split(',').map(Number);
+    const b = blockGrid[r][c];
+    if (!b) return;
+    const wasIce = b.type === 'ice';
+    const pos = cellCenter(r, c);
+    b.hp -= cnt;
+    if (b.hp <= 0) {
+      blockGrid[r][c] = null;
+      burstParticles(pos.x, pos.y, blockParticleColor(b.type), 16);
+      triggerShake(0.4);
+    } else {
+      burstParticles(pos.x, pos.y, blockParticleColor(b.type), 6);
+    }
+    if (wasIce && finalClear.has(key)) finalClear.delete(key);
+  });
+
+  return finalClear;
+}
+
+function freezeRandomGem() {
+  const candidates = [];
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      if (grid[r][c] >= 0 && !blockGrid[r][c] && !specialGrid[r][c]) candidates.push({ r, c });
+    }
+  }
+  if (candidates.length === 0) return;
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  blockGrid[pick.r][pick.c] = { type: 'ice', hp: 1 + Math.floor(Math.random() * 2) };
+  if (!hasValidMove(grid)) {
+    blockGrid[pick.r][pick.c] = null;
+    return;
+  }
+  const pos = cellCenter(pick.r, pick.c);
+  burstParticles(pos.x, pos.y, '#bfefff', 10);
+  addFloatText(pos.x, pos.y - 16, 'FROZEN', '#bfefff');
+}
+
+function placeCrate() {
+  const candidates = [];
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      if (grid[r][c] >= 0 && !blockGrid[r][c] && !specialGrid[r][c]) candidates.push({ r, c });
+    }
+  }
+  if (candidates.length === 0) return;
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  const savedType = grid[pick.r][pick.c];
+  grid[pick.r][pick.c] = -1;
+  blockGrid[pick.r][pick.c] = { type: 'crate', hp: 2 };
+  if (!hasValidMove(grid)) {
+    blockGrid[pick.r][pick.c] = null;
+    grid[pick.r][pick.c] = savedType;
+    return;
+  }
+  const pos = cellCenter(pick.r, pick.c);
+  burstParticles(pos.x, pos.y, '#d9a066', 10);
+  addFloatText(pos.x, pos.y - 16, 'CRATE', '#d9a066');
+}
+
+function spawnObstacle(tier) {
+  if (tier.crate && Math.random() < 0.4) placeCrate();
+  else if (tier.ice) freezeRandomGem();
+}
+
+function registerMove() {
+  moveCount++;
+  const tier = DIFFICULTY_TIERS[currentTier];
+  if (tier.obstacleEvery > 0 && moveCount % tier.obstacleEvery === 0) {
+    spawnObstacle(tier);
+  }
+}
+
+function updateTierUI() {
+  const tier = DIFFICULTY_TIERS[currentTier];
+  if (ui.tierDisplay) {
+    ui.tierDisplay.textContent = tier.label;
+    ui.tierDisplay.style.color = tier.color;
+    ui.tierDisplay.style.borderColor = tier.color;
+  }
+}
+
+function updateTier() {
+  let t = 0;
+  for (let i = 0; i < DIFFICULTY_TIERS.length; i++) {
+    if (elapsed >= DIFFICULTY_TIERS[i].atSec) t = i;
+  }
+  if (t !== currentTier) {
+    currentTier = t;
+    const tier = DIFFICULTY_TIERS[t];
+    addFloatText(W() / 2, H() * 0.3, `TIER: ${tier.label}`, tier.color);
+    updateTierUI();
+    haptic('medium');
+  }
+}
+
+function rollObjective() {
+  const color = Math.floor(Math.random() * GEM_TYPES);
+  const target = 12 + Math.floor(Math.random() * 9);
+  objective = { color, target, progress: 0 };
+  updateObjectiveUI();
+}
+
+function updateObjectiveUI() {
+  if (!ui.objectiveBar) return;
+  if (!objective) {
+    ui.objectiveBar.classList.add('hidden');
+    return;
+  }
+  ui.objectiveBar.classList.remove('hidden');
+  ui.objectiveSwatch.style.background = GEM_DEFS[objective.color].color;
+  ui.objectiveSwatch.style.boxShadow = `0 0 10px ${GEM_DEFS[objective.color].color}`;
+  ui.objectiveProgress.textContent = `${Math.min(objective.progress, objective.target)} / ${objective.target}`;
+}
+
+function trackObjective(clearedColors) {
+  if (!objective) return;
+  let added = 0;
+  clearedColors.forEach((col) => { if (col === objective.color) added++; });
+  if (added <= 0) return;
+  objective.progress += added;
+  updateObjectiveUI();
+  if (objective.progress >= objective.target) completeObjective();
+}
+
+function completeObjective() {
+  addTime(5);
+  gameState.score += 200;
+  ui.score.textContent = gameState.score;
+  const tool = Math.random() < 0.5 ? 'bomb' : 'hammer';
+  charges[tool] = Math.min(9, charges[tool] + 1);
+  updateAbilityUI();
+  addFloatText(W() / 2, H() * 0.5, 'OBJECTIVE!', '#39ff14');
+  haptic('success');
+  rollObjective();
+}
+
+function updateAbilityUI() {
+  if (ui.bombCharge) ui.bombCharge.textContent = charges.bomb;
+  if (ui.hammerCharge) ui.hammerCharge.textContent = charges.hammer;
+  if (ui.abilityBomb) {
+    ui.abilityBomb.classList.toggle('armed', activeTool === 'bomb');
+    ui.abilityBomb.classList.toggle('depleted', charges.bomb <= 0);
+  }
+  if (ui.abilityHammer) {
+    ui.abilityHammer.classList.toggle('armed', activeTool === 'hammer');
+    ui.abilityHammer.classList.toggle('depleted', charges.hammer <= 0);
+  }
+}
+
+function triggerSlowmo(ms) {
+  slowmoUntil = performance.now() + ms;
+}
+
+function resetIdle() {
+  lastActionAt = performance.now();
+  hintCells = null;
 }
 
 function addFloatText(x, y, text, color) {
@@ -442,6 +1104,122 @@ function drawGemShape(def, x, y, size, alpha, scale) {
   ctx.restore();
 }
 
+function drawSpecialOverlay(special, x, y, size, alpha, now) {
+  ctx.save();
+  ctx.globalAlpha = alpha == null ? 1 : alpha;
+  const s = size;
+  const pulse = 1 + 0.06 * Math.sin(now * 0.008);
+
+  if (special === SPECIAL.NOVA) {
+    ctx.strokeStyle = '#ff4466';
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = '#ff2244';
+    ctx.shadowBlur = 16;
+    ctx.beginPath();
+    ctx.arc(x, y, s * 0.22 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, s * 0.38 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    for (let i = 0; i < 8; i++) {
+      const a = (Math.PI / 4) * i;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(a) * s * 0.12, y + Math.sin(a) * s * 0.12);
+      ctx.lineTo(x + Math.cos(a) * s * 0.32, y + Math.sin(a) * s * 0.32);
+      ctx.stroke();
+    }
+  } else if (special === SPECIAL.BEAM_H) {
+    ctx.strokeStyle = '#00f5ff';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#00f5ff';
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.moveTo(x - s * 0.42, y);
+    ctx.lineTo(x + s * 0.42, y);
+    ctx.stroke();
+    ctx.fillStyle = '#00f5ff';
+    ctx.beginPath();
+    ctx.moveTo(x + s * 0.38, y);
+    ctx.lineTo(x + s * 0.26, y - s * 0.1);
+    ctx.lineTo(x + s * 0.26, y + s * 0.1);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - s * 0.38, y);
+    ctx.lineTo(x - s * 0.26, y - s * 0.1);
+    ctx.lineTo(x - s * 0.26, y + s * 0.1);
+    ctx.fill();
+  } else if (special === SPECIAL.BEAM_V) {
+    ctx.strokeStyle = '#00f5ff';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#00f5ff';
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.moveTo(x, y - s * 0.42);
+    ctx.lineTo(x, y + s * 0.42);
+    ctx.stroke();
+    ctx.fillStyle = '#00f5ff';
+    ctx.beginPath();
+    ctx.moveTo(x, y - s * 0.38);
+    ctx.lineTo(x - s * 0.1, y - s * 0.26);
+    ctx.lineTo(x + s * 0.1, y - s * 0.26);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x, y + s * 0.38);
+    ctx.lineTo(x - s * 0.1, y + s * 0.26);
+    ctx.lineTo(x + s * 0.1, y + s * 0.26);
+    ctx.fill();
+  } else if (special === SPECIAL.PRISM) {
+    const hue = (now * 0.12) % 360;
+    ctx.strokeStyle = `hsl(${hue}, 100%, 70%)`;
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.arc(x, y, s * 0.4 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.beginPath();
+    ctx.arc(x, y, s * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (special === SPECIAL.CROSS) {
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = '#ffff00';
+    ctx.shadowBlur = 16;
+    ctx.beginPath();
+    ctx.moveTo(x - s * 0.36, y);
+    ctx.lineTo(x + s * 0.36, y);
+    ctx.moveTo(x, y - s * 0.36);
+    ctx.lineTo(x, y + s * 0.36);
+    ctx.stroke();
+  } else if (special === SPECIAL.CHRONO) {
+    ctx.strokeStyle = '#39ff14';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#39ff14';
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.arc(x, y, s * 0.28 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    for (let i = 0; i < 12; i++) {
+      const a = (Math.PI / 6) * i - Math.PI / 2;
+      const inner = i % 3 === 0 ? 0.14 : 0.2;
+      const outer = i % 3 === 0 ? 0.24 : 0.22;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(a) * s * inner, y + Math.sin(a) * s * inner);
+      ctx.lineTo(x + Math.cos(a) * s * outer, y + Math.sin(a) * s * outer);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#39ff14';
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y - s * 0.14);
+    ctx.lineTo(x + s * 0.08, y);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 function drawCellSlots() {
   const m = gridMetrics;
   for (let r = 0; r < GRID_SIZE; r++) {
@@ -498,14 +1276,32 @@ function drawBoard(now) {
   }
 
   const clearSet = anim && anim.type === 'clear' ? anim.clearSet : null;
-  const clearT = anim && anim.type === 'clear' ? easeOutCubic(Math.min(1, (now - anim.start) / CLEAR_ANIM_MS)) : 0;
-  const swapT = anim && anim.type === 'swap' ? easeOutCubic(Math.min(1, (now - anim.start) / SWAP_ANIM_MS)) : 0;
-  const fallT = anim && anim.type === 'fall' ? easeOutCubic(Math.min(1, (now - anim.start) / FALL_ANIM_MS)) : 0;
+  const animDur = anim ? anim.duration : 1;
+  const clearT = anim && anim.type === 'clear' ? easeOutCubic(Math.min(1, (now - anim.start) / animDur)) : 0;
+  const swapT = anim && anim.type === 'swap' ? easeOutCubic(Math.min(1, (now - anim.start) / animDur)) : 0;
+  const fallT = anim && anim.type === 'fall' ? easeOutCubic(Math.min(1, (now - anim.start) / animDur)) : 0;
 
   for (let r = 0; r < GRID_SIZE; r++) {
     for (let c = 0; c < GRID_SIZE; c++) {
       let type = grid[r][c];
-      if (type < 0) continue;
+
+      if (type < 0) {
+        const blk = blockGrid[r][c];
+        if (blk && blk.type === 'crate') {
+          let drawRc = r;
+          if (anim && anim.type === 'fall') {
+            const fall = anim.falls.find((f) => f.toR === r && f.c === c);
+            if (fall) {
+              const fromR = fall.fromR < 0 ? -1.2 : fall.fromR;
+              drawRc = fromR + (fall.toR - fromR) * fallT;
+            }
+          }
+          const cx = m.offsetX + c * m.cellSize + m.cellSize / 2;
+          const cy = m.offsetY + drawRc * m.cellSize + m.cellSize / 2;
+          drawCrate(cx, cy, m.cellSize * GEM_SIZE_RATIO, blk.hp);
+        }
+        continue;
+      }
 
       let drawR = r;
       let drawC = c;
@@ -561,6 +1357,17 @@ function drawBoard(now) {
 
       drawGemShape(GEM_DEFS[type], pos.x, pos.y, pos.size, alpha, scale);
 
+      const special = specialGrid[r][c];
+      if (special && alpha > 0.05) {
+        const specialScale = special === SPECIAL.NOVA ? scale * (1 + 0.04 * Math.sin(now * 0.01)) : scale;
+        drawSpecialOverlay(special, pos.x, pos.y, pos.size * specialScale, alpha, now);
+      }
+
+      const blk = blockGrid[r][c];
+      if (blk && blk.type === 'ice' && alpha > 0.05) {
+        drawIce(pos.x, pos.y, pos.size * scale, alpha, blk.hp);
+      }
+
       if (selectedCell && selectedCell.r === r && selectedCell.c === c && boardState === 'idle') {
         ctx.save();
         ctx.strokeStyle = '#ffffff';
@@ -579,16 +1386,109 @@ function drawBoard(now) {
     }
   }
 
+  if (hintCells && boardState === 'idle' && gameState.state === 'playing') {
+    const hintAlpha = 0.4 + 0.4 * Math.sin(now * 0.006);
+    ctx.save();
+    ctx.strokeStyle = `rgba(255, 255, 255, ${hintAlpha})`;
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = 16;
+    hintCells.forEach((hc) => {
+      const x = m.offsetX + hc.c * m.cellSize + 4;
+      const y = m.offsetY + hc.r * m.cellSize + 4;
+      roundRect(ctx, x, y, m.cellSize - 8, m.cellSize - 8, 8);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
   if (anim && anim.type === 'clear' && clearT >= 1) anim.particlesSpawned = true;
 }
 
-function spawnClearParticles(clearSet) {
+function drawCrate(x, y, size, hp) {
+  ctx.save();
+  const s = size;
+  const half = s * 0.42;
+  ctx.fillStyle = '#5a3d22';
+  roundRect(ctx, x - half, y - half, half * 2, half * 2, 5);
+  ctx.fill();
+  const grad = ctx.createLinearGradient(x - half, y - half, x + half, y + half);
+  grad.addColorStop(0, '#a9763f');
+  grad.addColorStop(0.5, '#d9a066');
+  grad.addColorStop(1, '#8a5c30');
+  ctx.fillStyle = grad;
+  roundRect(ctx, x - half * 0.88, y - half * 0.88, half * 1.76, half * 1.76, 4);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(60, 38, 18, 0.9)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(x - half * 0.88, y - half * 0.88);
+  ctx.lineTo(x + half * 0.88, y + half * 0.88);
+  ctx.moveTo(x + half * 0.88, y - half * 0.88);
+  ctx.lineTo(x - half * 0.88, y + half * 0.88);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255, 220, 170, 0.5)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, x - half * 0.88, y - half * 0.88, half * 1.76, half * 1.76, 4);
+  ctx.stroke();
+
+  if (hp <= 1) {
+    ctx.strokeStyle = 'rgba(20, 10, 4, 0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x - half * 0.4, y - half * 0.6);
+    ctx.lineTo(x - half * 0.1, y);
+    ctx.lineTo(x - half * 0.3, y + half * 0.5);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawIce(x, y, size, alpha, hp) {
+  ctx.save();
+  ctx.globalAlpha = (alpha == null ? 1 : alpha) * (hp >= 2 ? 0.62 : 0.42);
+  const s = size;
+  const half = s * 0.46;
+  const grad = ctx.createLinearGradient(x - half, y - half, x + half, y + half);
+  grad.addColorStop(0, 'rgba(220, 250, 255, 0.9)');
+  grad.addColorStop(0.5, 'rgba(150, 220, 255, 0.55)');
+  grad.addColorStop(1, 'rgba(190, 240, 255, 0.85)');
+  ctx.fillStyle = grad;
+  roundRect(ctx, x - half, y - half, half * 2, half * 2, 6);
+  ctx.fill();
+
+  ctx.globalAlpha = (alpha == null ? 1 : alpha) * 0.9;
+  ctx.strokeStyle = '#dffbff';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = '#bfefff';
+  ctx.shadowBlur = 10;
+  roundRect(ctx, x - half, y - half, half * 2, half * 2, 6);
+  ctx.stroke();
+
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x - half * 0.5, y - half * 0.7);
+  ctx.lineTo(x + half * 0.2, y - half * 0.1);
+  ctx.moveTo(x + half * 0.6, y - half * 0.5);
+  ctx.lineTo(x - half * 0.1, y + half * 0.4);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function spawnClearParticles(clearSet, large) {
   clearSet.forEach((key) => {
     const [r, c] = key.split(',').map(Number);
     const type = grid[r][c];
     if (type < 0) return;
     const pos = cellCenter(r, c);
-    burstParticles(pos.x, pos.y, GEM_DEFS[type].color, 8);
+    const special = specialGrid[r][c];
+    const count = large || special ? BONUS_CONFIG.particleBurstLarge : 8;
+    burstParticles(pos.x, pos.y, GEM_DEFS[type].color, count);
+    if (special) {
+      burstParticles(pos.x, pos.y, '#ffffff', Math.floor(count * 0.4));
+    }
   });
 }
 
@@ -638,8 +1538,12 @@ function updateParticles(dt) {
 }
 
 function waitAnim(type, duration, data) {
+  let dur = duration;
+  if (performance.now() < slowmoUntil && (type === 'clear' || type === 'fall')) {
+    dur = duration * 2.2;
+  }
   return new Promise((resolve) => {
-    anim = { type, start: performance.now(), duration, resolve, particlesSpawned: false, ...data };
+    anim = { type, start: performance.now(), duration: dur, resolve, particlesSpawned: false, ...data };
   });
 }
 
@@ -652,7 +1556,7 @@ function checkAnimComplete(now) {
   }
 }
 
-function scoreMatches(matches, comboLevel) {
+function scoreMatches(matches, comboLevel, clearCount, activations) {
   const unique = new Set();
   let points = 0;
   matches.forEach((group) => {
@@ -660,6 +1564,20 @@ function scoreMatches(matches, comboLevel) {
     points += Math.max(0, group.len - 3) * 20;
   });
   points += unique.size * 10;
+  if (clearCount != null && clearCount > unique.size) {
+    points += (clearCount - unique.size) * 15;
+  }
+  let comboActivation = false;
+  if (activations && activations.length > 0) {
+    points = Math.floor(points * BONUS_CONFIG.specialScoreMult);
+    activations.forEach((act) => {
+      if (act.combo) comboActivation = true;
+      const label = ACTIVATION_LABELS[act.special];
+      if (label && !act.combo) {
+        addFloatText(W() / 2, H() * 0.42, label, '#ff8800');
+      }
+    });
+  }
   points *= comboLevel;
   gameState.score += points;
   ui.score.textContent = gameState.score;
@@ -667,12 +1585,80 @@ function scoreMatches(matches, comboLevel) {
   if (comboLevel === 1) addTime(TIME_BONUS_MOVE);
   else addTime(TIME_BONUS_CASCADE);
 
+  if (comboLevel === 3) {
+    const tool = Math.random() < 0.5 ? 'bomb' : 'hammer';
+    charges[tool] = Math.min(9, charges[tool] + 1);
+    updateAbilityUI();
+    addFloatText(W() / 2, H() * 0.55, `+1 ${tool.toUpperCase()}`, '#00f5ff');
+  }
+
+  if (comboActivation || comboLevel >= 5) triggerSlowmo(450);
+
   if (comboLevel > 1) {
     addFloatText(W() / 2, H() * 0.38, `COMBO x${comboLevel}`, '#ffff00');
+    if (comboLevel >= 5) addFloatText(W() / 2, H() * 0.48, 'PRISM SURGE!', '#aa00ff');
     haptic('light');
   } else {
     haptic('tick');
   }
+}
+
+async function clearAndFall(clearSet, spawns = new Map()) {
+  boardState = 'resolving';
+
+  const finalClear = processObstacles(clearSet);
+
+  const clearedColors = [];
+  finalClear.forEach((key) => {
+    const [r, c] = key.split(',').map(Number);
+    if (grid[r][c] >= 0) clearedColors.push(grid[r][c]);
+  });
+  trackObjective(clearedColors);
+
+  const hasSpecialActivation = [...finalClear].some((key) => {
+    const [r, c] = key.split(',').map(Number);
+    return specialGrid[r][c];
+  });
+  spawnClearParticles(finalClear, hasSpecialActivation);
+  await waitAnim('clear', CLEAR_ANIM_MS, { clearSet: finalClear });
+
+  finalClear.forEach((key) => {
+    const [r, c] = key.split(',').map(Number);
+    grid[r][c] = -1;
+    specialGrid[r][c] = null;
+  });
+
+  spawns.forEach((spawn) => {
+    grid[spawn.r][spawn.c] = spawn.color;
+    specialGrid[spawn.r][spawn.c] = spawn.special;
+    const pos = cellCenter(spawn.r, spawn.c);
+    const label = SPAWN_LABELS[spawn.special];
+    if (label) addFloatText(pos.x, pos.y - 20, label, '#aa00ff');
+  });
+
+  const falls = applyGravity(grid);
+  await waitAnim('fall', FALL_ANIM_MS, { falls });
+}
+
+async function resolveSpecialActivation(r, c, special, partnerColor, comboLevel) {
+  const clearSet = new Set([cellKey(r, c)]);
+  if (special === SPECIAL.PRISM) {
+    applySingleExplosion(clearSet, r, c, special, partnerColor);
+  } else {
+    applySingleExplosion(clearSet, r, c, special);
+  }
+  const activations = processSpecialExplosions(clearSet);
+  scoreMatches([], comboLevel, clearSet.size, activations);
+  await clearAndFall(clearSet, new Map());
+  await resolveCascades(comboLevel + 1);
+}
+
+async function resolveSpecialComboSwap(r1, c1, r2, c2, s1, s2) {
+  const clearSet = new Set([cellKey(r1, c1), cellKey(r2, c2)]);
+  const activations = processSpecialExplosions(clearSet, { r1, c1, s1, r2, c2, s2 });
+  scoreMatches([], 1, clearSet.size, activations);
+  await clearAndFall(clearSet, new Map());
+  await resolveCascades(2);
 }
 
 async function resolveCascades(comboLevel) {
@@ -682,26 +1668,35 @@ async function resolveCascades(comboLevel) {
       await doReshuffle();
     }
     boardState = 'idle';
+    lastSwapCell = null;
+    resetIdle();
     return;
   }
 
-  scoreMatches(matches, comboLevel);
+  let spawns = detectBonusSpawns(matches, lastSwapCell);
+
+  if (comboLevel >= BONUS_CONFIG.comboSpawnThreshold) {
+    const candidates = [];
+    matches.forEach((g) => g.cells.forEach(({ r, c }) => {
+      const k = cellKey(r, c);
+      if (!spawns.has(k)) candidates.push({ r, c, k, color: grid[r][c] });
+    }));
+    if (candidates.length > 0) {
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      spawns.set(pick.k, { r: pick.r, c: pick.c, special: SPECIAL.CHRONO, color: pick.color });
+    }
+  }
 
   const clearSet = new Set();
-  matches.forEach((g) => g.cells.forEach(({ r, c }) => clearSet.add(`${r},${c}`)));
+  matches.forEach((g) => g.cells.forEach(({ r, c }) => clearSet.add(cellKey(r, c))));
 
-  boardState = 'resolving';
-  spawnClearParticles(clearSet);
-  await waitAnim('clear', CLEAR_ANIM_MS, { clearSet });
+  spawns.forEach((_spawn, key) => clearSet.delete(key));
 
-  clearSet.forEach((key) => {
-    const [r, c] = key.split(',').map(Number);
-    grid[r][c] = -1;
-  });
+  const activations = processSpecialExplosions(clearSet);
+  spawns.forEach((_spawn, key) => clearSet.delete(key));
 
-  const falls = applyGravity(grid);
-  await waitAnim('fall', FALL_ANIM_MS, { falls });
-
+  scoreMatches(matches, comboLevel, clearSet.size, activations);
+  await clearAndFall(clearSet, spawns);
   await resolveCascades(comboLevel + 1);
 }
 
@@ -718,20 +1713,129 @@ async function doReshuffle() {
 
 async function trySwap(r1, c1, r2, c2) {
   if (boardState !== 'idle' || gameState.state !== 'playing') return;
+
+  if (!isMovable(r1, c1) || !isMovable(r2, c2)) {
+    haptic('error');
+    if (blockGrid[r1][c1]?.type === 'ice' || blockGrid[r2][c2]?.type === 'ice') {
+      const fr = blockGrid[r1][c1]?.type === 'ice' ? { r: r1, c: c1 } : { r: r2, c: c2 };
+      const pos = cellCenter(fr.r, fr.c);
+      addFloatText(pos.x, pos.y - 16, 'FROZEN!', '#bfefff');
+    }
+    return;
+  }
+
   boardState = 'swapping';
+  resetIdle();
+
+  lastSwapCell = { r: r2, c: c2 };
 
   await waitAnim('swap', SWAP_ANIM_MS, { r1, c1, r2, c2 });
-  swapCells(grid, r1, c1, r2, c2);
+  swapCellsBoth(r1, c1, r2, c2);
+
+  const spec1 = specialGrid[r1][c1];
+  const spec2 = specialGrid[r2][c2];
+
+  if (spec1 && spec2) {
+    registerMove();
+    await resolveSpecialComboSwap(r1, c1, r2, c2, spec1, spec2);
+    return;
+  }
+
+  if (spec1 || spec2) {
+    const sr = spec1 ? r1 : r2;
+    const sc = spec1 ? c1 : c2;
+    const partnerR = spec1 ? r2 : r1;
+    const partnerC = spec1 ? c2 : c1;
+    const special = spec1 || spec2;
+    registerMove();
+    await resolveSpecialActivation(sr, sc, special, grid[partnerR][partnerC], 1);
+    return;
+  }
 
   const matches = findMatches(grid);
   if (matches.length === 0) {
     await waitAnim('swap', SWAP_ANIM_MS, { r1, c1, r2, c2, reverse: true });
-    swapCells(grid, r1, c1, r2, c2);
+    swapCellsBoth(r1, c1, r2, c2);
     boardState = 'idle';
+    lastSwapCell = null;
     haptic('error');
     return;
   }
 
+  registerMove();
+  boardState = 'resolving';
+  await resolveCascades(1);
+}
+
+async function useBomb(r, c) {
+  if (boardState !== 'idle' || gameState.state !== 'playing') return;
+  if (charges.bomb <= 0) { haptic('error'); return; }
+  charges.bomb--;
+  updateAbilityUI();
+  resetIdle();
+  registerMove();
+  boardState = 'resolving';
+  lastSwapCell = null;
+  const clearSet = new Set();
+  applySingleExplosion(clearSet, r, c, SPECIAL.NOVA);
+  const activations = processSpecialExplosions(clearSet);
+  triggerShake(0.9);
+  haptic('heavy');
+  scoreMatches([], 1, clearSet.size, activations);
+  await clearAndFall(clearSet);
+  await resolveCascades(1);
+}
+
+async function useHammer(r, c) {
+  if (boardState !== 'idle' || gameState.state !== 'playing') return;
+  if (charges.hammer <= 0) { haptic('error'); return; }
+  if (grid[r][c] < 0 && !(blockGrid[r][c] && blockGrid[r][c].type === 'crate')) {
+    haptic('error');
+    return;
+  }
+  charges.hammer--;
+  updateAbilityUI();
+  resetIdle();
+  registerMove();
+  boardState = 'resolving';
+  lastSwapCell = null;
+  haptic('medium');
+
+  if (grid[r][c] < 0 && blockGrid[r][c] && blockGrid[r][c].type === 'crate') {
+    blockGrid[r][c] = null;
+    const pos = cellCenter(r, c);
+    burstParticles(pos.x, pos.y, '#d9a066', 16);
+    const falls = applyGravity(grid);
+    await waitAnim('fall', FALL_ANIM_MS, { falls });
+    await resolveCascades(1);
+    return;
+  }
+
+  const clearSet = new Set();
+  addToClearSet(clearSet, r, c);
+  const activations = processSpecialExplosions(clearSet);
+  scoreMatches([], 1, clearSet.size, activations);
+  await clearAndFall(clearSet);
+  await resolveCascades(1);
+}
+
+async function useShuffle() {
+  if (boardState !== 'idle' || gameState.state !== 'playing') return;
+  const now = performance.now();
+  if (now - shuffleCooldown < 1500) { haptic('error'); return; }
+  shuffleCooldown = now;
+  resetIdle();
+  timeLeft = Math.max(0, timeLeft - 5);
+  ui.timer.textContent = Math.max(0, timeLeft);
+  addFloatText(W() / 2, H() * 0.5, '-5s SHUFFLE', '#ff8800');
+  haptic('medium');
+  boardState = 'noMoves';
+  ui.gameContainer.classList.add('reshuffle-flash');
+  reshuffleFlash = 1;
+  shuffleBoard(grid);
+  await waitAnim('reshuffle', 400, {});
+  ui.gameContainer.classList.remove('reshuffle-flash');
+  reshuffleFlash = 0;
   boardState = 'resolving';
   await resolveCascades(1);
 }
@@ -739,10 +1843,13 @@ async function trySwap(r1, c1, r2, c2) {
 function startTimer() {
   stopTimer();
   timeLeft = GAME_TIME;
+  elapsed = 0;
   ui.timer.textContent = timeLeft;
   timerInterval = setInterval(() => {
     if (gameState.state !== 'playing') return;
     timeLeft--;
+    elapsed++;
+    updateTier();
     ui.timer.textContent = Math.max(0, timeLeft);
     if (timeLeft <= 0) endGame();
   }, 1000);
@@ -766,6 +1873,10 @@ function endGame() {
   selectedAt = 0;
   pressedCell = null;
   pressedAt = 0;
+
+  activeTool = null;
+  hintCells = null;
+  updateAbilityUI();
 
   ui.finalScore.textContent = gameState.score;
   if (gameState.score > gameState.best) {
@@ -792,10 +1903,24 @@ function init() {
   pointerDown = null;
   dragHandled = false;
   timeLeft = GAME_TIME;
+  lastSwapCell = null;
+  screenShake = 0;
+  elapsed = 0;
+  moveCount = 0;
+  currentTier = 0;
+  activeTool = null;
+  charges = { bomb: 0, hammer: 0 };
+  shuffleCooldown = 0;
+  slowmoUntil = 0;
+  hintCells = null;
+  lastActionAt = performance.now();
   ui.score.textContent = '0';
   ui.timer.textContent = GAME_TIME;
   ui.bestScore.textContent = `BEST: ${gameState.best}`;
   initBoard();
+  rollObjective();
+  updateTierUI();
+  updateAbilityUI();
 }
 
 function draw(now) {
@@ -808,21 +1933,68 @@ function draw(now) {
     ctx.fillRect(0, 0, W(), H());
   }
 
+  let shakeX = 0;
+  let shakeY = 0;
+  if (screenShake > 0) {
+    shakeX = (Math.random() - 0.5) * screenShake * 10;
+    shakeY = (Math.random() - 0.5) * screenShake * 10;
+  }
+
+  ctx.save();
+  ctx.translate(shakeX, shakeY);
   drawBoard(now);
   drawParticles();
   drawFloatTexts();
+  ctx.restore();
+
   checkAnimComplete(now);
 }
 
 function update(dt) {
   updateParticles(dt);
   if (timerPop > 0) timerPop = Math.max(0, timerPop - 0.04 * (dt / 16.67));
+  if (screenShake > 0) {
+    screenShake = Math.max(0, screenShake - 0.08 * (dt / 16.67));
+  }
+
+  if (gameState.state === 'playing' && boardState === 'idle' && !anim && !activeTool && !selectedCell) {
+    if (!hintCells && performance.now() - lastActionAt > 5000) {
+      hintCells = findHintMove();
+    }
+  } else if (hintCells && (selectedCell || activeTool || boardState !== 'idle')) {
+    hintCells = null;
+  }
 }
 
 createGameLoop(update, () => draw(performance.now()));
 
 function handleTap(cell) {
   if (boardState !== 'idle' || gameState.state !== 'playing') return;
+
+  resetIdle();
+
+  if (activeTool) {
+    const tool = activeTool;
+    activeTool = null;
+    selectedCell = null;
+    selectedAt = 0;
+    updateAbilityUI();
+    if (tool === 'bomb') useBomb(cell.r, cell.c);
+    else if (tool === 'hammer') useHammer(cell.r, cell.c);
+    return;
+  }
+
+  if (grid[cell.r][cell.c] < 0) {
+    haptic('error');
+    return;
+  }
+
+  if (blockGrid[cell.r][cell.c] && blockGrid[cell.r][cell.c].type === 'ice') {
+    const pos = cellCenter(cell.r, cell.c);
+    addFloatText(pos.x, pos.y - 16, 'FROZEN!', '#bfefff');
+    haptic('error');
+    return;
+  }
 
   if (!selectedCell) {
     selectedCell = { r: cell.r, c: cell.c };
@@ -858,6 +2030,7 @@ canvas.addEventListener('pointerdown', (e) => {
   gridMetrics = computeGridMetrics();
   const cell = getCellFromPointer(e);
   if (!cell) return;
+  resetIdle();
   pointerDown = { ...cell, x: e.clientX, y: e.clientY, id: e.pointerId };
   pressedCell = { r: cell.r, c: cell.c };
   pressedAt = performance.now();
@@ -867,6 +2040,7 @@ canvas.addEventListener('pointerdown', (e) => {
 
 canvas.addEventListener('pointermove', (e) => {
   if (!pointerDown || dragHandled || pointerDown.id !== e.pointerId) return;
+  if (activeTool) return;
   const dx = e.clientX - pointerDown.x;
   const dy = e.clientY - pointerDown.y;
   const threshold = getDragThreshold();
@@ -909,6 +2083,21 @@ function releasePointer(e) {
 
 canvas.addEventListener('pointerup', releasePointer);
 canvas.addEventListener('pointercancel', releasePointer);
+
+function armTool(tool) {
+  if (gameState.state !== 'playing' || boardState !== 'idle') { haptic('error'); return; }
+  if (charges[tool] <= 0) { haptic('error'); return; }
+  activeTool = activeTool === tool ? null : tool;
+  selectedCell = null;
+  selectedAt = 0;
+  resetIdle();
+  updateAbilityUI();
+  haptic('light');
+}
+
+ui.abilityBomb.addEventListener('click', () => armTool('bomb'));
+ui.abilityHammer.addEventListener('click', () => armTool('hammer'));
+ui.abilityShuffle.addEventListener('click', () => { useShuffle(); });
 
 document.getElementById('startBtn').addEventListener('click', () => {
   init();

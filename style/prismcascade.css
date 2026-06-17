@@ -2,6 +2,8 @@
   --game-accent: #aa00ff;
 }
 
+.page { gap: 14px; }
+
 .back-btn { color: var(--game-accent); border-color: var(--game-accent); }
 .back-btn:hover { box-shadow: 0 0 12px var(--game-accent); }
 .game-title { color: var(--game-accent); text-shadow: 0 0 20px var(--game-accent); }
@@ -101,4 +103,130 @@ canvas {
   0% { filter: brightness(1); }
   30% { filter: brightness(2.2); }
   100% { filter: brightness(1); }
+}
+
+.game-container.board-shake {
+  animation: boardShake 0.15s ease-out;
+}
+
+@keyframes boardShake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-3px, 2px); }
+  40% { transform: translate(3px, -2px); }
+  60% { transform: translate(-2px, -3px); }
+  80% { transform: translate(2px, 3px); }
+}
+
+.tier-display {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px;
+  letter-spacing: 2px;
+  padding: 4px 8px;
+  border: 1px solid #39ff14;
+  color: #39ff14;
+  background: rgba(0, 0, 0, 0.25);
+  text-shadow: 0 0 10px currentColor;
+}
+
+.objective-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px;
+  letter-spacing: 2px;
+  padding: 6px 12px;
+  border: 1px solid rgba(170, 0, 255, 0.3);
+  background: rgba(170, 0, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.objective-bar.hidden { display: none; }
+
+.objective-label {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+}
+
+.objective-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.objective-progress {
+  color: #fff;
+  text-shadow: 0 0 10px rgba(170, 0, 255, 0.6);
+}
+
+.ability-bar {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.ability-btn {
+  flex: 1;
+  max-width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 8px 6px;
+  cursor: pointer;
+  background: rgba(0, 245, 255, 0.06);
+  border: 1px solid rgba(0, 245, 255, 0.4);
+  color: #00f5ff;
+  transition: all 0.15s;
+}
+
+.ability-btn .ability-charge {
+  font-size: 13px;
+  color: #fff;
+  text-shadow: 0 0 8px #00f5ff;
+}
+
+.ability-btn .ability-cost {
+  font-size: 10px;
+  color: #ff8800;
+}
+
+.ability-btn:hover {
+  box-shadow: 0 0 14px rgba(0, 245, 255, 0.4);
+}
+
+.ability-btn.armed {
+  background: rgba(0, 245, 255, 0.2);
+  box-shadow: 0 0 18px rgba(0, 245, 255, 0.7);
+  transform: scale(1.04);
+}
+
+.ability-btn.depleted {
+  opacity: 0.4;
+  border-color: rgba(120, 120, 130, 0.4);
+  color: rgba(150, 150, 160, 0.8);
+}
+
+.ability-btn-free {
+  background: rgba(170, 0, 255, 0.08);
+  border-color: rgba(170, 0, 255, 0.4);
+  color: #cc88ff;
+}
+
+.ability-btn-free:hover {
+  box-shadow: 0 0 14px rgba(170, 0, 255, 0.4);
+}
+
+@media (max-width: 480px) {
+  .tier-display { font-size: 10px; padding: 3px 6px; }
+  .objective-bar { font-size: 10px; padding: 4px 8px; gap: 6px; }
+  .objective-swatch { width: 12px; height: 12px; }
+  .ability-btn { font-size: 10px; padding: 6px 4px; letter-spacing: 1px; }
 }
