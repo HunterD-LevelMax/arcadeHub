@@ -2102,7 +2102,7 @@ ui.abilityShuffle.addEventListener('click', () => { useShuffle(); });
 document.getElementById('startBtn').addEventListener('click', () => {
   init();
   gameState.state = 'playing';
-  beginCoinSession(gameState.best);
+  beginCoinSession(gameState.best, 'prismcascade', () => gameState.score);
   ui.startOverlay.classList.add('hidden');
   startTimer();
   haptic('medium');
@@ -2111,7 +2111,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
 document.getElementById('restartBtn').addEventListener('click', () => {
   init();
   gameState.state = 'playing';
-  beginCoinSession(gameState.best);
+  beginCoinSession(gameState.best, 'prismcascade', () => gameState.score);
   ui.gameoverOverlay.classList.add('hidden');
   startTimer();
   haptic('medium');

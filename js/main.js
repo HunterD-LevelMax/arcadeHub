@@ -943,5 +943,124 @@
         tick();
       })();
 
+      // Animated preview for NEON SIEGE
+      (function() {
+        const canvas = document.getElementById('neonsiegeCanvas');
+        if (!canvas) return;
+        const card = canvas.closest('.card-preview');
+        canvas.width = card.offsetWidth || 320;
+        canvas.height = card.offsetHeight || 180;
+        const ctx = canvas.getContext('2d');
+
+        const ACCENT = '#ffcc00';
+        const w = canvas.width;
+        const h = canvas.height;
+        let t = 0;
+
+        const path = [
+          { x: 0.15, y: 0.18 },
+          { x: 0.42, y: 0.18 },
+          { x: 0.42, y: 0.38 },
+          { x: 0.78, y: 0.38 },
+          { x: 0.78, y: 0.58 },
+          { x: 0.28, y: 0.58 },
+          { x: 0.28, y: 0.78 },
+          { x: 0.55, y: 0.78 },
+          { x: 0.55, y: 0.88 },
+        ].map(p => ({ x: p.x * w, y: p.y * h }));
+
+        const tower = { x: 0.78 * w, y: 0.48 * h };
+        let enemies = [
+          { seg: 0, prog: 0.2 },
+          { seg: 2, prog: 0.35 },
+          { seg: 4, prog: 0.5 },
+          { seg: 6, prog: 0.65 },
+        ];
+        let shots = [];
+
+        function pathPos(seg, prog) {
+          const a = path[seg];
+          const b = path[Math.min(seg + 1, path.length - 1)];
+          return {
+            x: a.x + (b.x - a.x) * prog,
+            y: a.y + (b.y - a.y) * prog,
+          };
+        }
+
+        function tick() {
+          ctx.clearRect(0, 0, w, h);
+          t += 0.03;
+
+          ctx.strokeStyle = 'rgba(255, 204, 0, 0.35)';
+          ctx.lineWidth = 3;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.beginPath();
+          ctx.moveTo(path[0].x, path[0].y);
+          for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+          ctx.stroke();
+
+          ctx.shadowColor = '#00f5ff';
+          ctx.shadowBlur = 12;
+          ctx.fillStyle = '#00f5ff';
+          ctx.fillRect(tower.x - 8, tower.y - 8, 16, 16);
+          ctx.shadowBlur = 0;
+
+          if (Math.floor(t * 10) % 14 === 0) {
+            shots.push({ x: tower.x, y: tower.y, life: 1 });
+          }
+
+          for (let i = shots.length - 1; i >= 0; i--) {
+            const s = shots[i];
+            const target = pathPos(4, 0.45 + Math.sin(t) * 0.08);
+            const dx = target.x - s.x;
+            const dy = target.y - s.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            s.x += (dx / dist) * 4;
+            s.y += (dy / dist) * 4;
+            s.life -= 0.02;
+            ctx.shadowColor = ACCENT;
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = ACCENT;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+            if (s.life <= 0 || dist < 6) shots.splice(i, 1);
+          }
+          ctx.shadowBlur = 0;
+
+          enemies.forEach((e, idx) => {
+            e.prog += 0.007 + idx * 0.0008;
+            const lane = (idx - 1.5) * 3;
+            if (e.prog >= 1) {
+              e.seg++;
+              e.prog = 0;
+              if (e.seg >= path.length - 1) {
+                e.seg = 0;
+                e.prog = 0;
+              }
+            }
+            const pos = pathPos(e.seg, e.prog);
+            const colors = ['#ff6688', '#39ff14', '#aa44ff', '#00f5ff'];
+            ctx.shadowColor = colors[idx % 4];
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = colors[idx % 4];
+            ctx.fillRect(pos.x + lane - 5, pos.y - 5, 10, 10);
+          });
+          ctx.shadowBlur = 0;
+
+          ctx.fillStyle = 'rgba(255, 51, 68, 0.5)';
+          ctx.strokeStyle = '#ff3344';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(path[path.length - 1].x, path[path.length - 1].y, 10, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          requestAnimationFrame(tick);
+        }
+        tick();
+      })();
+
 
 

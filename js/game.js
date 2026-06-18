@@ -110,8 +110,8 @@ function hapticHeavy() { haptic('heavy'); }
 function hapticSuccess() { haptic('success'); }
 function hapticError() { haptic('error'); }
 
-function beginCoinSession(currentBest) {
-  if (window.ArcadeEconomy) ArcadeEconomy.beginCoinSession(currentBest);
+function beginCoinSession(currentBest, gameId, getScore) {
+  if (window.ArcadeEconomy) ArcadeEconomy.beginCoinSession(currentBest, gameId, getScore);
 }
 
 function awardAndShowCoins(gameId, score) {
@@ -119,4 +119,27 @@ function awardAndShowCoins(gameId, score) {
   const reward = ArcadeEconomy.awardAndShowCoins(gameId, score);
   if (reward && reward.earned > 0) hapticSuccess();
   return reward;
+}
+
+function initGameExitEconomy() {
+  if (!window.ArcadeEconomy || typeof ArcadeEconomy.flushCoinSession !== "function") return;
+  if (!/\/games\//i.test(window.location.pathname)) return;
+
+  document.querySelectorAll(".back-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      ArcadeEconomy.flushCoinSession();
+    });
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      ArcadeEconomy.flushCoinSession();
+    }
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initGameExitEconomy);
+} else {
+  initGameExitEconomy();
 }

@@ -308,14 +308,14 @@ canvas.addEventListener('touchend', e => {
 // Buttons
 document.getElementById('startBtn').addEventListener('click', () => {
   gameState.state = 'playing';
-  beginCoinSession(gameState.best);
+  beginCoinSession(gameState.best, 'snake', () => gameState.score);
   ui.startOverlay.classList.add('hidden');
 });
 
 document.getElementById('restartBtn').addEventListener('click', () => {
   init();
   gameState.state = 'playing';
-  beginCoinSession(gameState.best);
+  beginCoinSession(gameState.best, 'snake', () => gameState.score);
   ui.gameoverOverlay.classList.add('hidden');
 });
 

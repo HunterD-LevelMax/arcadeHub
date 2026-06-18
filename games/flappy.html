@@ -126,7 +126,7 @@ function handleFlap() {
   
   if (state === 'title') {
     gameState.state = 'play';
-    beginCoinSession(gameState.best);
+    beginCoinSession(gameState.best, 'flappy', () => gameState.score);
     ui.startOverlay.classList.add('hidden');
     gameState.bird.vy = CONFIG.FLAP;
     return;
@@ -143,7 +143,7 @@ function handleFlap() {
     ui.gameoverOverlay.classList.add('hidden');
     ui.startOverlay.classList.add('hidden');
     gameState.state = 'play';
-    beginCoinSession(gameState.best);
+    beginCoinSession(gameState.best, 'flappy', () => gameState.score);
     gameState.bird.vy = CONFIG.FLAP;
   }
 }

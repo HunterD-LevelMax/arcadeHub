@@ -791,7 +791,7 @@ canvas.addEventListener('pointercancel', (e) => {
 document.getElementById('startBtn').addEventListener('click', () => {
   initBoard();
   gameState.state = 'playing';
-  beginCoinSession(gameState.best);
+  beginCoinSession(gameState.best, 'game2048', () => gameState.score);
   ui.startOverlay.classList.add('hidden');
 });
 
@@ -804,7 +804,7 @@ document.getElementById('continueBtn').addEventListener('click', () => {
 document.getElementById('restartBtn').addEventListener('click', () => {
   initBoard();
   gameState.state = 'playing';
-  beginCoinSession(gameState.best);
+  beginCoinSession(gameState.best, 'game2048', () => gameState.score);
   ui.gameoverOverlay.classList.add('hidden');
 });
 

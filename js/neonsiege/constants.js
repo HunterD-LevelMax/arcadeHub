@@ -1,0 +1,28 @@
+(function () {
+  window.NeonSiegeConstants = {
+    GAME_ID: 'neonsiege',
+    BASE_W: 400,
+    BASE_H: 600,
+    GRID_COLS: 12,
+    GRID_ROWS: 14,
+    CELL_VOID: 0,
+    CELL_PATH: 1,
+    CELL_SLOT: 2,
+    ACCENT: '#ffcc00',
+    MAX_WAVES: 15,
+    COMBO_WINDOW_MS: 1500,
+    COMBO_MAX: 2.5,
+    OVERCHARGE_MS: 5000,
+    WAVE_INTERMISSION_MS: 12000,
+    MIN_STAGGER_DIST: 0.45,
+    STAGGER_SLOW: 0.4,
+    LANE_SPREAD: 0.12,
+    LANE_COUNT: 5,
+    KEYS: {
+      TOWERS: ['Digit1', 'Digit2', 'Digit3', 'Digit4'],
+      WAVE: ['Space', 'Enter', 'NumpadEnter'],
+      CANCEL: ['Escape'],
+    },
+    TOWER_ORDER: ['pulse', 'nova', 'prism', 'frost'],
+  };
+})();

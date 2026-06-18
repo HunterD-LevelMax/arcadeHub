@@ -208,7 +208,7 @@ function spawnExplosion(x, y, count = CONFIG.PARTICLE_COUNT) {
 
 function startGame() {
   gameState.state = 'play';
-  beginCoinSession(gameState.best);
+  beginCoinSession(gameState.best, 'asteroids', () => gameState.score);
   ui.startOverlay.classList.add('hidden');
 }
 

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>NEON SIEGE — ARCADE HUB</title>
+  <link rel="stylesheet" href="../style/game.css">
+  <link rel="stylesheet" href="../style/neonsiege.css">
+</head>
+<body>
+
+  <div class="page">
+    <div class="header">
+      <a href="../index.html" class="back-btn">← BACK</a>
+      <div class="game-title">NEON SIEGE</div>
+      <div class="header-stats">
+        <div class="stat-display">GOLD: <span id="goldVal">0</span></div>
+        <div class="stat-display">WAVE: <span id="waveVal">0</span></div>
+        <div class="stat-display" id="hpDisplay">CORE: <span id="hpVal">15</span></div>
+        <div class="stat-display score-display">SCORE: <span id="scoreVal">0</span></div>
+      </div>
+    </div>
+
+    <div class="game-container" id="gameContainer">
+      <canvas id="c"></canvas>
+
+      <div class="status-overlay hidden" id="statusBar">
+        <div class="status-line status-wave hidden" id="wavePreview">NEXT WAVE</div>
+        <div class="status-line status-event hidden" id="statusEvent"></div>
+        <div class="status-line status-combo hidden" id="comboDisplay">COMBO x1.0</div>
+      </div>
+
+      <div class="tower-radial hidden" id="towerRadial">
+        <div class="radial-ring" aria-hidden="true"></div>
+        <div class="radial-hub" id="towerPanelInfo">PULSE T1</div>
+        <button type="button" class="radial-btn radial-upgrade" id="upgradeBtn" title="Upgrade">
+          <span class="radial-icon">↑</span>
+          <span class="radial-label" id="upgradeLabel">UP</span>
+        </button>
+        <button type="button" class="radial-btn radial-sell" id="sellBtn" title="Sell">
+          <span class="radial-icon">$</span>
+          <span class="radial-label" id="sellLabel">0</span>
+        </button>
+        <button type="button" class="radial-btn radial-close" id="closePanelBtn" title="Close">✕</button>
+      </div>
+
+      <div class="overlay" id="startOverlay">
+        <div class="overlay-title">NEON SIEGE</div>
+        <div class="overlay-sub">PLACE TOWERS ALONG THE PATH<br>DEFEND THE CORE · SURVIVE 15 WAVES</div>
+        <div class="map-picker">
+          <button type="button" class="map-btn selected" id="mapBtn0" data-map="0">NEON GRID</button>
+          <button type="button" class="map-btn" id="mapBtn1" data-map="1">SPIRAL CORE</button>
+        </div>
+        <button class="start-btn" id="startBtn">PLAY</button>
+      </div>
+
+      <div class="overlay hidden" id="victoryOverlay">
+        <div class="overlay-title" style="color: #39ff14;">CORE SECURED</div>
+        <div class="overlay-sub">ALL 15 WAVES CLEARED · ENDLESS MODE UNLOCKED</div>
+        <div class="overlay-score" id="victoryScore">0</div>
+        <button class="start-btn" id="endlessBtn">CONTINUE ENDLESS</button>
+        <button class="start-btn" id="victoryRetryBtn" style="margin-top:8px;font-size:12px;">RETRY</button>
+      </div>
+
+      <div class="overlay hidden" id="gameoverOverlay">
+        <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
+        <div class="overlay-sub" id="gameoverSub">CORE DESTROYED</div>
+        <div class="overlay-score" id="finalScore">0</div>
+        <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <div class="overlay-coins hidden" id="coinRewardBlock">
+          <div class="overlay-coins-earned" id="coinRewardEarned">+0 COINS</div>
+          <div class="overlay-coins-total" id="coinRewardTotal">TOTAL: 0</div>
+        </div>
+        <div class="overlay-coins-hint hidden" id="coinRewardHint"></div>
+        <button class="start-btn" id="restartBtn">RETRY</button>
+      </div>
+    </div>
+
+    <div class="tower-bar" id="towerBar">
+      <button type="button" class="action-btn codex-btn" id="codexBtn" title="Tower & enemy guide">?</button>
+      <button type="button" class="tower-btn pulse-tower" data-type="pulse">
+        <span>PULSE</span><span class="tower-cost">60</span>
+      </button>
+      <button type="button" class="tower-btn nova-tower" data-type="nova">
+        <span>NOVA</span><span class="tower-cost">100</span>
+      </button>
+      <button type="button" class="tower-btn prism-tower" data-type="prism">
+        <span>PRISM</span><span class="tower-cost">125</span>
+      </button>
+      <button type="button" class="tower-btn frost-tower" data-type="frost">
+        <span>FROST</span><span class="tower-cost">85</span>
+      </button>
+      <button type="button" class="action-btn" id="waveBtn">WAVE ▶</button>
+      <button type="button" class="action-btn overcharge-btn" id="overchargeBtn" title="All towers fire ~70% faster for 5s · once per wave">BOOST</button>
+    </div>
+
+    <div class="footer">TAP SLOT TO BUILD · TAP TOWER FOR MENU · START WAVE WHEN READY</div>
+  </div>
+
+  <div class="codex-overlay hidden" id="codexOverlay">
+    <div class="codex-panel">
+      <div class="codex-header">
+        <span class="codex-title">FIELD MANUAL</span>
+        <button type="button" class="codex-close" id="codexCloseBtn">✕</button>
+      </div>
+      <div class="codex-body" id="codexBody"></div>
+    </div>
+  </div>
+
+<script src="../js/game.js"></script>
+<script src="../js/economy-api.js"></script>
+<script src="../js/neonsiege/constants.js"></script>
+<script src="../js/neonsiege/balance.js"></script>
+<script src="../js/neonsiege/maps.js"></script>
+<script src="../js/neonsiege/path.js"></script>
+<script src="../js/neonsiege/entities.js"></script>
+<script src="../js/neonsiege/systems.js"></script>
+<script src="../js/neonsiege/render.js"></script>
+<script src="../js/neonsiege/codex.js"></script>
+<script src="../js/neonsiege/input.js"></script>
+<script src="../js/neonsiege/game.js"></script>
+<script>
+const canvas = document.getElementById('c');
+const game = new NeonSiegeGame({
+  canvas,
+  ui: {
+    score: document.getElementById('scoreVal'),
+    gold: document.getElementById('goldVal'),
+    wave: document.getElementById('waveVal'),
+    hp: document.getElementById('hpVal'),
+    hpDisplay: document.getElementById('hpDisplay'),
+    combo: document.getElementById('comboDisplay'),
+    wavePreview: document.getElementById('wavePreview'),
+    statusEvent: document.getElementById('statusEvent'),
+    statusBar: document.getElementById('statusBar'),
+    finalScore: document.getElementById('finalScore'),
+    bestScore: document.getElementById('bestScore'),
+    victoryScore: document.getElementById('victoryScore'),
+    gameoverSub: document.getElementById('gameoverSub'),
+    startOverlay: document.getElementById('startOverlay'),
+    gameoverOverlay: document.getElementById('gameoverOverlay'),
+    victoryOverlay: document.getElementById('victoryOverlay'),
+    towerRadial: document.getElementById('towerRadial'),
+    towerPanelInfo: document.getElementById('towerPanelInfo'),
+    upgradeBtn: document.getElementById('upgradeBtn'),
+    upgradeLabel: document.getElementById('upgradeLabel'),
+    sellBtn: document.getElementById('sellBtn'),
+    sellLabel: document.getElementById('sellLabel'),
+    waveBtn: document.getElementById('waveBtn'),
+    overchargeBtn: document.getElementById('overchargeBtn'),
+    codexOverlay: document.getElementById('codexOverlay'),
+    codexBody: document.getElementById('codexBody'),
+  },
+});
+
+NeonSiegeCodex.populateCodex(document.getElementById('codexBody'));
+game.init();
+initGameCommon(canvas, 400, 600, () => {
+  game.resize();
+  if (game.state === 'title') game.init();
+});
+createGameLoop((dt) => game.update(dt), () => game.draw());
+</script>
+</body>
+</html>

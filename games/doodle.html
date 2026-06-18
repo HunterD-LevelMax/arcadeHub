@@ -222,7 +222,7 @@ function initPlatforms() {
 
 function startGame() {
   init();
-  beginCoinSession(gameState.best);
+  beginCoinSession(gameState.best, 'doodle', () => gameState.score);
   ui.startOverlay.classList.add('hidden');
   ui.gameoverOverlay.classList.add('hidden');
   gameState.running = true;

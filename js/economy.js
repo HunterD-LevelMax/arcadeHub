@@ -1,5 +1,6 @@
 (function () {
   const {
+    EXIT_REWARD_KEY,
     FIRST_LAUNCH_REWARD,
     RARITY_LABEL,
     logEvent,
@@ -18,6 +19,35 @@
     coinsEl.classList.remove("coin-pop");
     void coinsEl.offsetWidth;
     coinsEl.classList.add("coin-pop");
+  }
+
+  function showExitRewardToast() {
+    let data;
+    try {
+      const raw = sessionStorage.getItem(EXIT_REWARD_KEY);
+      if (!raw) return;
+      sessionStorage.removeItem(EXIT_REWARD_KEY);
+      data = JSON.parse(raw);
+    } catch (_e) {
+      return;
+    }
+    if (!data || !Number.isFinite(data.earned) || data.earned <= 0) return;
+
+    playerState = loadPlayerState();
+    renderProfile(playerState);
+    renderGameLocks(playerState);
+    animateCoins();
+    hapticSuccess();
+
+    const toast = document.createElement("div");
+    toast.className = "exit-reward-toast";
+    toast.textContent = `+${data.earned} coins saved from your last session`;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add("visible"));
+    setTimeout(() => {
+      toast.classList.remove("visible");
+      setTimeout(() => toast.remove(), 300);
+    }, 3200);
   }
 
   function animateUnlock(card) {
@@ -151,6 +181,7 @@
 
   renderProfile(playerState);
   renderGameLocks(playerState);
+  showExitRewardToast();
 
   const devCoinsBtn = document.getElementById("devCoinsBtn");
   if (devCoinsBtn) {

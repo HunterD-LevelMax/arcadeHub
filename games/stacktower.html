@@ -532,14 +532,14 @@ if ('ontouchstart' in window) {
 document.getElementById('startBtn').addEventListener('click', () => {
   resetTower();
   gameState.state = 'playing';
-  beginCoinSession(gameState.best);
+  beginCoinSession(gameState.best, 'stacktower', () => gameState.score);
   ui.startOverlay.classList.add('hidden');
 });
 
 document.getElementById('restartBtn').addEventListener('click', () => {
   resetTower();
   gameState.state = 'playing';
-  beginCoinSession(gameState.best);
+  beginCoinSession(gameState.best, 'stacktower', () => gameState.score);
   ui.gameoverOverlay.classList.add('hidden');
 });
 

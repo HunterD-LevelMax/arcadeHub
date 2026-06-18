@@ -53,7 +53,7 @@
     }
 
     startSession() {
-      if (window.beginCoinSession) beginCoinSession(this.gameState.best);
+      if (window.beginCoinSession) beginCoinSession(this.gameState.best, 'frogger', () => this.gameState.maxZ);
       this.gameState.state = "playing";
       this.ui.startOverlay.classList.add("hidden");
       this.lastTime = 0;

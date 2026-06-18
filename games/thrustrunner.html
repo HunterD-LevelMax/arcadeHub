@@ -769,7 +769,7 @@ function endGame() {
 function startPlaying() {
   init();
   gameState.state = 'playing';
-  beginCoinSession(gameState.best);
+  beginCoinSession(gameState.best, 'thrustrunner', () => gameState.score);
   ui.startOverlay.classList.add('hidden');
   ui.gameoverOverlay.classList.add('hidden');
 }

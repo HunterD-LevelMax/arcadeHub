@@ -282,6 +282,31 @@ body::after {
   box-shadow: 0 0 12px rgba(255, 193, 7, 0.35);
 }
 
+.exit-reward-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%) translateY(12px);
+  z-index: 1200;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #ffe082;
+  background: rgba(12, 18, 32, 0.94);
+  border: 1px solid rgba(255, 224, 130, 0.45);
+  box-shadow: 0 0 24px rgba(255, 224, 130, 0.18);
+  padding: 10px 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.exit-reward-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 .next-unlock {
   width: 100%;
   margin-top: 14px;
