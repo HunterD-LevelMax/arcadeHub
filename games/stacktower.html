@@ -54,6 +54,7 @@ const SPEED_INC = 0.08;
 const PERFECT_EPS = 3;
 const MARGIN_BOTTOM = 32;
 const MOVER_GAP_ABOVE = 60;
+const SLIDE_EXTRA = 120;
 const TARGET_TOP_SCREEN_RATIO = 0.58;
 const GRAVITY = 0.5;
 const FALL_INITIAL_VY = 0.5;
@@ -175,12 +176,25 @@ function syncMoverSlideBand() {
   mover.y = mover.targetY - MOVER_GAP_ABOVE;
 }
 
+function moverSlideBounds() {
+  const top = stack[stack.length - 1];
+  const w = mover ? mover.w : top.w;
+  let minX = Math.max(0, top.x - SLIDE_EXTRA);
+  let maxX = Math.min(W() - w, top.x + top.w - w + SLIDE_EXTRA);
+  if (minX > maxX) {
+    const center = top.x + (top.w - w) / 2;
+    minX = maxX = Math.max(0, Math.min(W() - w, center));
+  }
+  return { minX, maxX };
+}
+
 function spawnMover() {
   const top = stack[stack.length - 1];
   const level = stack.length;
   const targetY = landingWorldY();
+  const { minX, maxX } = moverSlideBounds();
   mover = {
-    x: W() / 2 - top.w / 2,
+    x: minX + (maxX - minX) / 2,
     y: targetY - MOVER_GAP_ABOVE,
     w: top.w,
     h: BLOCK_H,
@@ -344,13 +358,14 @@ function updatePhysics() {
   if (mover && gameState.state === 'playing') {
     if (mover.state === 'moving') {
       syncMoverSlideBand();
+      const { minX, maxX } = moverSlideBounds();
       mover.x += mover.speed * mover.dir;
-      if (mover.x <= 0) {
-        mover.x = 0;
+      if (mover.x <= minX) {
+        mover.x = minX;
         mover.dir = 1;
       }
-      if (mover.x + mover.w >= W()) {
-        mover.x = W() - mover.w;
+      if (mover.x >= maxX) {
+        mover.x = maxX;
         mover.dir = -1;
       }
     } else if (mover.state === 'falling') {
