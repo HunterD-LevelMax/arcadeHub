@@ -1,11 +1,10 @@
 :root {
   --game-accent: #ffcc00;
+  --md-btn-accent: var(--game-accent);
 }
 
 .page { gap: 10px; }
 
-.back-btn { color: var(--game-accent); border-color: var(--game-accent); }
-.back-btn:hover { box-shadow: 0 0 12px var(--game-accent); }
 .game-title { color: var(--game-accent); text-shadow: 0 0 20px var(--game-accent); }
 .score-display { color: var(--game-accent); }
 
@@ -89,15 +88,6 @@ canvas {
   text-shadow: 0 0 30px var(--game-accent);
 }
 
-.start-btn {
-  border-color: var(--game-accent);
-  color: var(--game-accent);
-}
-
-.start-btn:hover {
-  box-shadow: 0 0 30px var(--game-accent);
-}
-
 .header-stats {
   display: flex;
   flex-wrap: wrap;
@@ -163,25 +153,26 @@ canvas {
 
 .map-btn {
   font-family: 'Orbitron', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 1px;
-  padding: 8px 12px;
   cursor: pointer;
-  background: rgba(255, 204, 0, 0.06);
-  border: 1px solid rgba(255, 204, 0, 0.35);
-  color: rgba(255, 204, 0, 0.7);
-  transition: all 0.15s;
+  transition: box-shadow var(--md-motion-duration-short) var(--md-motion-easing),
+    background var(--md-motion-duration-short) var(--md-motion-easing);
+}
+
+.map-btn .material-symbols-outlined {
+  font-size: 1rem;
 }
 
 .map-btn.selected {
-  background: rgba(255, 204, 0, 0.18);
+  background: color-mix(in srgb, var(--game-accent) 18%, transparent);
   border-color: var(--game-accent);
   color: var(--game-accent);
-  box-shadow: 0 0 16px rgba(255, 204, 0, 0.4);
+  box-shadow: var(--md-sys-elevation-1), 0 0 16px color-mix(in srgb, var(--game-accent) 40%, transparent);
 }
 
 .map-btn:hover:not(.selected) {
-  border-color: rgba(255, 204, 0, 0.6);
+  background: color-mix(in srgb, var(--game-accent) 12%, transparent);
 }
 
 .tower-bar {
@@ -216,7 +207,7 @@ canvas {
   color: #ffcc00;
   border: 1px solid rgba(255, 204, 0, 0.4);
   background: rgba(5, 5, 16, 0.88);
-  border-radius: 4px;
+  border-radius: var(--md-sys-shape-corner-medium);
 }
 
 .bar-hint.hidden {
@@ -251,6 +242,7 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 1px;
   font-family: 'Orbitron', sans-serif;
   font-size: 9px;
@@ -260,8 +252,12 @@ canvas {
   cursor: pointer;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--md-sys-shape-corner-medium);
   color: #fff;
-  transition: all 0.15s;
+  transition: box-shadow var(--md-motion-duration-short) var(--md-motion-easing),
+    transform var(--md-motion-duration-short) var(--md-motion-easing);
+  position: relative;
+  overflow: hidden;
 }
 
 .tower-btn .tower-cost {
@@ -315,16 +311,27 @@ canvas {
   min-width: 64px;
   max-width: 100px;
   min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   font-family: 'Orbitron', sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1px;
-  padding: 6px 4px;
+  padding: 6px 8px;
   cursor: pointer;
-  background: rgba(255, 204, 0, 0.08);
-  border: 1px solid rgba(255, 204, 0, 0.45);
+  background: color-mix(in srgb, var(--game-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--game-accent) 45%, transparent);
+  border-radius: var(--md-sys-shape-corner-full);
   color: var(--game-accent);
-  transition: all 0.15s;
+  transition: box-shadow var(--md-motion-duration-short) var(--md-motion-easing);
+  position: relative;
+  overflow: hidden;
+}
+
+.action-btn .material-symbols-outlined {
+  font-size: 1rem;
 }
 
 .action-btn:hover:not(:disabled) {
@@ -440,7 +447,7 @@ canvas {
   position: absolute;
   width: 36px;
   height: 36px;
-  border-radius: 50%;
+  border-radius: var(--md-sys-shape-corner-full);
   border: 1px solid rgba(255, 255, 255, 0.35);
   background: rgba(5, 5, 16, 0.9);
   color: #fff;
@@ -452,7 +459,9 @@ canvas {
   justify-content: center;
   gap: 0;
   padding: 0;
-  transition: transform 0.12s, box-shadow 0.12s;
+  overflow: hidden;
+  transition: transform var(--md-motion-duration-short) var(--md-motion-easing),
+    box-shadow var(--md-motion-duration-short) var(--md-motion-easing);
 }
 
 .radial-btn:hover:not(:disabled) {
@@ -460,9 +469,8 @@ canvas {
 }
 
 .radial-icon {
-  font-size: 11px;
+  font-size: 1rem;
   line-height: 1;
-  font-weight: 700;
 }
 
 .radial-label {
@@ -514,7 +522,10 @@ canvas {
   left: -4px;
   border-color: rgba(255, 255, 255, 0.3);
   color: rgba(255, 255, 255, 0.75);
-  font-size: 12px;
+}
+
+.radial-close .radial-icon {
+  font-size: 1.125rem;
 }
 
 .radial-close:hover {
@@ -537,13 +548,13 @@ canvas {
   font-weight: 700;
   letter-spacing: 0.5px;
   text-align: right;
-  padding: 4px 7px;
-  border-radius: 4px;
+  padding: 4px 8px;
+  border-radius: var(--md-sys-shape-corner-small);
   line-height: 1.3;
   white-space: nowrap;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--md-sys-elevation-1);
   opacity: 0.95;
 }
 
@@ -602,14 +613,14 @@ canvas {
 }
 
 .action-btn.codex-btn {
-  flex: 0 0 36px;
-  min-width: 36px;
-  max-width: 36px;
-  font-size: 14px;
-  font-weight: 900;
-  border-color: rgba(255, 255, 255, 0.35);
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.06);
+  flex: 0 0 40px;
+  min-width: 40px;
+  max-width: 40px;
+  padding: 0;
+}
+
+.action-btn.codex-btn .material-symbols-outlined {
+  font-size: 1.25rem;
 }
 
 .action-btn.codex-btn:hover {
@@ -638,8 +649,10 @@ canvas {
   display: flex;
   flex-direction: column;
   border: 1px solid rgba(255, 204, 0, 0.4);
+  border-radius: var(--md-sys-shape-corner-large);
   background: linear-gradient(180deg, rgba(12, 12, 28, 0.98), rgba(5, 5, 16, 0.98));
-  box-shadow: 0 0 40px rgba(255, 204, 0, 0.15);
+  box-shadow: var(--md-sys-elevation-3), 0 0 40px rgba(255, 204, 0, 0.15);
+  overflow: hidden;
 }
 
 .codex-header {
@@ -659,14 +672,10 @@ canvas {
 }
 
 .codex-close {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 14px;
-  width: 32px;
-  height: 32px;
-  cursor: pointer;
-  border: 1px solid rgba(255, 204, 0, 0.35);
-  background: rgba(0, 0, 0, 0.35);
-  color: var(--game-accent);
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
 }
 
 .codex-body {
@@ -697,6 +706,7 @@ canvas {
   border: 1px solid color-mix(in srgb, var(--card-color) 50%, transparent);
   background: color-mix(in srgb, var(--card-color) 8%, transparent);
   border-left: 3px solid var(--card-color);
+  border-radius: var(--md-sys-shape-corner-small);
 }
 
 .codex-card-title {

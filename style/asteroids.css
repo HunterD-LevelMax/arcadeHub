@@ -1,5 +1,8 @@
-.back-btn { color: var(--neon-cyan); border-color: var(--neon-cyan); }
-.back-btn:hover { box-shadow: 0 0 12px var(--neon-cyan); }
+:root {
+  --game-accent: var(--neon-cyan);
+  --md-btn-accent: var(--game-accent);
+}
+
 .game-title { color: var(--neon-cyan); text-shadow: 0 0 20px var(--neon-cyan); }
 .score-display { color: var(--neon-cyan); }
 
@@ -28,11 +31,3 @@ canvas {
   color: rgba(0, 245, 255, 0.5);
 }
 
-.start-btn {
-  border-color: var(--neon-cyan);
-  color: var(--neon-cyan);
-}
-
-.start-btn:hover {
-  box-shadow: 0 0 30px rgba(0, 245, 255, 0.8);
-}

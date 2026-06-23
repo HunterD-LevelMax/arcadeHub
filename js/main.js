@@ -1062,5 +1062,46 @@
         tick();
       })();
 
+(function initHubScrollMemory() {
+  const SCROLL_KEY = 'arcadeHub_scrollY';
+  const isGamePage = /\/games\//i.test(window.location.pathname);
+  if (isGamePage) return;
 
+  if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+  }
+
+  function saveHubScroll() {
+    sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || window.pageYOffset || 0));
+  }
+
+  function restoreHubScroll() {
+    const raw = sessionStorage.getItem(SCROLL_KEY);
+    if (raw === null) return;
+    const y = Number(raw);
+    if (!Number.isFinite(y) || y <= 0) return;
+
+    const apply = () => window.scrollTo(0, y);
+    apply();
+    requestAnimationFrame(apply);
+    window.addEventListener('load', apply, { once: true });
+    setTimeout(apply, 100);
+  }
+
+  document.querySelectorAll('.game-card[data-game-id]').forEach((card) => {
+    card.addEventListener('click', () => {
+      saveHubScroll();
+      const id = card.dataset.gameId;
+      if (id) sessionStorage.setItem('arcadeHub_lastGameId', id);
+    });
+  });
+
+  window.addEventListener('pagehide', saveHubScroll);
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', restoreHubScroll);
+  } else {
+    restoreHubScroll();
+  }
+})();
 

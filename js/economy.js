@@ -59,9 +59,48 @@
   function renderProfile(state) {
     const nameEl = document.getElementById("playerName");
     const coinsEl = document.getElementById("playerCoins");
-    if (nameEl) nameEl.textContent = state.playerName;
-    if (coinsEl) coinsEl.textContent = `Coins: ${state.coins}`;
+    const nameText = nameEl?.querySelector(".profile-text");
+    const coinsText = coinsEl?.querySelector(".profile-text");
+    if (nameText) nameText.textContent = state.playerName;
+    if (coinsText) coinsText.textContent = `Coins: ${state.coins}`;
     renderNextUnlock(state);
+  }
+
+  function ensureLockOverlay(card) {
+    let overlay = card.querySelector(".card-lock-overlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.className = "card-lock-overlay";
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.innerHTML = `
+        <div class="card-lock-badge">
+          <span class="card-lock-icon-wrap">
+            <span class="material-symbols-outlined card-lock-icon" aria-hidden="true">lock</span>
+          </span>
+          <span class="card-lock-rarity"></span>
+          <span class="card-lock-cost-wrap">
+            <span class="material-symbols-outlined" aria-hidden="true">paid</span>
+            <span class="card-lock-cost"></span>
+          </span>
+        </div>
+      `;
+      const preview = card.querySelector(".card-preview");
+      if (preview) preview.appendChild(overlay);
+      else card.appendChild(overlay);
+    }
+    return overlay;
+  }
+
+  function updatePlayButton(card, locked) {
+    const playBtn = card.querySelector(".play-btn");
+    if (!playBtn) return;
+    if (locked) {
+      playBtn.classList.add("play-btn-locked");
+      playBtn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">lock</span>UNLOCK';
+    } else {
+      playBtn.classList.remove("play-btn-locked");
+      playBtn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>PLAY';
+    }
   }
 
   function renderGameLocks(state) {
@@ -73,6 +112,20 @@
       card.dataset.unlockCost = String(cost);
       card.dataset.unlockRarity = RARITY_LABEL[rarity] || RARITY_LABEL.common;
       card.classList.toggle("locked", !unlocked);
+
+      if (!unlocked) {
+        const overlay = ensureLockOverlay(card);
+        overlay.classList.remove("hidden");
+        const rarityEl = overlay.querySelector(".card-lock-rarity");
+        const costEl = overlay.querySelector(".card-lock-cost");
+        if (rarityEl) rarityEl.textContent = RARITY_LABEL[rarity] || RARITY_LABEL.common;
+        if (costEl) costEl.textContent = `${cost} COINS`;
+      } else {
+        const overlay = card.querySelector(".card-lock-overlay");
+        if (overlay) overlay.classList.add("hidden");
+      }
+
+      updatePlayButton(card, !unlocked);
     });
     renderNextUnlock(state);
   }

@@ -1,9 +1,8 @@
 :root {
   --game-accent: #ff8800;
+  --md-btn-accent: var(--game-accent);
 }
 
-.back-btn { color: var(--game-accent); border-color: var(--game-accent); }
-.back-btn:hover { box-shadow: 0 0 12px var(--game-accent); }
 .game-title { color: var(--game-accent); text-shadow: 0 0 20px var(--game-accent); }
 .score-badge { color: var(--game-accent); }
 
@@ -31,15 +30,6 @@ canvas {
 .overlay-score {
   color: var(--game-accent);
   text-shadow: 0 0 30px var(--game-accent);
-}
-
-.start-btn {
-  border-color: var(--game-accent);
-  color: var(--game-accent);
-}
-
-.start-btn:hover {
-  box-shadow: 0 0 30px var(--game-accent);
 }
 
 .header-stats {

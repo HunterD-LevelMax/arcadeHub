@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ARCADE HUB</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
   <link rel="stylesheet" href="style/main.css">
 </head>
 <body>
@@ -13,30 +16,44 @@
 
   <div class="container">
 
-    <header class="header">
-      <div class="header-badge">INSERT COIN TO CONTINUE</div>
+    <header class="header md-surface md-elev-2">
+      <div class="header-badge md-chip md-chip-outlined">
+        <span class="material-symbols-outlined" aria-hidden="true">monetization_on</span>
+        INSERT COIN TO CONTINUE
+      </div>
       <h1>ARCADE HUB</h1>
       <p class="header-sub">Select your game &nbsp;·&nbsp; Beat your high score</p>
       <div class="header-line">
-        <span>&#9632; READY PLAYER ONE &#9632;</span>
+        <span class="material-symbols-outlined header-line-icon" aria-hidden="true">sports_esports</span>
+        <span>READY PLAYER ONE</span>
+        <span class="material-symbols-outlined header-line-icon" aria-hidden="true">sports_esports</span>
       </div>
       <div class="player-profile">
-        <span id="playerName">Player 1</span>
-        <span id="playerCoins">Coins: 0</span>
-        <button type="button" id="devCoinsBtn" class="dev-coins-btn" title="Testing only">+1000 TEST</button>
+        <span class="md-chip md-chip-tonal profile-chip" id="playerName">
+          <span class="material-symbols-outlined" aria-hidden="true">person</span>
+          <span class="profile-text">Player 1</span>
+        </span>
+        <span class="md-chip md-chip-tonal profile-chip profile-chip-coins" id="playerCoins">
+          <span class="material-symbols-outlined" aria-hidden="true">paid</span>
+          <span class="profile-text">Coins: 0</span>
+        </span>
+        <button type="button" id="devCoinsBtn" class="dev-coins-btn md-btn md-btn-outlined md-ripple" title="Testing only">
+          <span class="material-symbols-outlined" aria-hidden="true">add_circle</span>
+          +1000 TEST
+        </button>
       </div>
-      <div class="next-unlock" id="nextUnlock"></div>
+      <div class="next-unlock md-surface md-elev-1" id="nextUnlock"></div>
     </header>
 
     <div class="section-title">
-      <span>&#9632;</span>
+      <span class="material-symbols-outlined section-icon" aria-hidden="true">videogame_asset</span>
       <span>Available Games</span>
     </div>
 
     <div class="games-grid">
 
       <!-- PRISM CASCADE -->
-      <a class="game-card" data-game-id="prismcascade" data-rarity="common" href="games/prismcascade.html" style="--card-accent: #aa00ff; --preview-bg: #150022;">
+      <a class="game-card md-card md-ripple" data-game-id="prismcascade" data-rarity="common" href="games/prismcascade.html" style="--card-accent: #aa00ff; --preview-bg: #150022;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -46,7 +63,7 @@
           <div class="preview-corner br"></div>
           <div class="preview-badge">PUZZLE</div>
           <canvas id="prismcascadeCanvas"></canvas>
-          <div class="preview-icon">💎</div>
+          <div class="preview-icon material-symbols-outlined" aria-hidden="true">diamond</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_01 / 11</div>
@@ -57,16 +74,16 @@
               <span class="tag">PUZZLE</span>
               <span class="tag">TIMED</span>
             </div>
-            <div class="play-btn">
+            <div class="play-btn md-btn md-btn-filled md-ripple">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
               PLAY
-              <div class="play-btn-arrow">▶</div>
             </div>
           </div>
         </div>
       </a>
 
       <!-- Frogger -->
-      <a class="game-card" data-game-id="frogger" data-rarity="rare" href="games/frogger.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
+      <a class="game-card md-card md-ripple" data-game-id="frogger" data-rarity="rare" href="games/frogger.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -76,7 +93,7 @@
           <div class="preview-corner br"></div>
           <div class="preview-badge">CLASSIC</div>
           <canvas id="froggerCanvas"></canvas>
-          <div class="preview-icon">🐸</div>
+          <div class="preview-icon material-symbols-outlined" aria-hidden="true">smart_toy</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_02 / 11</div>
@@ -87,16 +104,16 @@
               <span class="tag">ARCADE</span>
               <span class="tag">CLASSIC</span>
             </div>
-            <div class="play-btn">
+            <div class="play-btn md-btn md-btn-filled md-ripple">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
               PLAY
-              <div class="play-btn-arrow">▶</div>
             </div>
           </div>
         </div>
       </a>
 
       <!-- Space BLOCKS -->
-      <a class="game-card" data-game-id="tetris" data-rarity="common" href="games/tetris.html" style="--card-accent: #00f5ff; --preview-bg: #03071e;">
+      <a class="game-card md-card md-ripple" data-game-id="tetris" data-rarity="common" href="games/tetris.html" style="--card-accent: #00f5ff; --preview-bg: #03071e;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -106,7 +123,7 @@
           <div class="preview-corner br"></div>
           <div class="preview-badge">CLASSIC</div>
           <canvas id="tetrisCanvas"></canvas>
-          <div class="preview-icon">🧱</div>
+          <div class="preview-icon material-symbols-outlined" aria-hidden="true">grid_view</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_03 / 11</div>
@@ -117,16 +134,16 @@
               <span class="tag">PUZZLE</span>
               <span class="tag">ARCADE</span>
             </div>
-            <div class="play-btn">
+            <div class="play-btn md-btn md-btn-filled md-ripple">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
               PLAY
-              <div class="play-btn-arrow">▶</div>
             </div>
           </div>
         </div>
       </a>
 
       <!-- Snake -->
-      <a class="game-card" data-game-id="snake" data-rarity="common" href="games/snake.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
+      <a class="game-card md-card md-ripple" data-game-id="snake" data-rarity="common" href="games/snake.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -136,7 +153,7 @@
           <div class="preview-corner br"></div>
           <div class="preview-badge">CLASSIC</div>
           <canvas id="snakeCanvas"></canvas>
-          <div class="preview-icon">🐍</div>
+          <div class="preview-icon material-symbols-outlined" aria-hidden="true">auto_awesome</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_04 / 11</div>
@@ -147,16 +164,16 @@
               <span class="tag">CLASSIC</span>
               <span class="tag">ARCADE</span>
             </div>
-            <div class="play-btn">
+            <div class="play-btn md-btn md-btn-filled md-ripple">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
               PLAY
-              <div class="play-btn-arrow">▶</div>
             </div>
           </div>
         </div>
       </a>
 
       <!-- Asteroids -->
-      <a class="game-card" data-game-id="asteroids" data-rarity="epic" href="games/asteroids.html" style="--card-accent: #00f5ff; --preview-bg: #03071e;">
+      <a class="game-card md-card md-ripple" data-game-id="asteroids" data-rarity="epic" href="games/asteroids.html" style="--card-accent: #00f5ff; --preview-bg: #03071e;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -166,7 +183,7 @@
           <div class="preview-corner br"></div>
           <div class="preview-badge">CLASSIC</div>
           <canvas id="asteroidsCanvas"></canvas>
-          <div class="preview-icon">🚀</div>
+          <div class="preview-icon material-symbols-outlined" aria-hidden="true">rocket_launch</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_05 / 11</div>
@@ -177,16 +194,16 @@
               <span class="tag">SHOOTER</span>
               <span class="tag">ARCADE</span>
             </div>
-            <div class="play-btn">
+            <div class="play-btn md-btn md-btn-filled md-ripple">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
               PLAY
-              <div class="play-btn-arrow">▶</div>
             </div>
           </div>
         </div>
       </a>
 
       <!-- FLY HARD -->
-      <a class="game-card" data-game-id="flappy" data-rarity="rare" href="games/flappy.html" style="--card-accent: #ff00ff; --preview-bg: #0f0318;">
+      <a class="game-card md-card md-ripple" data-game-id="flappy" data-rarity="rare" href="games/flappy.html" style="--card-accent: #ff00ff; --preview-bg: #0f0318;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -196,7 +213,7 @@
           <div class="preview-corner br"></div>
           <div class="preview-badge">ENDLESS</div>
           <canvas id="flappyCanvas"></canvas>
-          <div class="preview-icon" style="animation-delay: -1.5s;">🐦</div>
+          <div class="preview-icon material-symbols-outlined" style="animation-delay: -1.5s;" aria-hidden="true">flight</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_06 / 11</div>
@@ -207,16 +224,16 @@
               <span class="tag">CASUAL</span>
               <span class="tag">ONE-TAP</span>
             </div>
-            <div class="play-btn">
+            <div class="play-btn md-btn md-btn-filled md-ripple">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
               PLAY
-              <div class="play-btn-arrow">▶</div>
             </div>
           </div>
         </div>
       </a>
 
       <!-- SPACE HOPPER -->
-      <a class="game-card" data-game-id="doodle" data-rarity="common" href="games/doodle.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
+      <a class="game-card md-card md-ripple" data-game-id="doodle" data-rarity="common" href="games/doodle.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -226,7 +243,7 @@
           <div class="preview-corner br"></div>
           <div class="preview-badge">ENDLESS</div>
           <canvas id="doodleCanvas"></canvas>
-          <div class="preview-icon" style="animation-delay: -0.8s;">🟢</div>
+          <div class="preview-icon material-symbols-outlined" style="animation-delay: -0.8s;" aria-hidden="true">north</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_07 / 11</div>
@@ -237,14 +254,14 @@
               <span class="tag">PLATFORM</span>
               <span class="tag">ENDLESS</span>
             </div>
-            <div class="play-btn">
+            <div class="play-btn md-btn md-btn-filled md-ripple">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
               PLAY
-              <div class="play-btn-arrow">▶</div>
             </div>
           </div>
         </div>
       </a>
-      <a class="game-card" data-game-id="spaceinvaders" data-rarity="epic" href="games/spaceinvaders.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
+      <a class="game-card md-card md-ripple" data-game-id="spaceinvaders" data-rarity="epic" href="games/spaceinvaders.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -254,7 +271,7 @@
           <div class="preview-corner br"></div>
           <div class="preview-badge">CLASSIC</div>
           <canvas id="spaceinvadersCanvas"></canvas>
-          <div class="preview-icon">👾</div>
+          <div class="preview-icon material-symbols-outlined" aria-hidden="true">smart_toy</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_08 / 11</div>
@@ -265,16 +282,16 @@
               <span class="tag">SHOOTER</span>
               <span class="tag">CLASSIC</span>
             </div>
-            <div class="play-btn">
+            <div class="play-btn md-btn md-btn-filled md-ripple">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
               PLAY
-              <div class="play-btn-arrow">▶</div>
             </div>
           </div>
         </div>
       </a>
 
       <!-- NEON 2048 -->
-      <a class="game-card" data-game-id="game2048" data-rarity="common" href="games/game2048.html" style="--card-accent: #ff8800; --preview-bg: #1a1008;">
+      <a class="game-card md-card md-ripple" data-game-id="game2048" data-rarity="common" href="games/game2048.html" style="--card-accent: #ff8800; --preview-bg: #1a1008;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -284,7 +301,7 @@
           <div class="preview-corner br"></div>
           <div class="preview-badge">PUZZLE</div>
           <canvas id="game2048Canvas"></canvas>
-          <div class="preview-icon">🔢</div>
+          <div class="preview-icon material-symbols-outlined" aria-hidden="true">grid_4x4</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_09 / 11</div>
@@ -295,16 +312,16 @@
               <span class="tag">PUZZLE</span>
               <span class="tag">STRATEGY</span>
             </div>
-            <div class="play-btn">
+            <div class="play-btn md-btn md-btn-filled md-ripple">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
               PLAY
-              <div class="play-btn-arrow">▶</div>
             </div>
           </div>
         </div>
       </a>
 
       <!-- STACK TOWER -->
-      <a class="game-card" data-game-id="stacktower" data-rarity="rare" href="games/stacktower.html" style="--card-accent: #ffff00; --preview-bg: #1a1808;">
+      <a class="game-card md-card md-ripple" data-game-id="stacktower" data-rarity="rare" href="games/stacktower.html" style="--card-accent: #ffff00; --preview-bg: #1a1808;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -314,7 +331,7 @@
           <div class="preview-corner br"></div>
           <div class="preview-badge">ENDLESS</div>
           <canvas id="stacktowerCanvas"></canvas>
-          <div class="preview-icon">🏗️</div>
+          <div class="preview-icon material-symbols-outlined" aria-hidden="true">apartment</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_10 / 11</div>
@@ -325,16 +342,16 @@
               <span class="tag">ONE-TAP</span>
               <span class="tag">SKILL</span>
             </div>
-            <div class="play-btn">
+            <div class="play-btn md-btn md-btn-filled md-ripple">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
               PLAY
-              <div class="play-btn-arrow">▶</div>
             </div>
           </div>
         </div>
       </a>
 
       <!-- THRUST RUNNER -->
-      <a class="game-card" data-game-id="thrustrunner" data-rarity="epic" href="games/thrustrunner.html" style="--card-accent: #ff6600; --preview-bg: #1a0d00;">
+      <a class="game-card md-card md-ripple" data-game-id="thrustrunner" data-rarity="epic" href="games/thrustrunner.html" style="--card-accent: #ff6600; --preview-bg: #1a0d00;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -344,7 +361,7 @@
           <div class="preview-corner br"></div>
           <div class="preview-badge">ENDLESS</div>
           <canvas id="thrustrunnerCanvas"></canvas>
-          <div class="preview-icon">🚀</div>
+          <div class="preview-icon material-symbols-outlined" aria-hidden="true">speed</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_11 / 11</div>
@@ -355,16 +372,16 @@
               <span class="tag">ENDLESS</span>
               <span class="tag">SKILL</span>
             </div>
-            <div class="play-btn">
+            <div class="play-btn md-btn md-btn-filled md-ripple">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
               PLAY
-              <div class="play-btn-arrow">▶</div>
             </div>
           </div>
         </div>
       </a>
 
       <!-- NEON SIEGE -->
-      <a class="game-card" data-game-id="neonsiege" data-rarity="rare" href="games/neonsiege.html" style="--card-accent: #ffcc00; --preview-bg: #120f00;">
+      <a class="game-card md-card md-ripple" data-game-id="neonsiege" data-rarity="rare" href="games/neonsiege.html" style="--card-accent: #ffcc00; --preview-bg: #120f00;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -374,7 +391,7 @@
           <div class="preview-corner br"></div>
           <div class="preview-badge">STRATEGY</div>
           <canvas id="neonsiegeCanvas"></canvas>
-          <div class="preview-icon">🗼</div>
+          <div class="preview-icon material-symbols-outlined" aria-hidden="true">castle</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_12 / 12</div>
@@ -385,9 +402,9 @@
               <span class="tag">TOWER DEFENSE</span>
               <span class="tag">WAVES</span>
             </div>
-            <div class="play-btn">
+            <div class="play-btn md-btn md-btn-filled md-ripple">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
               PLAY
-              <div class="play-btn-arrow">▶</div>
             </div>
           </div>
         </div>
@@ -395,20 +412,29 @@
 
     </div>
 
-    <footer class="page-footer">
-      &copy; 2026 &nbsp;·&nbsp; ARCADE HUB &nbsp;·&nbsp;
-      <a href="https://hunterd-levelmax.github.io/arcadeHub/privacy.html" class="footer-link">Privacy Policy</a>
+    <footer class="page-footer md-surface md-elev-1">
+      <span>&copy; 2026 &nbsp;·&nbsp; ARCADE HUB</span>
+      <a href="https://hunterd-levelmax.github.io/arcadeHub/privacy.html" class="footer-link md-text-button">
+        <span class="material-symbols-outlined" aria-hidden="true">policy</span>
+        Privacy Policy
+      </a>
     </footer>
 
   </div>
 
-  <div id="arcadeModal" class="arcade-modal-overlay hidden">
-    <div class="arcade-modal">
+  <div id="arcadeModal" class="arcade-modal-overlay hidden" role="presentation">
+    <div class="arcade-modal md-surface md-elev-3" role="dialog" aria-modal="true" aria-labelledby="arcadeModalTitle">
       <div class="arcade-modal-title" id="arcadeModalTitle">ARCADE HUB</div>
       <div class="arcade-modal-text" id="arcadeModalText"></div>
       <div class="arcade-modal-actions">
-        <button id="arcadeModalCancel" class="arcade-btn ghost">Cancel</button>
-        <button id="arcadeModalOk" class="arcade-btn">OK</button>
+        <button type="button" id="arcadeModalCancel" class="arcade-btn md-btn md-btn-text md-ripple ghost">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span>
+          Cancel
+        </button>
+        <button type="button" id="arcadeModalOk" class="arcade-btn md-btn md-btn-filled md-ripple">
+          <span class="material-symbols-outlined" aria-hidden="true">check</span>
+          OK
+        </button>
       </div>
     </div>
   </div>

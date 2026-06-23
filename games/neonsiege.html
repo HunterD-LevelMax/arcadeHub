@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>NEON SIEGE — ARCADE HUB</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
   <link rel="stylesheet" href="../style/game.css">
   <link rel="stylesheet" href="../style/neonsiege.css">
 </head>
@@ -11,7 +14,7 @@
 
   <div class="page">
     <div class="header">
-      <a href="../index.html" class="back-btn">← BACK</a>
+      <a href="../index.html" class="back-btn md-btn md-btn-outlined md-ripple"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>BACK</a>
       <div class="game-title">NEON SIEGE</div>
       <div class="header-stats">
         <div class="stat-display">GOLD: <span id="goldVal">0</span></div>
@@ -34,31 +37,35 @@
         <div class="radial-ring" aria-hidden="true"></div>
         <div class="radial-hub" id="towerPanelInfo">PULSE T1</div>
         <div class="radial-stats" id="towerPanelStats"></div>
-        <button type="button" class="radial-btn radial-target" id="targetBtn" title="Cycle target priority">
-          <span class="radial-icon">◎</span>
+        <button type="button" class="radial-btn radial-target md-ripple" id="targetBtn" title="Cycle target priority">
+          <span class="material-symbols-outlined radial-icon" aria-hidden="true">tune</span>
           <span class="radial-label" id="targetLabel">FIRST</span>
         </button>
-        <button type="button" class="radial-btn radial-upgrade" id="upgradeBtn" title="Upgrade">
-          <span class="radial-icon">↑</span>
+        <button type="button" class="radial-btn radial-upgrade md-ripple" id="upgradeBtn" title="Upgrade">
+          <span class="material-symbols-outlined radial-icon" aria-hidden="true">upgrade</span>
           <span class="radial-label" id="upgradeLabel">UP</span>
         </button>
-        <button type="button" class="radial-btn radial-sell" id="sellBtn" title="Sell">
-          <span class="radial-icon">$</span>
+        <button type="button" class="radial-btn radial-sell md-ripple" id="sellBtn" title="Sell">
+          <span class="material-symbols-outlined radial-icon" aria-hidden="true">paid</span>
           <span class="radial-label" id="sellLabel">0</span>
         </button>
-        <button type="button" class="radial-btn radial-close" id="closePanelBtn" title="Close">✕</button>
+        <button type="button" class="radial-btn radial-close md-ripple" id="closePanelBtn" title="Close">
+          <span class="material-symbols-outlined radial-icon" aria-hidden="true">close</span>
+        </button>
       </div>
 
       <div class="overlay" id="startOverlay">
         <div class="overlay-title">NEON SIEGE</div>
         <div class="overlay-sub">PLACE TOWERS ALONG THE PATH<br>DEFEND THE CORE · SURVIVE 15 WAVES</div>
         <div class="map-picker">
-          <button type="button" class="map-btn selected" id="mapBtn0" data-map="0">NEON GRID</button>
-          <button type="button" class="map-btn" id="mapBtn1" data-map="1">SPIRAL CORE</button>
-          <button type="button" class="map-btn map-btn-random" id="mapBtn2" data-map="2">RANDOM</button>
+          <button type="button" class="map-btn md-chip md-ripple selected" id="mapBtn0" data-map="0">NEON GRID</button>
+          <button type="button" class="map-btn md-chip md-ripple" id="mapBtn1" data-map="1">SPIRAL CORE</button>
+          <button type="button" class="map-btn map-btn-random md-chip md-ripple" id="mapBtn2" data-map="2">
+            <span class="material-symbols-outlined" aria-hidden="true">shuffle</span>RANDOM
+          </button>
         </div>
         <div class="map-picker-sub" id="randomMapHint">Winding maze · route splits · tunnel segments</div>
-        <button class="start-btn" id="startBtn">PLAY</button>
+        <button type="button" class="start-btn md-btn md-btn-filled md-ripple" id="startBtn"><span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>PLAY</button>
       </div>
 
       <div class="overlay hidden" id="victoryOverlay">
@@ -70,8 +77,8 @@
           <div class="overlay-coins-total" id="victoryCoinTotal">TOTAL: 0</div>
         </div>
         <div class="overlay-coins-hint hidden" id="victoryCoinHint"></div>
-        <button class="start-btn" id="endlessBtn">CONTINUE ENDLESS</button>
-        <button class="start-btn" id="victoryRetryBtn" style="margin-top:8px;font-size:12px;">RETRY</button>
+        <button type="button" class="start-btn md-btn md-btn-filled md-ripple" id="endlessBtn"><span class="material-symbols-outlined" aria-hidden="true">fast_forward</span>CONTINUE ENDLESS</button>
+        <button type="button" class="start-btn md-btn md-btn-tonal md-ripple" id="victoryRetryBtn" style="margin-top:8px;font-size:11px;"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>RETRY</button>
       </div>
 
       <div class="overlay hidden" id="gameoverOverlay">
@@ -84,7 +91,7 @@
           <div class="overlay-coins-total" id="coinRewardTotal">TOTAL: 0</div>
         </div>
         <div class="overlay-coins-hint hidden" id="coinRewardHint"></div>
-        <button class="start-btn" id="restartBtn">RETRY</button>
+        <button type="button" class="start-btn md-btn md-btn-filled md-ripple" id="restartBtn"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>RETRY</button>
       </div>
     </div>
 
@@ -92,35 +99,39 @@
 
     <div class="tower-bar" id="towerBar">
       <div class="tower-bar-row tower-bar-build">
-      <button type="button" class="action-btn codex-btn" id="codexBtn" title="Tower & enemy guide">?</button>
-      <button type="button" class="tower-btn pulse-tower" data-type="pulse">
+      <button type="button" class="action-btn codex-btn md-ripple" id="codexBtn" title="Tower & enemy guide">
+        <span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
+      </button>
+      <button type="button" class="tower-btn pulse-tower md-ripple" data-type="pulse">
         <span>PULSE</span><span class="tower-cost">60</span>
       </button>
-      <button type="button" class="tower-btn nova-tower" data-type="nova">
+      <button type="button" class="tower-btn nova-tower md-ripple" data-type="nova">
         <span>NOVA</span><span class="tower-cost">100</span>
       </button>
-      <button type="button" class="tower-btn prism-tower" data-type="prism">
+      <button type="button" class="tower-btn prism-tower md-ripple" data-type="prism">
         <span>PRISM</span><span class="tower-cost">125</span>
       </button>
-      <button type="button" class="tower-btn frost-tower" data-type="frost">
+      <button type="button" class="tower-btn frost-tower md-ripple" data-type="frost">
         <span>FROST</span><span class="tower-cost">85</span>
       </button>
       </div>
       <div class="tower-bar-row tower-bar-build tower-bar-build-2">
-      <button type="button" class="tower-btn tesla-tower" data-type="tesla">
+      <button type="button" class="tower-btn tesla-tower md-ripple" data-type="tesla">
         <span>TESLA</span><span class="tower-cost">115</span>
       </button>
-      <button type="button" class="tower-btn rail-tower" data-type="rail">
+      <button type="button" class="tower-btn rail-tower md-ripple" data-type="rail">
         <span>RAIL</span><span class="tower-cost">140</span>
       </button>
-      <button type="button" class="tower-btn mortar-tower" data-type="mortar">
+      <button type="button" class="tower-btn mortar-tower md-ripple" data-type="mortar">
         <span>MORTAR</span><span class="tower-cost">130</span>
       </button>
       </div>
       <div class="tower-bar-row tower-bar-actions">
-      <button type="button" class="action-btn speed-btn" id="speedBtn" title="Toggle game speed (1× / 2× / 4× / 6×)">1×</button>
-      <button type="button" class="action-btn" id="waveBtn">WAVE ▶</button>
-      <button type="button" class="action-btn overcharge-btn" id="overchargeBtn" title="All towers fire ~70% faster for 5s · once per wave">BOOST</button>
+      <button type="button" class="action-btn speed-btn md-ripple" id="speedBtn" title="Toggle game speed (1× / 2× / 4× / 6×)">1×</button>
+      <button type="button" class="action-btn md-ripple" id="waveBtn">WAVE ▶</button>
+      <button type="button" class="action-btn overcharge-btn md-ripple" id="overchargeBtn" title="All towers fire ~70% faster for 5s · once per wave">
+        <span class="material-symbols-outlined" aria-hidden="true">bolt</span>BOOST
+      </button>
       </div>
     </div>
 
@@ -131,7 +142,9 @@
     <div class="codex-panel">
       <div class="codex-header">
         <span class="codex-title">FIELD MANUAL</span>
-        <button type="button" class="codex-close" id="codexCloseBtn">✕</button>
+        <button type="button" class="codex-close md-btn md-btn-outlined md-ripple" id="codexCloseBtn">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
       </div>
       <div class="codex-body" id="codexBody"></div>
     </div>

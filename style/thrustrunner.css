@@ -1,9 +1,8 @@
 :root {
   --game-accent: #ff6600;
+  --md-btn-accent: var(--game-accent);
 }
 
-.back-btn { color: var(--game-accent); border-color: var(--game-accent); }
-.back-btn:hover { box-shadow: 0 0 12px var(--game-accent); }
 .game-title { color: var(--game-accent); text-shadow: 0 0 20px var(--game-accent); }
 .score-display { color: var(--game-accent); }
 
@@ -30,15 +29,6 @@ canvas {
 
 .overlay-best {
   color: rgba(255, 102, 0, 0.5);
-}
-
-.start-btn {
-  border-color: var(--game-accent);
-  color: var(--game-accent);
-}
-
-.back-btn:hover {
-  box-shadow: 0 0 30px var(--game-accent);
 }
 
 /* Maximize vertical play area */
@@ -84,9 +74,5 @@ canvas {
   .game-title {
     font-size: 13px;
     margin-bottom: 0;
-  }
-
-  .back-btn {
-    padding: 5px 10px;
   }
 }
