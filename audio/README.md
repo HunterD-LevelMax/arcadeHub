@@ -11,14 +11,15 @@ See [`LICENSE-kenney-interface.txt`](LICENSE-kenney-interface.txt) for the origi
 ## Layout
 
 ```
-audio/sfx/
-  ui/           Shared UI feedback (tap, confirm, error, …)
-  snake/        Game-specific sounds
-  flappy/
-  …
+audio/sfx/ui/     Shared UI feedback (tap, confirm, error, coin, …)
+audio/bgm/        Hub background music
+
+games/{gameId}/
+  index.html
+  audio/          Game-specific sounds (shoot.ogg, eat.ogg, …)
 ```
 
-Files are renamed short `.ogg` clips mapped in [`js/audio.js`](../js/audio.js).
+Game sounds live next to each game. Shared UI sounds stay in `audio/sfx/ui/`. Resolution is handled in [`js/audio.js`](../js/audio.js) via `new URL()` relative to the current page.
 
 ## Background music
 
@@ -35,6 +36,16 @@ audio/bgm/
 
 ## Adding sounds
 
-1. Add the `.ogg` file under `audio/sfx/<game>/`.
-2. Register the id in `SOUND_MAP` inside `js/audio.js`.
-3. Call `ArcadeAudio.play('game.event')` from game code or rely on `haptic*` bridge for UI sounds.
+### Game-specific
+
+1. Add the `.ogg` file under `games/{gameId}/audio/` (use snake_case filenames, e.g. `player_hit.ogg`).
+2. Call `playSfx('{gameId}.eventName')` from game code — camelCase in the id maps to snake_case on disk (`playerHit` → `player_hit.ogg`).
+
+### Shared UI
+
+1. Add the `.ogg` file under `audio/sfx/ui/`.
+2. Call `playSfx('ui.tap')` or use `haptic*` helpers.
+
+### Aliases
+
+Some game events reuse UI sounds (e.g. `asteroids.levelUp` → `ui.success`). Register these in `ALIASES` inside `js/audio.js`.

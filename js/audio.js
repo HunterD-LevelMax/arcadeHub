@@ -1,93 +1,28 @@
 /**
- * Arcade Hub — shared SFX (CC0 Kenney assets in audio/sfx/)
+ * Arcade Hub — SFX: per-game audio in games/{id}/audio/, shared UI in audio/sfx/ui/
  */
 (function () {
   const MUTE_KEY = "arcadeHub_muted";
-  const BASE = "audio/sfx";
 
-  const SOUND_MAP = {
-    "ui.tap": "ui/tap.ogg",
-    "ui.confirm": "ui/confirm.ogg",
-    "ui.hit": "ui/hit.ogg",
-    "ui.success": "ui/success.ogg",
-    "ui.error": "ui/error.ogg",
-    "ui.coin": "ui/coin.ogg",
-
-    "snake.eat": "snake/eat.ogg",
-    "snake.die": "snake/die.ogg",
-
-    "flappy.flap": "flappy/flap.ogg",
-    "flappy.score": "flappy/score.ogg",
-    "flappy.hit": "flappy/hit.ogg",
-
-    "spaceinvaders.shoot": "spaceinvaders/shoot.ogg",
-    "spaceinvaders.hit": "spaceinvaders/hit.ogg",
-    "spaceinvaders.playerHit": "spaceinvaders/player_hit.ogg",
-    "spaceinvaders.wave": "spaceinvaders/wave.ogg",
-
-    "tetris.move": "tetris/move.ogg",
-    "tetris.rotate": "tetris/rotate.ogg",
-    "tetris.clear": "tetris/clear.ogg",
-    "tetris.tetris": "tetris/tetris.ogg",
-    "tetris.gameover": "tetris/gameover.ogg",
-
-    "prismcascade.match": "prismcascade/match.ogg",
-    "prismcascade.cascade": "prismcascade/cascade.ogg",
-    "prismcascade.bomb": "prismcascade/bomb.ogg",
-    "prismcascade.gameover": "prismcascade/gameover.ogg",
-
-    "frogger.hop": "frogger/hop.ogg",
-    "frogger.splash": "frogger/splash.ogg",
-    "frogger.hit": "frogger/hit.ogg",
-    "frogger.goal": "frogger/goal.ogg",
-
-    "asteroids.shoot": "asteroids/shoot.ogg",
-    "asteroids.explode": "asteroids/explode.ogg",
-    "asteroids.hit": "asteroids/hit.ogg",
-
-    "doodle.jump": "doodle/jump.ogg",
-    "doodle.spring": "doodle/spring.ogg",
-    "doodle.break": "doodle/break.ogg",
-    "doodle.gameover": "doodle/gameover.ogg",
-    "doodle.start": "ui/confirm.ogg",
-    "doodle.land": "ui/tap.ogg",
-    "doodle.bonus": "ui/coin.ogg",
-
-    "game2048.merge": "game2048/merge.ogg",
-    "game2048.spawn": "game2048/spawn.ogg",
-    "game2048.win": "game2048/win.ogg",
-    "game2048.gameover": "game2048/gameover.ogg",
-
-    "stacktower.drop": "stacktower/drop.ogg",
-    "stacktower.perfect": "stacktower/perfect.ogg",
-    "stacktower.miss": "stacktower/miss.ogg",
-
-    "thrustrunner.thrust": "thrustrunner/thrust.ogg",
-    "thrustrunner.collect": "thrustrunner/collect.ogg",
-    "thrustrunner.crash": "thrustrunner/crash.ogg",
-
-    "neonsiege.build": "neonsiege/build.ogg",
-    "neonsiege.shoot": "neonsiege/shoot.ogg",
-    "neonsiege.hit": "neonsiege/hit.ogg",
-    "neonsiege.wave": "neonsiege/wave.ogg",
-    "neonsiege.coreHit": "neonsiege/core_hit.ogg",
-    "neonsiege.upgrade": "neonsiege/upgrade.ogg",
-
-    "snake.turn": "ui/tap.ogg",
-    "tetris.lock": "ui/confirm.ogg",
-    "tetris.hardDrop": "ui/hit.ogg",
-    "flappy.start": "ui/confirm.ogg",
-    "spaceinvaders.bomb": "ui/hit.ogg",
-    "game2048.slide": "ui/tap.ogg",
-    "prismcascade.swap": "ui/tap.ogg",
-    "prismcascade.hammer": "ui/hit.ogg",
-    "prismcascade.shuffle": "ui/confirm.ogg",
-    "frogger.coin": "ui/coin.ogg",
-    "asteroids.levelUp": "ui/success.ogg",
-    "thrustrunner.powerup": "ui/success.ogg",
-    "stacktower.streak": "ui/success.ogg",
-    "neonsiege.gameover": "ui/error.ogg",
-    "neonsiege.victory": "ui/success.ogg",
+  const ALIASES = {
+    "snake.turn": "ui.tap",
+    "tetris.lock": "ui.confirm",
+    "tetris.hardDrop": "ui.hit",
+    "flappy.start": "ui.confirm",
+    "spaceinvaders.bomb": "ui.hit",
+    "game2048.slide": "ui.tap",
+    "prismcascade.swap": "ui.tap",
+    "prismcascade.hammer": "ui.hit",
+    "prismcascade.shuffle": "ui.confirm",
+    "frogger.coin": "ui.coin",
+    "doodle.start": "ui.confirm",
+    "doodle.land": "ui.tap",
+    "doodle.bonus": "ui.coin",
+    "asteroids.levelUp": "ui.success",
+    "thrustrunner.powerup": "ui.success",
+    "stacktower.streak": "ui.success",
+    "neonsiege.gameover": "ui.error",
+    "neonsiege.victory": "ui.success",
   };
 
   const HAPTIC_SFX = {
@@ -104,8 +39,6 @@
   const cache = new Map();
   let unlocked = false;
   let muted = false;
-  let basePath = BASE;
-  let audioRoot = "audio";
   let bgmNode = null;
   let lastBgmTrack = null;
   let bgmVolume = 0.32;
@@ -114,6 +47,59 @@
   let hubBgmStarted = false;
   let appSuspended = false;
   let bgmWasPlaying = false;
+
+  function getGameId() {
+    const path = window.location.pathname || "";
+    const match = path.match(/\/games\/([^/]+)/i);
+    if (match) return match[1].toLowerCase();
+    const href = window.location.href || "";
+    const hrefMatch = href.match(/\/games\/([^/]+)/i);
+    return hrefMatch ? hrefMatch[1].toLowerCase() : null;
+  }
+
+  function isGamePage() {
+    return !!getGameId();
+  }
+
+  function soundFileName(name) {
+    return name.replace(/([A-Z])/g, "_$1").toLowerCase() + ".ogg";
+  }
+
+  function resolveUrl(rel) {
+    try {
+      return new URL(rel, location.href).href;
+    } catch (_e) {
+      return rel;
+    }
+  }
+
+  function sharedUiRel(name) {
+    const file = soundFileName(name);
+    const prefix = isGamePage() ? "../../audio/sfx/ui/" : "audio/sfx/ui/";
+    return prefix + file;
+  }
+
+  function getSrc(id) {
+    if (!id) return null;
+    if (ALIASES[id]) id = ALIASES[id];
+
+    const dot = id.indexOf(".");
+    if (dot === -1) return null;
+
+    const ns = id.slice(0, dot);
+    const name = id.slice(dot + 1);
+
+    if (ns === "ui") {
+      return resolveUrl(sharedUiRel(name));
+    }
+
+    const currentGame = getGameId();
+    if (currentGame && currentGame === ns.toLowerCase()) {
+      return resolveUrl("audio/" + soundFileName(name));
+    }
+
+    return null;
+  }
 
   function suspendAudio() {
     if (appSuspended) return;
@@ -161,7 +147,7 @@
 
   function getBgmSrc(file) {
     if (!file) return null;
-    return audioRoot + "/bgm/" + file;
+    return resolveUrl("audio/bgm/" + file);
   }
 
   function applyBgmVolume() {
@@ -242,20 +228,6 @@
     });
   }
 
-  function isGamePage() {
-    return /\/games\//i.test(window.location.pathname);
-  }
-
-  function resolvePath() {
-    if (isGamePage()) {
-      basePath = "../" + BASE;
-      audioRoot = "../audio";
-    } else {
-      basePath = BASE;
-      audioRoot = "audio";
-    }
-  }
-
   function readMuted() {
     try {
       return localStorage.getItem(MUTE_KEY) === "1";
@@ -279,12 +251,6 @@
       maybeStartHubBgm();
     }
     window.dispatchEvent(new CustomEvent("arcade-audio-mute", { detail: { muted } }));
-  }
-
-  function getSrc(id) {
-    const rel = SOUND_MAP[id];
-    if (!rel) return null;
-    return basePath + "/" + rel;
   }
 
   function load(id) {
@@ -385,7 +351,6 @@
   }
 
   function init() {
-    resolvePath();
     muted = readMuted();
     document.documentElement.classList.toggle("audio-muted", muted);
     injectGameMuteButton();
@@ -420,8 +385,10 @@
     unduckBgm,
     suspend: suspendAudio,
     resume: resumeAudio,
-    SOUND_MAP,
+    ALIASES,
     BGM_TRACKS,
+    getGameId,
+    getSrc,
   };
 
   if (document.readyState === "loading") {
