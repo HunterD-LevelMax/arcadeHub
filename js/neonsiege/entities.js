@@ -23,6 +23,7 @@
       this.totalSpent = B.TOWER_TYPES[type].cost;
       this.recoil = 0;
       this.aimAngle = 0;
+      this.targetPriority = 'first';
     }
 
     get stats() {
@@ -57,14 +58,20 @@
       this.split = !!def.split;
       this.pathIndex = 0;
       this.segT = 0;
+      this.routeId = opts.routeId != null ? opts.routeId : 0;
       this.laneOffset = laneOffset;
       this.spawnIndex = spawnIndex;
       this.slowTimer = 0;
       this.slowFactor = 1;
       this.trailPhase = Math.random() * Math.PI * 2;
-      const pos = pathFinder.positionAt(0, 0, laneOffset);
+      this.bossPhases = 0;
+      this.inTunnel = false;
+      const route = pathFinder.forRoute(this.routeId);
+      const pos = route.positionAt(0, 0, laneOffset);
       this.x = pos.x;
       this.y = pos.y;
+      const cell = pathFinder.cellAt(this.routeId, 0, 0);
+      this.inTunnel = cell.type === C.CELL_TUNNEL;
     }
 
     get pathDistance() {
@@ -91,10 +98,11 @@
 
       const sec = dt / 1000;
       let movePx = this.speed * speedMult * sec;
-      const segCount = pathFinder.segmentCount();
+      const route = pathFinder.forRoute(this.routeId);
+      const segCount = route.segmentCount();
 
       while (movePx > 0 && this.pathIndex < segCount) {
-        const segLen = pathFinder.segmentLength(this.pathIndex);
+        const segLen = route.segmentLength(this.pathIndex);
         const remain = (1 - this.segT) * segLen;
         if (movePx < remain) {
           this.segT += movePx / segLen;
@@ -106,13 +114,15 @@
         }
       }
 
-      const pos = pathFinder.positionAt(
+      const pos = route.positionAt(
         Math.min(this.pathIndex, segCount),
         this.segT,
         this.laneOffset
       );
       this.x = pos.x;
       this.y = pos.y;
+      const cell = pathFinder.cellAt(this.routeId, this.pathIndex, this.segT);
+      this.inTunnel = cell.type === C.CELL_TUNNEL;
       return this.pathIndex >= segCount;
     }
 
@@ -227,6 +237,20 @@
     }
   }
 
+  class ChainFx {
+    constructor(points, color) {
+      this.points = points;
+      this.color = color;
+      this.life = 0.2;
+      this.maxLife = 0.2;
+    }
+
+    update(dt) {
+      this.life -= dt / 1000;
+      return this.life > 0;
+    }
+  }
+
   class ScreenFlash {
     constructor(color, strength, duration) {
       this.color = color;
@@ -257,6 +281,7 @@
     Particle,
     FloatingText,
     RingFx,
+    ChainFx,
     ScreenFlash,
     laneOffsetForIndex,
     resetIds,

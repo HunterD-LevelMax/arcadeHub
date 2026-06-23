@@ -21,6 +21,10 @@
           document.querySelectorAll('.map-btn').forEach((b) => b.classList.remove('selected'));
           btn.classList.add('selected');
           g.mapIndex = parseInt(btn.dataset.map, 10);
+          const hint = document.getElementById('randomMapHint');
+          if (hint) {
+            hint.classList.toggle('visible', g.mapIndex === window.NeonSiegeMaps.RANDOM_MAP_INDEX);
+          }
         });
       });
 
@@ -28,17 +32,44 @@
         btn.addEventListener('click', () => {
           if (g.state !== 'playing') return;
           const type = btn.dataset.type;
+          const cost = B.TOWER_TYPES[type].cost;
+          if (!g.economy.canAfford(cost)) {
+            const need = cost - Math.floor(g.economy.gold);
+            g.showBarHint('Need ' + need + ' more gold for ' + B.TOWER_TYPES[type].name);
+            if (typeof hapticError === 'function') hapticError();
+            return;
+          }
+          g.hideBarHint();
           g.selectedTowerType = g.selectedTowerType === type ? null : type;
           g.selectedTower = null;
+          g.hoverCell = null;
           g.hideTowerPanel();
           g.updateTowerBar();
         });
       });
 
-      g.ui.waveBtn.addEventListener('click', () => g.startWave());
-      g.ui.overchargeBtn.addEventListener('click', () => g.activateOvercharge());
+      g.ui.waveBtn.addEventListener('click', () => {
+        if (g.ui.waveBtn.disabled) return;
+        g.startWave();
+      });
+      g.ui.overchargeBtn.addEventListener('click', () => {
+        if (g.overchargeUsed) {
+          g.showBarHint('BOOST already used this wave');
+          if (typeof hapticError === 'function') hapticError();
+          return;
+        }
+        if (!g.waveActive) {
+          g.showBarHint('BOOST works only during an active wave');
+          if (typeof hapticError === 'function') hapticError();
+          return;
+        }
+        g.hideBarHint();
+        g.activateOvercharge();
+      });
       g.ui.upgradeBtn.addEventListener('click', () => g.upgradeTower());
       g.ui.sellBtn.addEventListener('click', () => g.sellTower());
+      if (g.ui.targetBtn) g.ui.targetBtn.addEventListener('click', () => g.cycleTowerTarget());
+      if (g.ui.speedBtn) g.ui.speedBtn.addEventListener('click', () => g.toggleGameSpeed());
       document.getElementById('closePanelBtn').addEventListener('click', () => g.hideTowerPanel());
 
       const codexBtn = document.getElementById('codexBtn');
@@ -51,6 +82,14 @@
         });
       }
 
+      const updateHover = (e) => {
+        if (g.state !== 'playing' || !g.selectedTowerType) {
+          g.hoverCell = null;
+          return;
+        }
+        g.hoverCell = window.NeonSiegePath.cellFromPointer(e, g.canvas, g.metrics);
+      };
+
       g.canvas.addEventListener('pointerdown', (e) => {
         if (g.state !== 'playing') return;
         if (g.ui.codexOverlay && !g.ui.codexOverlay.classList.contains('hidden')) return;
@@ -59,6 +98,7 @@
         const cell = window.NeonSiegePath.cellFromPointer(e, g.canvas, g.metrics);
         if (!cell) return;
         if (g.selectedTowerType) {
+          g.hoverCell = cell;
           g.tryPlaceTower(cell.r, cell.c, g.selectedTowerType);
         } else {
           const tower = g.towers.find((t) => t.r === cell.r && t.c === cell.c);
@@ -71,13 +111,9 @@
         }
       });
 
-      g.canvas.addEventListener('pointermove', (e) => {
-        if (g.state !== 'playing' || !g.selectedTowerType) {
-          g.hoverCell = null;
-          return;
-        }
-        g.hoverCell = window.NeonSiegePath.cellFromPointer(e, g.canvas, g.metrics);
-      });
+      g.canvas.addEventListener('pointermove', updateHover);
+      g.canvas.addEventListener('pointerleave', () => { g.hoverCell = null; });
+      g.canvas.addEventListener('pointercancel', () => { g.hoverCell = null; });
 
       document.addEventListener('keydown', (e) => {
         if (g.state === 'title') return;

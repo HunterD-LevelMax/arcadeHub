@@ -33,6 +33,11 @@
       <div class="tower-radial hidden" id="towerRadial">
         <div class="radial-ring" aria-hidden="true"></div>
         <div class="radial-hub" id="towerPanelInfo">PULSE T1</div>
+        <div class="radial-stats" id="towerPanelStats"></div>
+        <button type="button" class="radial-btn radial-target" id="targetBtn" title="Cycle target priority">
+          <span class="radial-icon">◎</span>
+          <span class="radial-label" id="targetLabel">FIRST</span>
+        </button>
         <button type="button" class="radial-btn radial-upgrade" id="upgradeBtn" title="Upgrade">
           <span class="radial-icon">↑</span>
           <span class="radial-label" id="upgradeLabel">UP</span>
@@ -50,7 +55,9 @@
         <div class="map-picker">
           <button type="button" class="map-btn selected" id="mapBtn0" data-map="0">NEON GRID</button>
           <button type="button" class="map-btn" id="mapBtn1" data-map="1">SPIRAL CORE</button>
+          <button type="button" class="map-btn map-btn-random" id="mapBtn2" data-map="2">RANDOM</button>
         </div>
+        <div class="map-picker-sub" id="randomMapHint">Winding maze · route splits · tunnel segments</div>
         <button class="start-btn" id="startBtn">PLAY</button>
       </div>
 
@@ -58,6 +65,11 @@
         <div class="overlay-title" style="color: #39ff14;">CORE SECURED</div>
         <div class="overlay-sub">ALL 15 WAVES CLEARED · ENDLESS MODE UNLOCKED</div>
         <div class="overlay-score" id="victoryScore">0</div>
+        <div class="overlay-coins hidden" id="victoryCoinBlock">
+          <div class="overlay-coins-earned" id="victoryCoinEarned">+0 COINS</div>
+          <div class="overlay-coins-total" id="victoryCoinTotal">TOTAL: 0</div>
+        </div>
+        <div class="overlay-coins-hint hidden" id="victoryCoinHint"></div>
         <button class="start-btn" id="endlessBtn">CONTINUE ENDLESS</button>
         <button class="start-btn" id="victoryRetryBtn" style="margin-top:8px;font-size:12px;">RETRY</button>
       </div>
@@ -76,7 +88,10 @@
       </div>
     </div>
 
+    <div class="bar-hint hidden" id="barHint" aria-live="polite"></div>
+
     <div class="tower-bar" id="towerBar">
+      <div class="tower-bar-row tower-bar-build">
       <button type="button" class="action-btn codex-btn" id="codexBtn" title="Tower & enemy guide">?</button>
       <button type="button" class="tower-btn pulse-tower" data-type="pulse">
         <span>PULSE</span><span class="tower-cost">60</span>
@@ -90,8 +105,23 @@
       <button type="button" class="tower-btn frost-tower" data-type="frost">
         <span>FROST</span><span class="tower-cost">85</span>
       </button>
+      </div>
+      <div class="tower-bar-row tower-bar-build tower-bar-build-2">
+      <button type="button" class="tower-btn tesla-tower" data-type="tesla">
+        <span>TESLA</span><span class="tower-cost">115</span>
+      </button>
+      <button type="button" class="tower-btn rail-tower" data-type="rail">
+        <span>RAIL</span><span class="tower-cost">140</span>
+      </button>
+      <button type="button" class="tower-btn mortar-tower" data-type="mortar">
+        <span>MORTAR</span><span class="tower-cost">130</span>
+      </button>
+      </div>
+      <div class="tower-bar-row tower-bar-actions">
+      <button type="button" class="action-btn speed-btn" id="speedBtn" title="Toggle game speed (1× / 2× / 4× / 6×)">1×</button>
       <button type="button" class="action-btn" id="waveBtn">WAVE ▶</button>
       <button type="button" class="action-btn overcharge-btn" id="overchargeBtn" title="All towers fire ~70% faster for 5s · once per wave">BOOST</button>
+      </div>
     </div>
 
     <div class="footer">TAP SLOT TO BUILD · TAP TOWER FOR MENU · START WAVE WHEN READY</div>
@@ -111,6 +141,7 @@
 <script src="../js/economy-api.js"></script>
 <script src="../js/neonsiege/constants.js"></script>
 <script src="../js/neonsiege/balance.js"></script>
+<script src="../js/neonsiege/mapgen.js"></script>
 <script src="../js/neonsiege/maps.js"></script>
 <script src="../js/neonsiege/path.js"></script>
 <script src="../js/neonsiege/entities.js"></script>
@@ -142,12 +173,17 @@ const game = new NeonSiegeGame({
     victoryOverlay: document.getElementById('victoryOverlay'),
     towerRadial: document.getElementById('towerRadial'),
     towerPanelInfo: document.getElementById('towerPanelInfo'),
+    towerPanelStats: document.getElementById('towerPanelStats'),
+    targetBtn: document.getElementById('targetBtn'),
+    targetLabel: document.getElementById('targetLabel'),
+    speedBtn: document.getElementById('speedBtn'),
     upgradeBtn: document.getElementById('upgradeBtn'),
     upgradeLabel: document.getElementById('upgradeLabel'),
     sellBtn: document.getElementById('sellBtn'),
     sellLabel: document.getElementById('sellLabel'),
     waveBtn: document.getElementById('waveBtn'),
     overchargeBtn: document.getElementById('overchargeBtn'),
+    barHint: document.getElementById('barHint'),
     codexOverlay: document.getElementById('codexOverlay'),
     codexBody: document.getElementById('codexBody'),
   },

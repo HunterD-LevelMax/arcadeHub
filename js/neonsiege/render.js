@@ -24,12 +24,14 @@
       }
       this._drawBackground(state.metrics);
       this._drawMap(state);
+      this._drawBuildModeRanges(state);
       this._drawPlacementGhost(state);
       state.towers.forEach((t) => this._drawTower(t, state));
       this._drawEnemies(state);
       this._drawProjectiles(state);
       this._drawParticles(state);
       this._drawRingFx(state);
+      this._drawChainFx(state);
       this._drawFloatingTexts(state);
       this._drawSpawnPortal(state);
       ctx.restore();
@@ -64,6 +66,10 @@
       const inset = 2;
       const pulse = 0.55 + Math.sin(this.frame * 0.08) * 0.25;
       const highlightSlots = !!state.selectedTowerType;
+      const mazeMap = state.mapId === 'random';
+      const junctionSet = new Set(
+        (state.junctions || []).map(([jr, jc]) => jr + ',' + jc)
+      );
 
       for (let r = 0; r < C.GRID_ROWS; r++) {
         for (let c = 0; c < C.GRID_COLS; c++) {
@@ -82,14 +88,28 @@
             ctx.fill();
             ctx.stroke();
             this._drawPathArrow(state, r, c, x, y, cs);
+          } else if (cell === C.CELL_TUNNEL) {
+            const tunnelPulse = 0.5 + Math.sin(this.frame * 0.1 + r * 0.5) * 0.15;
+            ctx.fillStyle = `rgba(120, 40, 200, ${0.28 + tunnelPulse * 0.12})`;
+            ctx.strokeStyle = `rgba(180, 80, 255, ${0.5 + tunnelPulse * 0.2})`;
+            if (typeof roundRect === 'function') roundRect(ctx, x + inset, y + inset, w, h, 4);
+            else ctx.rect(x + inset, y + inset, w, h);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = `rgba(200, 120, 255, ${0.25 + tunnelPulse * 0.15})`;
+            ctx.font = `bold ${Math.max(7, cs * 0.18)}px Orbitron`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('▮', x + cs / 2, y + cs / 2);
           } else if (cell === C.CELL_SLOT) {
             const occupied = state.towers.some((t) => t.r === r && t.c === c);
             if (!occupied) {
+              const slotPulse = mazeMap ? pulse : pulse;
               ctx.fillStyle = highlightSlots
-                ? `rgba(0, 245, 255, ${0.08 + pulse * 0.06})`
+                ? `rgba(0, 245, 255, ${0.08 + slotPulse * 0.06})`
                 : 'rgba(0, 245, 255, 0.05)';
               ctx.strokeStyle = highlightSlots
-                ? `rgba(0, 245, 255, ${0.5 + pulse * 0.35})`
+                ? `rgba(0, 245, 255, ${0.5 + slotPulse * 0.35})`
                 : 'rgba(0, 245, 255, 0.35)';
               ctx.lineWidth = 1.5;
               ctx.setLineDash([4, 4]);
@@ -138,13 +158,39 @@
         ctx.textBaseline = 'middle';
         ctx.fillText('CORE', goal.x, goal.y);
       }
+
+      if (junctionSet.size > 0) {
+        const jPulse = 0.6 + Math.sin(this.frame * 0.12) * 0.25;
+        for (const jk of junctionSet) {
+          const [jr, jc] = jk.split(',').map(Number);
+          const jx = m.offsetX + jc * cs + cs / 2;
+          const jy = m.offsetY + jr * cs + cs / 2;
+          ctx.shadowColor = '#39ff14';
+          ctx.shadowBlur = 10 * jPulse;
+          ctx.strokeStyle = `rgba(57, 255, 20, ${0.55 + jPulse * 0.3})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(jx, jy, cs * 0.28, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
+      }
     }
 
     _drawPathArrow(state, r, c, x, y, cs) {
-      const wps = state.pathFinder.waypoints;
-      const idx = wps.findIndex(([wr, wc]) => wr === r && wc === c);
-      if (idx < 0 || idx >= wps.length - 1) return;
-      const [nr, nc] = wps[idx + 1];
+      const pf = state.pathFinder;
+      if (!pf || !pf.routes) return;
+      let next = null;
+      for (const route of pf.routes) {
+        const wps = route.waypoints;
+        const idx = wps.findIndex(([wr, wc]) => wr === r && wc === c);
+        if (idx >= 0 && idx < wps.length - 1) {
+          next = wps[idx + 1];
+          break;
+        }
+      }
+      if (!next) return;
+      const [nr, nc] = next;
       const dr = nr - r;
       const dc = nc - c;
       const cx = x + cs / 2;
@@ -174,6 +220,49 @@
       ctx.fill();
     }
 
+    _drawBuildModeRanges(state) {
+      if (!state.selectedTowerType) return;
+      const def = B.TOWER_TYPES[state.selectedTowerType];
+      const stats = B.getTowerStats(state.selectedTowerType, 0);
+      const cs = state.metrics.cellSize;
+      const rangePx = stats.range * cs;
+      const cost = def.cost;
+      const canAfford = state.gold >= cost;
+      const ctx = this.ctx;
+      const hover = state.hoverCell;
+      const pulse = 0.35 + Math.sin(this.frame * 0.1) * 0.12;
+
+      for (let r = 0; r < C.GRID_ROWS; r++) {
+        for (let c = 0; c < C.GRID_COLS; c++) {
+          if (state.mapGrid[r][c] !== C.CELL_SLOT) continue;
+          if (state.towers.some((t) => t.r === r && t.c === c)) continue;
+          const pos = state.pathFinder.cellCenter(r, c);
+          const isHover = hover && hover.r === r && hover.c === c;
+          const alpha = isHover ? 0.55 : 0.28;
+          ctx.globalAlpha = alpha;
+          ctx.strokeStyle = canAfford ? def.color : '#ff3344';
+          ctx.lineWidth = isHover ? 2 : 1;
+          ctx.setLineDash(isHover ? [] : [4, 6]);
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, rangePx, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          if (isHover) {
+            ctx.globalAlpha = canAfford ? 0.75 : 0.45;
+            ctx.fillStyle = canAfford ? def.color : '#ff3344';
+            ctx.fillRect(pos.x - cs * 0.22, pos.y - cs * 0.22, cs * 0.44, cs * 0.44);
+          } else {
+            ctx.globalAlpha = canAfford ? 0.12 : pulse * 0.12;
+            ctx.fillStyle = canAfford ? def.color : '#ff3344';
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, cs * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+
     _drawPlacementGhost(state) {
       if (!state.selectedTowerType || !state.hoverCell) return;
       const { r, c } = state.hoverCell;
@@ -183,15 +272,14 @@
       const pos = state.pathFinder.cellCenter(r, c);
       const cs = state.metrics.cellSize;
       const ctx = this.ctx;
-      ctx.globalAlpha = 0.65;
-      ctx.fillStyle = def.color;
-      ctx.fillRect(pos.x - cs * 0.22, pos.y - cs * 0.22, cs * 0.44, cs * 0.44);
-      ctx.globalAlpha = 1;
       const stats = B.getTowerStats(state.selectedTowerType, 0);
-      ctx.strokeStyle = def.color + '88';
+      ctx.strokeStyle = def.color;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.9;
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, stats.range * cs, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.globalAlpha = 1;
     }
 
     _drawTower(tower, state) {
@@ -243,8 +331,40 @@
         ctx.lineTo(pos.x - r, pos.y + r * 0.8);
         ctx.closePath();
         ctx.fill();
+      } else if (def.shape === 'coil') {
+        for (let ring = 0; ring < 3; ring++) {
+          const rr = r * (0.55 + ring * 0.22);
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, rr, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.fillStyle = def.color;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (def.shape === 'rail') {
+        const ang = tower.aimAngle || 0;
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.rotate(ang);
+        ctx.fillRect(-r * 1.2, -r * 0.22, r * 2.4, r * 0.44);
+        ctx.fillRect(r * 0.9, -r * 0.55, r * 0.35, r * 1.1);
+        ctx.restore();
+      } else if (def.shape === 'mortar') {
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r * 0.85, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(pos.x - r * 0.5, pos.y - r * 0.15, r, r * 0.7);
       }
       ctx.shadowBlur = 0;
+
+      if (tower.tier >= 2) {
+        ctx.strokeStyle = def.color + '88';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r + 6 + tower.tier, 0, Math.PI * 2);
+        ctx.stroke();
+      }
 
       if (tower === state.selectedTower) {
         ctx.strokeStyle = '#fff';
@@ -285,6 +405,16 @@
         ctx.stroke();
       }
 
+      if (e.inTunnel) {
+        ctx.shadowColor = '#b050ff';
+        ctx.shadowBlur = 12;
+        ctx.strokeStyle = 'rgba(180, 80, 255, 0.55)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, sz + 5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
       if (e.slowTimer > 0) {
         ctx.shadowColor = '#0088ff';
         ctx.shadowBlur = 14;
@@ -297,7 +427,7 @@
 
       if (def.shape === 'swift') {
         for (let i = 1; i <= 2; i++) {
-          const n = state.pathFinder.segmentNormal(Math.max(0, e.pathIndex));
+          const n = state.pathFinder.forRoute(e.routeId || 0).segmentNormal(Math.max(0, e.pathIndex));
           ctx.globalAlpha = 0.15 * i;
           ctx.fillStyle = def.color;
           ctx.beginPath();
@@ -375,15 +505,27 @@
       ctx.shadowBlur = 0;
 
       const showHp = e.hp < e.maxHp * 0.99 || e.type === 'boss' || e.elite;
-      if (showHp) {
+      const hasShield = e.maxShield > 0;
+      if (showHp || hasShield) {
         const barW = sz * (e.type === 'boss' ? 3 : 2.2);
         const barH = e.type === 'boss' ? 5 : 4;
-        const barY = e.y - sz - (e.type === 'boss' ? 12 : 9);
-        const hpPct = Math.max(0, e.hp / e.maxHp);
-        ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.fillRect(e.x - barW / 2, barY, barW, barH);
-        ctx.fillStyle = hpPct > 0.5 ? '#39ff14' : hpPct > 0.25 ? '#ffcc00' : '#ff3344';
-        ctx.fillRect(e.x - barW / 2, barY, barW * hpPct, barH);
+        let barY = e.y - sz - (e.type === 'boss' ? 12 : 9);
+        if (hasShield) {
+          const shieldPct = Math.max(0, e.shield / e.maxShield);
+          const shieldH = 3;
+          barY -= shieldH + 2;
+          ctx.fillStyle = 'rgba(0,0,0,0.55)';
+          ctx.fillRect(e.x - barW / 2, barY, barW, shieldH);
+          ctx.fillStyle = '#00f5ff';
+          ctx.fillRect(e.x - barW / 2, barY, barW * shieldPct, shieldH);
+        }
+        if (showHp) {
+          const hpPct = Math.max(0, e.hp / e.maxHp);
+          ctx.fillStyle = 'rgba(0,0,0,0.55)';
+          ctx.fillRect(e.x - barW / 2, barY, barW, barH);
+          ctx.fillStyle = hpPct > 0.5 ? '#39ff14' : hpPct > 0.25 ? '#ffcc00' : '#ff3344';
+          ctx.fillRect(e.x - barW / 2, barY, barW * hpPct, barH);
+        }
       }
     }
 
@@ -432,8 +574,9 @@
         ctx.shadowColor = p.color;
         ctx.shadowBlur = 8;
         ctx.fillStyle = p.color;
+        const pr = p.kind === 'mortar' ? 5 : 3;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, pr, 0, Math.PI * 2);
         ctx.fill();
       });
       ctx.shadowBlur = 0;
@@ -487,6 +630,27 @@
         ctx.shadowBlur = 10;
         ctx.beginPath();
         ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+    }
+
+    _drawChainFx(state) {
+      const ctx = this.ctx;
+      (state.chainFx || []).forEach((chain) => {
+        const alpha = chain.life / chain.maxLife;
+        if (chain.points.length < 2) return;
+        ctx.strokeStyle = chain.color;
+        ctx.globalAlpha = alpha * 0.9;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = chain.color;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(chain.points[0].x, chain.points[0].y);
+        for (let i = 1; i < chain.points.length; i++) {
+          ctx.lineTo(chain.points[i].x, chain.points[i].y);
+        }
         ctx.stroke();
       });
       ctx.shadowBlur = 0;

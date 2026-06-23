@@ -50,11 +50,11 @@
   const SPIRAL_CORE_PATH = mirrorCells(NEON_GRID_PATH);
   const SPIRAL_CORE_SLOTS = mirrorCells(NEON_GRID_SLOTS);
 
-  function buildMap(id, name, hpMod, countMod, spawn, goal, pathCells, slotCells) {
+  function buildMap(id, name, hpMod, countMod, rewardMod, spawn, goal, pathCells, slotCells) {
     const grid = blankGrid();
     applyPath(grid, pathCells);
     applySlots(grid, slotCells);
-    return { id, name, hpMod, countMod, spawn, goal, grid };
+    return { id, name, hpMod, countMod, rewardMod, spawn, goal, grid };
   }
 
   const MAPS = [
@@ -63,6 +63,7 @@
       'NEON GRID',
       1,
       0,
+      1,
       [0, 1],
       [13, 6],
       NEON_GRID_PATH,
@@ -73,12 +74,26 @@
       'SPIRAL CORE',
       1.2,
       1,
+      1.15,
       [0, 10],
       [13, 5],
       SPIRAL_CORE_PATH,
       SPIRAL_CORE_SLOTS
     ),
   ];
+
+  const RANDOM_MAP_INDEX = 2;
+
+  function generateRandom() {
+    if (window.NeonSiegeMapGen) {
+      return window.NeonSiegeMapGen.generateRandomMap();
+    }
+    return MAPS[0];
+  }
+
+  function isRandomIndex(index) {
+    return index === RANDOM_MAP_INDEX;
+  }
 
   function validateMap(map) {
     if (!window.NeonSiegePath) return true;
@@ -94,8 +109,13 @@
     list: MAPS,
 
     get(index) {
+      if (isRandomIndex(index)) return generateRandom();
       return MAPS[index] || MAPS[0];
     },
+
+    generateRandom,
+    isRandomIndex,
+    RANDOM_MAP_INDEX,
 
     cloneGrid(map) {
       return map.grid.map((row) => row.slice());

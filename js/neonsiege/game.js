@@ -6,6 +6,7 @@
   const Ent = window.NeonSiegeEntities;
   const Sys = window.NeonSiegeSystems;
   const Render = window.NeonSiegeRender;
+  const SPEED_STEPS = [1, 2, 4, 6];
 
   class NeonSiegeGame {
     constructor(options) {
@@ -46,6 +47,7 @@
       this.particles = [];
       this.floatingTexts = [];
       this.fxRings = [];
+      this.chainFx = [];
       this.screenFlash = null;
 
       this.waveSystem = new Sys.WaveSystem();
@@ -56,6 +58,9 @@
       this.mapGrid = [];
       this.pathFinder = null;
       this.metrics = Path.computeGridMetrics(C.BASE_W, C.BASE_H);
+      this.barHintTimer = null;
+      this._lastGold = B.START_GOLD;
+      this.gameSpeed = 1;
 
       new window.NeonSiegeInput.InputController(this);
     }
@@ -68,11 +73,31 @@
     }
 
     loadMap() {
-      const mapDef = Maps.get(this.mapIndex);
-      this.mapGrid = Maps.cloneGrid(mapDef);
-      this.pathFinder = new Path.PathFinder(this.mapGrid, mapDef.spawn, mapDef.goal);
+      if (Maps.isRandomIndex(this.mapIndex)) {
+        this.currentMap = Maps.generateRandom();
+      } else {
+        this.currentMap = Maps.get(this.mapIndex);
+      }
+      this.mapGrid = Maps.cloneGrid(this.currentMap);
+      this.pathFinder = new Path.PathFinder(
+        this.mapGrid, this.currentMap.spawn, this.currentMap.goal,
+        {
+          precomputedRoutes: this.currentMap.routes,
+          junctions: this.currentMap.junctions,
+        }
+      );
       this.pathFinder.setMetrics(this.metrics);
-      this.currentMap = mapDef;
+      this._updateMapTitle();
+    }
+
+    _updateMapTitle() {
+      const title = document.querySelector('.game-title');
+      if (!title || !this.currentMap) return;
+      if (Maps.isRandomIndex(this.mapIndex)) {
+        title.textContent = this.currentMap.name || 'RANDOM';
+      } else {
+        title.textContent = 'NEON SIEGE';
+      }
     }
 
     init() {
@@ -103,12 +128,16 @@
       this.particles = [];
       this.floatingTexts = [];
       this.fxRings = [];
+      this.chainFx = [];
       this.screenFlash = null;
       this.currentWaveModifier = null;
       this.nextWaveModifier = null;
       this.nextWaveQueue = [];
       this.killStreak = 0;
       this.killStreakTimer = 0;
+      this._lastGold = B.START_GOLD;
+      this.gameSpeed = 1;
+      this.hideBarHint();
       this.nextWaveModifier = this.waveSystem.rollModifier(2);
       this._refreshNextWaveQueue();
       this.updateHud();
@@ -116,11 +145,28 @@
       this.updateWavePreview();
       this.updateStatusBar();
       this.hideTowerPanel();
+      this.hideBarHint();
+      if (this.ui.speedBtn) {
+        this.ui.speedBtn.textContent = '1×';
+        this.ui.speedBtn.classList.remove('speed-active');
+        this.ui.speedBtn.title = 'Toggle game speed (1× / 2× / 4× / 6×)';
+      }
     }
 
     updateHud() {
+      const goldNow = Math.floor(this.economy.gold);
+      if (goldNow !== this._lastGold && this.ui.hpDisplay) {
+        const el = document.getElementById('goldVal');
+        const wrap = el && el.closest('.stat-display');
+        if (wrap) {
+          wrap.classList.remove('gold-flash-up', 'gold-flash-down');
+          void wrap.offsetWidth;
+          wrap.classList.add(goldNow > this._lastGold ? 'gold-flash-up' : 'gold-flash-down');
+        }
+      }
+      this._lastGold = goldNow;
       this.ui.score.textContent = this.score;
-      this.ui.gold.textContent = Math.floor(this.economy.gold);
+      this.ui.gold.textContent = goldNow;
       this.ui.wave.textContent = this.wave + (this.endless ? '+' : '');
       this.ui.hp.textContent = this.baseHp;
       this.ui.hpDisplay.classList.toggle('hp-low', this.baseHp <= 5);
@@ -135,8 +181,13 @@
     }
 
     _rewardMult() {
+      let mult = this.currentMap && this.currentMap.rewardMod ? this.currentMap.rewardMod : 1;
       const mod = B.getModifierDef(this.currentWaveModifier);
-      return (mod && mod.rewardMult) ? mod.rewardMult : 1;
+      if (mod && mod.rewardMult) mult *= mod.rewardMult;
+      if (this.endless && this.wave > 18) {
+        mult *= 1 + Math.min(0.4, (this.wave - 18) * 0.028);
+      }
+      return mult;
     }
 
     _modifierHpMult() {
@@ -147,6 +198,14 @@
     _modifierSpeedMult() {
       const mod = B.getModifierDef(this.currentWaveModifier);
       return (mod && mod.speedMult) ? mod.speedMult : 1;
+    }
+
+    _waveStatusLabel() {
+      let label = 'W' + this.wave;
+      const mod = B.getModifierDef(this.currentWaveModifier);
+      if (mod) label += ' · ' + mod.name;
+      if (this.baseHp <= 5) label = 'CRITICAL · ' + label;
+      return label;
     }
 
     updateStatusBar() {
@@ -174,12 +233,9 @@
         event.className = 'status-line status-event status-intermission';
         event.classList.remove('hidden');
       } else if (this.waveActive || this.waveSpawning) {
-        event.textContent = 'WAVE';
-        event.className = 'status-line status-event status-wave-active';
-        event.classList.remove('hidden');
-      } else if (this.baseHp <= 5 && (this.waveActive || this.waveSpawning)) {
-        event.textContent = 'CRITICAL';
-        event.className = 'status-line status-event status-critical';
+        event.textContent = this._waveStatusLabel();
+        event.className = 'status-line status-event ' +
+          (this.baseHp <= 5 ? 'status-critical' : 'status-wave-active');
         event.classList.remove('hidden');
       } else if (this.wave === 0) {
         event.textContent = 'READY';
@@ -226,26 +282,61 @@
       el.classList.remove('hidden');
     }
 
+    showBarHint(text) {
+      const el = this.ui.barHint;
+      if (!el) return;
+      el.textContent = text;
+      el.classList.remove('hidden');
+      if (this.barHintTimer) clearTimeout(this.barHintTimer);
+      this.barHintTimer = setTimeout(() => this.hideBarHint(), 2200);
+    }
+
+    hideBarHint() {
+      if (this.barHintTimer) {
+        clearTimeout(this.barHintTimer);
+        this.barHintTimer = null;
+      }
+      if (this.ui.barHint) this.ui.barHint.classList.add('hidden');
+    }
+
     updateTowerBar() {
       document.querySelectorAll('.tower-btn').forEach((btn) => {
         const type = btn.dataset.type;
         const cost = B.TOWER_TYPES[type].cost;
+        const afford = this.economy.canAfford(cost);
         btn.querySelector('.tower-cost').textContent = cost;
         btn.classList.toggle('selected', this.selectedTowerType === type);
-        btn.classList.toggle('disabled', !this.economy.canAfford(cost));
+        btn.classList.toggle('disabled', !afford);
+        if (!afford) {
+          const need = cost - Math.floor(this.economy.gold);
+          btn.title = 'Need ' + need + ' more gold';
+        } else {
+          btn.title = B.TOWER_TYPES[type].name + ' — ' + cost + 'g';
+        }
       });
       const busy = this.waveActive || this.waveSpawning;
       this.ui.waveBtn.disabled = busy;
       if (busy) {
         this.ui.waveBtn.textContent = 'WAVE...';
+        this.ui.waveBtn.title = 'Wave in progress';
       } else if (this.waveIntermissionActive) {
         const sec = Math.max(1, Math.ceil(this.waveIntermissionMs / 1000));
         this.ui.waveBtn.textContent = '▶ NOW (' + sec + 's)';
+        this.ui.waveBtn.title = 'Start next wave now (' + sec + 's on timer)';
       } else {
         this.ui.waveBtn.textContent = 'WAVE ▶';
+        this.ui.waveBtn.title = 'Start the next wave';
       }
-      this.ui.overchargeBtn.disabled = this.overchargeUsed || !this.waveActive;
+      const boostBlocked = this.overchargeUsed || !this.waveActive;
       this.ui.overchargeBtn.classList.toggle('used', this.overchargeUsed);
+      this.ui.overchargeBtn.classList.toggle('action-off', boostBlocked);
+      if (this.overchargeUsed) {
+        this.ui.overchargeBtn.title = 'BOOST already used this wave';
+      } else if (!this.waveActive) {
+        this.ui.overchargeBtn.title = 'BOOST — only during an active wave';
+      } else {
+        this.ui.overchargeBtn.title = 'All towers fire ~70% faster for 5s · once per wave';
+      }
     }
 
     hideTowerPanel() {
@@ -257,7 +348,7 @@
       const radial = this.ui.towerRadial;
       if (!radial || !tower) return;
       const pos = this.pathFinder.cellCenter(tower.r, tower.c);
-      const half = 54;
+      const half = Math.max(54, (radial.offsetWidth || 108) / 2);
       const x = Math.max(half, Math.min(this.canvas.width - half, pos.x));
       const y = Math.max(half, Math.min(this.canvas.height - half, pos.y));
       radial.style.left = (x / this.canvas.width) * 100 + '%';
@@ -275,19 +366,73 @@
 
       radial.style.setProperty('--tower-color', def.color);
       this.ui.towerPanelInfo.textContent = def.name.slice(0, 3) + (tower.tier + 1);
+      this._updateTowerRadialStats(tower);
+      const priorityLabel = B.TARGET_PRIORITY_LABELS[tower.targetPriority] || 'FIRST';
+      if (this.ui.targetLabel) this.ui.targetLabel.textContent = priorityLabel;
+      if (this.ui.targetBtn) {
+        this.ui.targetBtn.title = 'Target: ' + priorityLabel + ' — tap to cycle';
+      }
       this.ui.upgradeLabel.textContent = upCost ? String(upCost) : 'MAX';
       this.ui.sellLabel.textContent = String(tower.sellValue());
+      this.ui.upgradeBtn.title = upCost ? 'Upgrade for ' + upCost + 'g' : 'Max tier';
+      this.ui.sellBtn.title = 'Sell for ' + tower.sellValue() + 'g';
       this.ui.upgradeBtn.disabled = !upCost || !this.economy.canAfford(upCost);
       this.ui.upgradeBtn.classList.toggle('radial-maxed', !upCost);
       this.positionTowerRadial(tower);
       radial.classList.remove('hidden');
     }
 
+    _updateTowerRadialStats(tower) {
+      const el = this.ui.towerPanelStats;
+      if (!el) return;
+      const stats = tower.stats;
+      const dps = stats.damage / stats.fireRate;
+      let text = 'DMG ' + Math.round(stats.damage) +
+        ' · RNG ' + stats.range.toFixed(1) +
+        ' · DPS ' + dps.toFixed(1);
+      const upCost = tower.upgradeCost();
+      if (upCost) {
+        const next = B.getTowerStats(tower.type, tower.tier + 1);
+        const nextDps = next.damage / next.fireRate;
+        text += '\n↑ DMG ' + Math.round(next.damage) +
+          ' · RNG ' + next.range.toFixed(1) +
+          ' · DPS ' + nextDps.toFixed(1);
+      }
+      el.textContent = text;
+    }
+
+    cycleTowerTarget() {
+      const tower = this.selectedTower;
+      if (!tower) return;
+      const list = B.TARGET_PRIORITIES;
+      const idx = list.indexOf(tower.targetPriority);
+      tower.targetPriority = list[(idx + 1) % list.length];
+      this.selectTower(tower);
+      if (typeof hapticTick === 'function') hapticTick();
+    }
+
+    toggleGameSpeed() {
+      if (this.state !== 'playing') return;
+      const idx = SPEED_STEPS.indexOf(this.gameSpeed);
+      this.gameSpeed = SPEED_STEPS[(idx + 1) % SPEED_STEPS.length];
+      if (this.ui.speedBtn) {
+        this.ui.speedBtn.textContent = this.gameSpeed + '×';
+        this.ui.speedBtn.classList.toggle('speed-active', this.gameSpeed > 1);
+        this.ui.speedBtn.title = 'Toggle game speed (1× / 2× / 4× / 6×)';
+      }
+      if (typeof hapticTick === 'function') hapticTick();
+    }
+
     tryPlaceTower(r, c, type) {
       if (this.mapGrid[r][c] !== C.CELL_SLOT) { if (typeof hapticError === 'function') hapticError(); return; }
       if (this.towers.some((t) => t.r === r && t.c === c)) { if (typeof hapticError === 'function') hapticError(); return; }
       const cost = B.TOWER_TYPES[type].cost;
-      if (!this.economy.spend(cost)) { if (typeof hapticError === 'function') hapticError(); return; }
+      if (!this.economy.spend(cost)) {
+        const need = cost - Math.floor(this.economy.gold);
+        this.showBarHint('Need ' + need + ' more gold');
+        if (typeof hapticError === 'function') hapticError();
+        return;
+      }
       this.towers.push(new Ent.Tower(type, r, c));
       if (typeof hapticTick === 'function') hapticTick();
       const pos = this.pathFinder.cellCenter(r, c);
@@ -334,7 +479,6 @@
       this.nextWaveModifier = this.waveSystem.rollModifier(this.wave + 1);
       this._refreshNextWaveQueue();
       this.overchargeUsed = false;
-      this.economy.resetInterestCap();
       this.spawnQueue = this.waveSystem.buildQueue(
         this.wave, this.currentMap, this.endless, this.currentWaveModifier
       );
@@ -370,9 +514,11 @@
       const typeKey = typeof entry === 'string' ? entry : entry.type;
       const elite = entry && entry.elite;
       const lane = Ent.laneOffsetForIndex(this.spawnIndex++);
+      const routeId = this.pathFinder.pickRoute(this.spawnIndex, this.wave);
       const enemy = new Ent.Enemy(typeKey, this._hpMult(), this.pathFinder, lane, this.spawnIndex, {
         elite,
-        speedMult: this._modifierSpeedMult(),
+        routeId,
+        speedMult: this._modifierSpeedMult() * B.speedScale(this.wave, this.endless, C.MAX_WAVES),
       });
       if (!elite && typeKey !== 'boss' && this.wave >= 7 && Math.random() < B.ELITE_SPAWN_CHANCE) {
         enemy.makeElite();
@@ -391,11 +537,54 @@
     }
 
     _onEnemyHit(enemy, damage, slowOpts, shattered) {
+      if (enemy.inTunnel) return;
       if (shattered) {
         this.particles.push(new Ent.Particle(enemy.x, enemy.y, '#88ddff', 6));
       }
+      const wasHp = enemy.hp;
       if (enemy.takeDamage(damage, slowOpts)) {
         this._removeEnemy(enemy, true);
+        return;
+      }
+      if (enemy.type === 'boss' && enemy.hp < wasHp) {
+        this._checkBossPhases(enemy);
+      }
+    }
+
+    _checkBossPhases(boss) {
+      const phases = B.BOSS_PHASES;
+      const hpPct = boss.hp / boss.maxHp;
+      while (boss.bossPhases < phases.length && hpPct <= phases[boss.bossPhases].hpPct) {
+        this._triggerBossPhase(boss, phases[boss.bossPhases].action);
+        boss.bossPhases++;
+      }
+    }
+
+    _triggerBossPhase(boss, action) {
+      if (action === 'shield') {
+        const pulse = boss.maxHp * B.BOSS_SHIELD_PULSE;
+        boss.shield = Math.max(boss.shield, pulse);
+        boss.maxShield = Math.max(boss.maxShield, boss.shield);
+        this.fxRings.push(new Ent.RingFx(
+          boss.x, boss.y, '#00f5ff', this.metrics.cellSize * 1.4, 0.55
+        ));
+        this.floatingTexts.push(new Ent.FloatingText(boss.x, boss.y - 40, 'SHIELD PULSE', '#00f5ff', true));
+      } else if (action === 'escort') {
+        for (let i = 0; i < B.BOSS_ESCORT_COUNT; i++) {
+          const child = new Ent.Enemy(
+            'drone', this.currentMap.hpMod * 0.45, this.pathFinder,
+            boss.laneOffset + (i ? 0.1 : -0.1), this.spawnIndex++,
+            { speedMult: this._modifierSpeedMult(), routeId: boss.routeId }
+          );
+          child.pathIndex = boss.pathIndex;
+          child.segT = Math.max(0, boss.segT - 0.08 * (i + 1));
+          const pos = this.pathFinder.forRoute(child.routeId).positionAt(child.pathIndex, child.segT, child.laneOffset);
+          child.x = pos.x;
+          child.y = pos.y;
+          this.enemies.push(child);
+        }
+        this.floatingTexts.push(new Ent.FloatingText(boss.x, boss.y - 40, 'ESCORT', '#ff6688', true));
+        this.particles.push(new Ent.Particle(boss.x, boss.y, '#ff6688', 10));
       }
     }
 
@@ -436,10 +625,12 @@
       if (enemy.split) {
         const hpMult = this.currentMap.hpMod * 0.35;
         for (let i = 0; i < 2; i++) {
-          const child = new Ent.Enemy('drone', hpMult, this.pathFinder, enemy.laneOffset + (i ? 0.08 : -0.08), this.spawnIndex++);
+          const child = new Ent.Enemy('drone', hpMult, this.pathFinder, enemy.laneOffset + (i ? 0.08 : -0.08), this.spawnIndex++, {
+            routeId: enemy.routeId,
+          });
           child.pathIndex = enemy.pathIndex;
           child.segT = enemy.segT;
-          const pos = this.pathFinder.positionAt(child.pathIndex, child.segT, child.laneOffset);
+          const pos = this.pathFinder.forRoute(child.routeId).positionAt(child.pathIndex, child.segT, child.laneOffset);
           child.x = pos.x;
           child.y = pos.y;
           this.enemies.push(child);
@@ -467,6 +658,7 @@
 
     update(dt) {
       if (this.state !== 'playing') return;
+      dt *= this.gameSpeed;
 
       if (this.overchargeTimer > 0) {
         this.overchargeTimer -= dt;
@@ -482,8 +674,6 @@
       }
       if (this.shake > 0) this.shake *= 0.88;
       if (this.coreFlash > 0) this.coreFlash -= dt / 500;
-
-      this.economy.tickInterest(dt, this.waveActive || this.waveSpawning);
 
       if (this.waveIntermissionActive) {
         this.waveIntermissionMs -= dt;
@@ -530,6 +720,9 @@
                 fx.ring.x, fx.ring.y, fx.ring.color, fx.ring.radius, fx.ring.duration
               ));
             }
+            if (fx.chain) {
+              self.chainFx.push(new Ent.ChainFx(fx.chain.points, fx.chain.color));
+            }
           },
         }
       );
@@ -541,6 +734,7 @@
       this.particles = this.particles.filter((p) => p.update(dt));
       this.floatingTexts = this.floatingTexts.filter((ft) => ft.update(dt));
       this.fxRings = this.fxRings.filter((ring) => ring.update(dt));
+      this.chainFx = this.chainFx.filter((c) => c.update(dt));
       if (this.screenFlash && !this.screenFlash.update(dt)) this.screenFlash = null;
 
       this._checkWaveComplete();
@@ -561,7 +755,7 @@
       }
       if (goal) {
         this.fxRings.push(new Ent.RingFx(goal.x, goal.y, '#ffcc00', this.metrics.cellSize * 1.6, 0.7));
-        this.floatingTexts.push(new Ent.FloatingText(goal.x, goal.y - 28, 'WAVE CLEAR +' + bonus.gold + 'g', '#ffcc00'));
+        this.floatingTexts.push(new Ent.FloatingText(goal.x, goal.y - 28, 'WAVE CLEAR', '#ffcc00'));
       }
       this.screenFlash = new Ent.ScreenFlash('#ffcc00', 0.28, 0.4);
       if (typeof hapticSuccess === 'function') hapticSuccess();
@@ -606,6 +800,17 @@
         if (typeof setHighScore === 'function') setHighScore(C.GAME_ID, this.best);
       }
       this.ui.victoryScore.textContent = this.score;
+      if (typeof awardAndShowCoins === 'function') {
+        const reward = awardAndShowCoins(C.GAME_ID, this.score);
+        if (reward && window.ArcadeEconomy && window.ArcadeEconomy.renderCoinRewardUI) {
+          window.ArcadeEconomy.renderCoinRewardUI(reward, {
+            earned: 'victoryCoinEarned',
+            total: 'victoryCoinTotal',
+            hint: 'victoryCoinHint',
+            block: 'victoryCoinBlock',
+          });
+        }
+      }
       this.ui.victoryOverlay.classList.remove('hidden');
       if (typeof hapticSuccess === 'function') hapticSuccess();
     }
@@ -656,6 +861,7 @@
         particles: this.particles,
         floatingTexts: this.floatingTexts,
         selectedTowerType: this.selectedTowerType,
+        gold: Math.floor(this.economy.gold),
         selectedTower: this.selectedTower,
         hoverCell: this.hoverCell,
         waveActive: this.waveActive,
@@ -666,10 +872,13 @@
         shake: this.shake,
         coreFlash: this.coreFlash,
         fxRings: this.fxRings,
+        chainFx: this.chainFx,
         screenFlash: this.screenFlash,
         currentWaveModifier: this.currentWaveModifier,
         baseHp: this.baseHp,
         mapGoal: this.currentMap ? this.currentMap.goal : null,
+        mapId: this.currentMap ? this.currentMap.id : null,
+        junctions: this.currentMap ? (this.currentMap.junctions || []) : [],
       });
     }
   }

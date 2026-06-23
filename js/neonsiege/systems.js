@@ -27,9 +27,11 @@
       if (waveNum >= 8) types.push('shield');
       if (waveNum >= 10) types.push('splitter');
 
+      const spawnBase = B.spawnDelayForWave(waveNum);
+      const spawnJitter = waveNum >= 9 ? 0.22 : 0.35;
       for (let i = 0; i < count; i++) {
         const type = types[Math.floor(Math.random() * types.length)];
-        queue.push({ type, delay: 0.4 + Math.random() * 0.35, elite: false });
+        queue.push({ type, delay: spawnBase + Math.random() * spawnJitter, elite: false });
       }
 
       if (mod && mod.eliteCount && queue.length > 0) {
@@ -59,8 +61,6 @@
   class EconomySystem {
     constructor() {
       this.gold = B.START_GOLD;
-      this.interestAccum = 0;
-      this.interestEarned = 0;
       this.combo = 1;
       this.comboTimer = 0;
       this.lastKillTime = 0;
@@ -68,8 +68,6 @@
 
     reset() {
       this.gold = B.START_GOLD;
-      this.interestAccum = 0;
-      this.interestEarned = 0;
       this.combo = 1;
       this.comboTimer = 0;
       this.lastKillTime = 0;
@@ -87,20 +85,6 @@
 
     addGold(amount) {
       this.gold += amount;
-    }
-
-    tickInterest(dt, waveActive) {
-      if (waveActive) return;
-      this.interestAccum += dt / 1000;
-      if (this.interestAccum >= 1 && this.interestEarned < B.INTEREST_CAP) {
-        this.interestAccum -= 1;
-        this.gold += B.INTEREST_RATE;
-        this.interestEarned += B.INTEREST_RATE;
-      }
-    }
-
-    resetInterestCap() {
-      this.interestEarned = 0;
     }
 
     onKill(reward, scoreValue, addScoreFn, opts) {
@@ -130,10 +114,8 @@
       }
     }
 
-    waveClearBonus(wave) {
-      const gold = B.WAVE_CLEAR_GOLD_BASE + wave;
-      this.gold += gold;
-      return { gold, score: 50 };
+    waveClearBonus() {
+      return { score: B.WAVE_CLEAR_SCORE };
     }
   }
 
@@ -142,12 +124,43 @@
       const stats = tower.stats;
       const rangePx = stats.range * metrics.cellSize;
       const pos = pathFinder.cellCenter(tower.r, tower.c);
-      let best = null;
-      let bestDist = -1;
+      const inRange = [];
       for (const enemy of enemies) {
         const dx = enemy.x - pos.x;
         const dy = enemy.y - pos.y;
         if (Math.sqrt(dx * dx + dy * dy) > rangePx) continue;
+        inRange.push(enemy);
+      }
+      if (!inRange.length) return null;
+
+      const priority = tower.targetPriority || 'first';
+      if (priority === 'last') {
+        let best = null;
+        let bestDist = Infinity;
+        for (const enemy of inRange) {
+          const d = enemy.pathIndex + enemy.segT;
+          if (d < bestDist) {
+            best = enemy;
+            bestDist = d;
+          }
+        }
+        return best;
+      }
+      if (priority === 'strongest') {
+        let best = null;
+        let bestHp = -1;
+        for (const enemy of inRange) {
+          const hp = enemy.hp + enemy.shield;
+          if (hp > bestHp) {
+            best = enemy;
+            bestHp = hp;
+          }
+        }
+        return best;
+      }
+      let best = null;
+      let bestDist = -1;
+      for (const enemy of inRange) {
         const d = enemy.pathIndex + enemy.segT;
         if (d > bestDist) {
           best = enemy;
@@ -157,11 +170,12 @@
       return best;
     }
 
-    fireTower(tower, target, enemies, pathFinder, metrics, overchargeActive, projectiles, onNovaHit) {
+    fireTower(tower, target, enemies, pathFinder, metrics, overchargeActive, projectiles, hooks) {
       const def = B.TOWER_TYPES[tower.type];
       const stats = tower.stats;
       const pos = pathFinder.cellCenter(tower.r, tower.c);
       const fireMult = overchargeActive ? B.OVERCHARGE_FIRE_MULT : 1;
+      const onHit = hooks.onNovaHit;
 
       if (tower.type === 'nova') {
         const rangePx = (stats.aoe || 1.2) * metrics.cellSize;
@@ -172,7 +186,7 @@
             let dmg = stats.damage;
             const shattered = enemy.slowTimer > 0;
             if (shattered) dmg *= (1 + B.SHATTER_BONUS);
-            onNovaHit(enemy, dmg, shattered);
+            onHit(enemy, dmg, shattered);
           }
         }
         tower.recoil = 0.08;
@@ -184,6 +198,41 @@
         };
       }
 
+      if (tower.type === 'tesla') {
+        const hit = new Set();
+        const chainPx = (stats.chainRange || 1.15) * metrics.cellSize;
+        let current = target;
+        let dmg = stats.damage;
+        const maxJumps = stats.chains || 4;
+        const falloff = stats.chainFalloff || 0.68;
+        const chainPoints = [{ x: pos.x, y: pos.y }];
+        for (let jump = 0; jump < maxJumps && current; jump++) {
+          hit.add(current.id);
+          chainPoints.push({ x: current.x, y: current.y });
+          onHit(current, dmg, false);
+          dmg *= falloff;
+          let next = null;
+          let bestDist = Infinity;
+          for (const enemy of enemies) {
+            if (hit.has(enemy.id)) continue;
+            const dx = enemy.x - current.x;
+            const dy = enemy.y - current.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist <= chainPx && dist < bestDist) {
+              next = enemy;
+              bestDist = dist;
+            }
+          }
+          current = next;
+        }
+        tower.recoil = 0.06;
+        tower.cooldown = stats.fireRate * fireMult;
+        return {
+          particles: { x: target.x, y: target.y, color: def.color, n: 10 },
+          chain: { points: chainPoints, color: def.color },
+        };
+      }
+
       if (tower.type === 'prism') {
         const angle = Math.atan2(target.y - pos.y, target.x - pos.x);
         projectiles.push(new E.Projectile({
@@ -191,6 +240,18 @@
           damage: stats.damage, color: def.color,
           pierceLeft: stats.pierce || 3, hitIds: new Set(), kind: 'prism',
           trail: [],
+        }));
+      } else if (tower.type === 'rail') {
+        projectiles.push(new E.Projectile({
+          x: pos.x, y: pos.y, tx: target.x, ty: target.y, speed: 420,
+          damage: stats.damage, color: def.color, targetId: target.id,
+          kind: 'rail', shieldBonus: stats.shieldBonus || 1.7, trail: [],
+        }));
+      } else if (tower.type === 'mortar') {
+        projectiles.push(new E.Projectile({
+          x: pos.x, y: pos.y, tx: target.x, ty: target.y, speed: 190,
+          damage: stats.damage, color: def.color, kind: 'mortar',
+          aoe: stats.aoe || 1.1, trail: [],
         }));
       } else {
         projectiles.push(new E.Projectile({
@@ -220,7 +281,7 @@
         if (!target) continue;
         const fx = this.fireTower(
           tower, target, enemies, pathFinder, metrics,
-          overchargeActive, projectiles, hooks.onNovaHit
+          overchargeActive, projectiles, hooks
         );
         if (fx) hooks.onFireFx(fx);
       }
@@ -253,6 +314,26 @@
               p.y < m.offsetY - 20 || p.y > m.offsetY + m.gridH + 20) {
             projectiles.splice(i, 1);
           }
+        } else if (p.kind === 'mortar') {
+          const tx = p.tx;
+          const ty = p.ty;
+          const dx = tx - p.x;
+          const dy = ty - p.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 10) {
+            const rangePx = (p.aoe || 1.1) * metrics.cellSize;
+            for (const enemy of enemies) {
+              const ex = enemy.x - tx;
+              const ey = enemy.y - ty;
+              if (Math.sqrt(ex * ex + ey * ey) <= rangePx) {
+                onHit(enemy, p.damage, null);
+              }
+            }
+            projectiles.splice(i, 1);
+          } else {
+            p.x += (dx / dist) * p.speed * sec;
+            p.y += (dy / dist) * p.speed * sec;
+          }
         } else {
           const target = enemies.find((e) => e.id === p.targetId);
           const tx = target ? target.x : p.tx;
@@ -261,8 +342,17 @@
           const dy = ty - p.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 8) {
-            if (target) {
-              onHit(target, p.damage, p.slow ? { slow: p.slow, slowMs: p.slowMs } : null);
+            if (target || p.kind === 'rail') {
+              const hitTarget = target || enemies.find((e) => {
+                const ddx = e.x - p.tx;
+                const ddy = e.y - p.ty;
+                return Math.sqrt(ddx * ddx + ddy * ddy) < metrics.cellSize * 0.35;
+              });
+              if (hitTarget) {
+                let dmg = p.damage;
+                if (p.shieldBonus && hitTarget.shield > 0) dmg *= p.shieldBonus;
+                onHit(hitTarget, dmg, p.slow ? { slow: p.slow, slowMs: p.slowMs } : null);
+              }
             }
             projectiles.splice(i, 1);
           } else {

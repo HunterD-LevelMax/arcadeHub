@@ -8,6 +8,7 @@
     CELL_VOID: 0,
     CELL_PATH: 1,
     CELL_SLOT: 2,
+    CELL_TUNNEL: 3,
     ACCENT: '#ffcc00',
     MAX_WAVES: 15,
     COMBO_WINDOW_MS: 1500,
@@ -19,10 +20,10 @@
     LANE_SPREAD: 0.12,
     LANE_COUNT: 5,
     KEYS: {
-      TOWERS: ['Digit1', 'Digit2', 'Digit3', 'Digit4'],
+      TOWERS: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7'],
       WAVE: ['Space', 'Enter', 'NumpadEnter'],
       CANCEL: ['Escape'],
     },
-    TOWER_ORDER: ['pulse', 'nova', 'prism', 'frost'],
+    TOWER_ORDER: ['pulse', 'nova', 'prism', 'frost', 'tesla', 'rail', 'mortar'],
   };
 })();
