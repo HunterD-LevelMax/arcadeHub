@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>SPACE BLOCKS — ARCADE HUB</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
   <link rel="stylesheet" href="../style/game.css">
   <link rel="stylesheet" href="../style/tetris.css">
 </head>
@@ -64,7 +61,7 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
 initGameCommon(canvas, BASE_W, BASE_H);
-preloadSfx(['tetris.move', 'tetris.rotate', 'tetris.clear', 'tetris.tetris', 'tetris.gameover']);
+preloadSfx(['tetris.move', 'tetris.rotate', 'tetris.clear', 'tetris.tetris', 'tetris.gameover', 'tetris.lock', 'tetris.hardDrop']);
 
 function W() { return canvas.width; }
 function H() { return canvas.height; }
@@ -211,12 +208,15 @@ function lockPiece() {
     if (clearedLines >= 3) hapticHeavy();
     else hapticMedium();
     playSfx(clearedLines >= 4 ? 'tetris.tetris' : 'tetris.clear', { volume: 0.6 });
+  } else {
+    playSfx('tetris.lock', { volume: 0.28 });
   }
   
   spawnPiece();
 }
 
 function hardDrop() {
+  playSfx('tetris.hardDrop', { volume: 0.4 });
   while (isValidPosition(gameState.currentX, gameState.currentY + 1, gameState.currentPiece)) {
     gameState.currentY++;
     gameState.score += 2;

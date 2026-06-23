@@ -3,14 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#050510">
   <title>ARCADE HUB</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=add_circle,apartment,arrow_forward,auto_awesome,castle,check,close,diamond,flight,fort,grid_4x4,grid_view,lock,monetization_on,north,paid,person,play_arrow,policy,rocket_launch,smart_toy,speed,sports_esports,toll,videogame_asset,volume_off,volume_up&display=swap">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="icon.png">
   <link rel="stylesheet" href="style/main.css">
 </head>
 <body>
 
+  <div id="hubRoot">
   <!-- Stars -->
   <div class="stars" id="stars"></div>
 
@@ -56,7 +58,7 @@
     <div class="games-grid">
 
       <!-- PRISM CASCADE -->
-      <a class="game-card md-card md-ripple" data-game-id="prismcascade" data-rarity="common" href="games/prismcascade.html" style="--card-accent: #aa00ff; --preview-bg: #150022;">
+      <a class="game-card md-card md-ripple" data-game-id="prismcascade" data-rarity="common" href="#" style="--card-accent: #aa00ff; --preview-bg: #150022;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -86,7 +88,7 @@
       </a>
 
       <!-- Frogger -->
-      <a class="game-card md-card md-ripple" data-game-id="frogger" data-rarity="rare" href="games/frogger.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
+      <a class="game-card md-card md-ripple" data-game-id="frogger" data-rarity="rare" href="#" style="--card-accent: #39ff14; --preview-bg: #021200;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -116,7 +118,7 @@
       </a>
 
       <!-- Space BLOCKS -->
-      <a class="game-card md-card md-ripple" data-game-id="tetris" data-rarity="common" href="games/tetris.html" style="--card-accent: #00f5ff; --preview-bg: #03071e;">
+      <a class="game-card md-card md-ripple" data-game-id="tetris" data-rarity="common" href="#" style="--card-accent: #00f5ff; --preview-bg: #03071e;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -146,7 +148,7 @@
       </a>
 
       <!-- Snake -->
-      <a class="game-card md-card md-ripple" data-game-id="snake" data-rarity="common" href="games/snake.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
+      <a class="game-card md-card md-ripple" data-game-id="snake" data-rarity="common" href="#" style="--card-accent: #39ff14; --preview-bg: #021200;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -176,7 +178,7 @@
       </a>
 
       <!-- Asteroids -->
-      <a class="game-card md-card md-ripple" data-game-id="asteroids" data-rarity="epic" href="games/asteroids.html" style="--card-accent: #00f5ff; --preview-bg: #03071e;">
+      <a class="game-card md-card md-ripple" data-game-id="asteroids" data-rarity="epic" href="#" style="--card-accent: #00f5ff; --preview-bg: #03071e;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -206,7 +208,7 @@
       </a>
 
       <!-- FLY HARD -->
-      <a class="game-card md-card md-ripple" data-game-id="flappy" data-rarity="rare" href="games/flappy.html" style="--card-accent: #ff00ff; --preview-bg: #0f0318;">
+      <a class="game-card md-card md-ripple" data-game-id="flappy" data-rarity="rare" href="#" style="--card-accent: #ff00ff; --preview-bg: #0f0318;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -236,7 +238,7 @@
       </a>
 
       <!-- SPACE HOPPER -->
-      <a class="game-card md-card md-ripple" data-game-id="doodle" data-rarity="common" href="games/doodle.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
+      <a class="game-card md-card md-ripple" data-game-id="doodle" data-rarity="common" href="#" style="--card-accent: #39ff14; --preview-bg: #021200;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -264,7 +266,7 @@
           </div>
         </div>
       </a>
-      <a class="game-card md-card md-ripple" data-game-id="spaceinvaders" data-rarity="epic" href="games/spaceinvaders.html" style="--card-accent: #39ff14; --preview-bg: #021200;">
+      <a class="game-card md-card md-ripple" data-game-id="spaceinvaders" data-rarity="epic" href="#" style="--card-accent: #39ff14; --preview-bg: #021200;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -294,7 +296,7 @@
       </a>
 
       <!-- NEON 2048 -->
-      <a class="game-card md-card md-ripple" data-game-id="game2048" data-rarity="common" href="games/game2048.html" style="--card-accent: #ff8800; --preview-bg: #1a1008;">
+      <a class="game-card md-card md-ripple" data-game-id="game2048" data-rarity="common" href="#" style="--card-accent: #ff8800; --preview-bg: #1a1008;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -324,7 +326,7 @@
       </a>
 
       <!-- STACK TOWER -->
-      <a class="game-card md-card md-ripple" data-game-id="stacktower" data-rarity="rare" href="games/stacktower.html" style="--card-accent: #ffff00; --preview-bg: #1a1808;">
+      <a class="game-card md-card md-ripple" data-game-id="stacktower" data-rarity="rare" href="#" style="--card-accent: #ffff00; --preview-bg: #1a1808;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -354,7 +356,7 @@
       </a>
 
       <!-- THRUST RUNNER -->
-      <a class="game-card md-card md-ripple" data-game-id="thrustrunner" data-rarity="epic" href="games/thrustrunner.html" style="--card-accent: #ff6600; --preview-bg: #1a0d00;">
+      <a class="game-card md-card md-ripple" data-game-id="thrustrunner" data-rarity="epic" href="#" style="--card-accent: #ff6600; --preview-bg: #1a0d00;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -384,7 +386,7 @@
       </a>
 
       <!-- NEON SIEGE -->
-      <a class="game-card md-card md-ripple" data-game-id="neonsiege" data-rarity="rare" href="games/neonsiege.html" style="--card-accent: #ffcc00; --preview-bg: #120f00;">
+      <a class="game-card md-card md-ripple" data-game-id="neonsiege" data-rarity="rare" href="#" style="--card-accent: #ffcc00; --preview-bg: #120f00;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -424,6 +426,15 @@
     </footer>
 
   </div>
+  </div>
+
+  <div id="gameShell" class="game-shell hidden" aria-hidden="true">
+    <div id="gameFrameLoading" class="game-frame-loading hidden" aria-live="polite">
+      <span class="material-symbols-outlined game-frame-loading-icon" aria-hidden="true">sports_esports</span>
+      <span>Loading game…</span>
+    </div>
+    <iframe id="gameFrame" class="game-frame" title="Arcade game" allow="autoplay"></iframe>
+  </div>
 
   <div id="arcadeModal" class="arcade-modal-overlay hidden" role="presentation">
     <div class="arcade-modal md-surface md-elev-3" role="dialog" aria-modal="true" aria-labelledby="arcadeModalTitle">
@@ -444,6 +455,7 @@
 
   <script src="js/haptics.js"></script>
   <script src="js/audio.js"></script>
+  <script src="js/router.js"></script>
   <script src="js/economy-api.js"></script>
   <script src="js/economy.js"></script>
   <script src="js/main.js"></script>

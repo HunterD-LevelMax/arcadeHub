@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>SPACE ALIENS — ARCADE HUB</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
   <link rel="stylesheet" href="../style/game.css">
   <link rel="stylesheet" href="../style/spaceinvaders.css">
 </head>
@@ -633,6 +630,7 @@ function triggerPlayerBomb(t) {
   gameState.bombFlash = 12;
   gameState.bombRing = 30;
   hapticMedium();
+  playSfx('spaceinvaders.bomb', { volume: 0.65 });
 
   targets.forEach(a => {
     const base = ALIEN_SCORES[a.type] || 10;

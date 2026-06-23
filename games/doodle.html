@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>SPACE HOPPER — ARCADE HUB</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
   <link rel="stylesheet" href="../style/game.css">
   <link rel="stylesheet" href="../style/doodle.css">
 </head>
@@ -63,7 +60,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 initGameCommon(canvas, BASE_W, BASE_H);
-preloadSfx(['doodle.jump', 'doodle.spring', 'doodle.break', 'doodle.gameover']);
+preloadSfx(['doodle.jump', 'doodle.spring', 'doodle.break', 'doodle.gameover', 'doodle.start', 'doodle.land', 'doodle.bonus']);
 
 function W() { return canvas.width; }
 function H() { return canvas.height; }
@@ -233,6 +230,8 @@ function startGame() {
   ui.gameoverOverlay.classList.add('hidden');
   gameState.running = true;
   needsReset = true;
+  playSfx('doodle.start', { volume: 0.45 });
+  playSfx('doodle.jump', { volume: 0.38 });
   requestAnimationFrame(gameLoop);
 }
 
@@ -381,22 +380,33 @@ function handlePlatformCollision(platform) {
     jumpVel = CONFIG.BONUS_JUMP_VEL;
     gameState.score += platform.bonus.score;
     ui.score.textContent = gameState.score;
-    hapticLight();
+    hapticSuccess();
+    playSfx('doodle.bonus', { volume: 0.6 });
   }
 
   if (platform.type === PLATFORM_TYPES.BREAK) {
     platform.broken = true;
-    playSfx('doodle.break', { volume: 0.5 });
+    hapticMedium();
+    playSfx('doodle.break', { volume: 0.58 });
+    playSfx('doodle.jump', { volume: 0.32 });
     player.vy = jumpVel;
     player.y  = platform.y - CONFIG.PLAYER_H - 1;
   } else if (platform.type === PLATFORM_TYPES.SPRING) {
     platform.springExtended = true;
     platform.springTimer    = 15;
-    playSfx('doodle.spring', { volume: 0.55 });
+    hapticMedium();
+    playSfx('doodle.spring', { volume: 0.68 });
     player.vy = CONFIG.SPRING_VEL;
     player.y  = platform.y - CONFIG.PLAYER_H - 2;
+  } else if (platform.type === PLATFORM_TYPES.MOVING) {
+    hapticLight();
+    playSfx('doodle.land', { volume: 0.35 });
+    playSfx('doodle.jump', { volume: 0.5 });
+    player.vy = jumpVel;
+    player.y  = platform.y - CONFIG.PLAYER_H - 1;
   } else {
-    playSfx('doodle.jump', { volume: 0.4 });
+    hapticLight();
+    playSfx('doodle.jump', { volume: 0.52 });
     player.vy = jumpVel;
     player.y  = platform.y - CONFIG.PLAYER_H - 1;
   }
@@ -442,10 +452,12 @@ function update(dt) {
 function endGame() {
   gameState.running = false;
   hapticHeavy();
-  playSfx('doodle.gameover');
-  if (gameState.score > gameState.best) {
+  playSfx('doodle.gameover', { volume: 0.65 });
+  const isNewBest = gameState.score > gameState.best;
+  if (isNewBest) {
     gameState.best = gameState.score;
     setHighScore('doodle', gameState.best);
+    playSfx('ui.success', { volume: 0.55 });
   }
   ui.finalScore.textContent    = gameState.score;
   ui.bestScore.textContent     = `BEST: ${gameState.best}`;

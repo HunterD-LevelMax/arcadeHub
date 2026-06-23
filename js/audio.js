@@ -49,6 +49,9 @@
     "doodle.spring": "doodle/spring.ogg",
     "doodle.break": "doodle/break.ogg",
     "doodle.gameover": "doodle/gameover.ogg",
+    "doodle.start": "ui/confirm.ogg",
+    "doodle.land": "ui/tap.ogg",
+    "doodle.bonus": "ui/coin.ogg",
 
     "game2048.merge": "game2048/merge.ogg",
     "game2048.spawn": "game2048/spawn.ogg",
@@ -69,6 +72,22 @@
     "neonsiege.wave": "neonsiege/wave.ogg",
     "neonsiege.coreHit": "neonsiege/core_hit.ogg",
     "neonsiege.upgrade": "neonsiege/upgrade.ogg",
+
+    "snake.turn": "ui/tap.ogg",
+    "tetris.lock": "ui/confirm.ogg",
+    "tetris.hardDrop": "ui/hit.ogg",
+    "flappy.start": "ui/confirm.ogg",
+    "spaceinvaders.bomb": "ui/hit.ogg",
+    "game2048.slide": "ui/tap.ogg",
+    "prismcascade.swap": "ui/tap.ogg",
+    "prismcascade.hammer": "ui/hit.ogg",
+    "prismcascade.shuffle": "ui/confirm.ogg",
+    "frogger.coin": "ui/coin.ogg",
+    "asteroids.levelUp": "ui/success.ogg",
+    "thrustrunner.powerup": "ui/success.ogg",
+    "stacktower.streak": "ui/success.ogg",
+    "neonsiege.gameover": "ui/error.ogg",
+    "neonsiege.victory": "ui/success.ogg",
   };
 
   const HAPTIC_SFX = {
@@ -80,16 +99,160 @@
     error: "ui.error",
   };
 
+  const BGM_TRACKS = ["music_1.mp3", "music_2.mp3", "music_3.mp3"];
+
   const cache = new Map();
   let unlocked = false;
   let muted = false;
   let basePath = BASE;
+  let audioRoot = "audio";
+  let bgmNode = null;
+  let lastBgmTrack = null;
+  let bgmVolume = 0.32;
+  let bgmDucked = false;
+  const BGM_DUCK_RATIO = 0.2;
+  let hubBgmStarted = false;
+  let appSuspended = false;
+  let bgmWasPlaying = false;
+
+  function suspendAudio() {
+    if (appSuspended) return;
+    appSuspended = true;
+    bgmWasPlaying = !!(bgmNode && !bgmNode.paused) || (hubBgmStarted && !muted);
+    if (bgmNode) bgmNode.pause();
+  }
+
+  function resumeAudio() {
+    if (!appSuspended) return;
+    appSuspended = false;
+    if (muted || !bgmWasPlaying) return;
+    if (bgmNode) {
+      applyBgmVolume();
+      bgmNode.play().catch(() => {});
+      return;
+    }
+    if (!isGamePage() && hubBgmStarted) playNextBgm();
+  }
+
+  function bindAppLifecycle() {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") suspendAudio();
+      else if (document.visibilityState === "visible") resumeAudio();
+    });
+    window.addEventListener("pagehide", suspendAudio);
+    window.addEventListener("pageshow", resumeAudio);
+  }
+
+  function onBgmEnded() {
+    if (muted || isGamePage() || !hubBgmStarted) return;
+    playNextBgm();
+  }
+
+  function pickRandomBgmTrack() {
+    if (!BGM_TRACKS.length) return null;
+    if (BGM_TRACKS.length === 1) return BGM_TRACKS[0];
+    let track = BGM_TRACKS[0];
+    for (let i = 0; i < 6; i++) {
+      track = BGM_TRACKS[Math.floor(Math.random() * BGM_TRACKS.length)];
+      if (track !== lastBgmTrack) break;
+    }
+    return track;
+  }
+
+  function getBgmSrc(file) {
+    if (!file) return null;
+    return audioRoot + "/bgm/" + file;
+  }
+
+  function applyBgmVolume() {
+    if (!bgmNode) return;
+    if (muted) {
+      bgmNode.volume = 0;
+      return;
+    }
+    const level = bgmDucked ? bgmVolume * BGM_DUCK_RATIO : bgmVolume;
+    bgmNode.volume = Math.max(0, Math.min(1, level));
+  }
+
+  function playNextBgm() {
+    if (isGamePage() || muted || appSuspended) return;
+    const file = pickRandomBgmTrack();
+    if (!file) return;
+    if (!unlocked) unlock();
+
+    if (bgmNode) {
+      bgmNode.removeEventListener("ended", onBgmEnded);
+      bgmNode.pause();
+      bgmNode = null;
+    }
+
+    lastBgmTrack = file;
+    bgmNode = new Audio(getBgmSrc(file));
+    bgmNode.loop = false;
+    bgmNode.addEventListener("ended", onBgmEnded);
+    applyBgmVolume();
+    bgmNode.play().catch(() => {});
+    hubBgmStarted = true;
+  }
+
+  function playBgm(_id, opts) {
+    if (isGamePage() || muted) return;
+    if (opts && Number.isFinite(opts.volume)) bgmVolume = opts.volume;
+    playNextBgm();
+  }
+
+  function stopBgm() {
+    if (!bgmNode) return;
+    bgmNode.removeEventListener("ended", onBgmEnded);
+    bgmNode.pause();
+    bgmNode.currentTime = 0;
+    bgmNode = null;
+    lastBgmTrack = null;
+    hubBgmStarted = false;
+  }
+
+  function setBgmVolume(value) {
+    if (!Number.isFinite(value)) return;
+    bgmVolume = Math.max(0, Math.min(1, value));
+    applyBgmVolume();
+  }
+
+  function duckBgm() {
+    bgmDucked = true;
+    applyBgmVolume();
+  }
+
+  function unduckBgm() {
+    bgmDucked = false;
+    applyBgmVolume();
+  }
+
+  function maybeStartHubBgm() {
+    if (isGamePage() || muted || hubBgmStarted) return;
+    playNextBgm();
+  }
+
+  function preloadBgm() {
+    if (isGamePage()) return;
+    BGM_TRACKS.forEach((file) => {
+      const src = getBgmSrc(file);
+      if (!src) return;
+      const audio = new Audio(src);
+      audio.preload = "auto";
+    });
+  }
+
+  function isGamePage() {
+    return /\/games\//i.test(window.location.pathname);
+  }
 
   function resolvePath() {
-    if (/\/games\//i.test(window.location.pathname)) {
+    if (isGamePage()) {
       basePath = "../" + BASE;
+      audioRoot = "../audio";
     } else {
       basePath = BASE;
+      audioRoot = "audio";
     }
   }
 
@@ -107,6 +270,14 @@
     } catch (_e) {}
     muted = value;
     document.documentElement.classList.toggle("audio-muted", muted);
+    if (muted) {
+      if (bgmNode) bgmNode.pause();
+    } else if (hubBgmStarted && bgmNode) {
+      applyBgmVolume();
+      bgmNode.play().catch(() => {});
+    } else if (!isGamePage() && !hubBgmStarted) {
+      maybeStartHubBgm();
+    }
     window.dispatchEvent(new CustomEvent("arcade-audio-mute", { detail: { muted } }));
   }
 
@@ -136,11 +307,12 @@
     return probe.play().then(() => {
       probe.pause();
       probe.currentTime = 0;
+      maybeStartHubBgm();
     }).catch(() => {});
   }
 
   function play(id, opts) {
-    if (muted || !id) return;
+    if (muted || !id || appSuspended) return;
     if (!unlocked) unlock();
     const master = opts && Number.isFinite(opts.volume) ? opts.volume : 1;
     const base = load(id);
@@ -153,7 +325,7 @@
 
   function playForHaptic(kind) {
     const id = HAPTIC_SFX[kind];
-    if (id) play(id, { volume: kind === "tick" ? 0.35 : 0.55 });
+    if (id) play(id, { volume: kind === "tick" ? 0.42 : kind === "light" ? 0.48 : 0.62 });
   }
 
   function preload(ids) {
@@ -200,7 +372,7 @@
   }
 
   function injectGameMuteButton() {
-    if (!/\/games\//i.test(window.location.pathname)) return;
+    if (!isGamePage()) return;
     const header = document.querySelector(".header");
     if (!header || header.querySelector("[data-audio-mute]")) return;
     const btn = document.createElement("button");
@@ -218,9 +390,18 @@
     document.documentElement.classList.toggle("audio-muted", muted);
     injectGameMuteButton();
     bindMuteButtons();
+    bindAppLifecycle();
     window.addEventListener("arcade-audio-mute", updateMuteButtons);
-    document.addEventListener("click", () => unlock(), { once: true, capture: true });
-    document.addEventListener("touchstart", () => unlock(), { once: true, capture: true });
+    document.addEventListener("click", () => {
+      unlock().then(() => maybeStartHubBgm());
+    }, { once: true, capture: true });
+    document.addEventListener("touchstart", () => {
+      unlock().then(() => maybeStartHubBgm());
+    }, { once: true, capture: true });
+    if (!isGamePage() && !muted) {
+      preloadBgm();
+      window.addEventListener("arcade-hub-visible", () => unduckBgm());
+    }
   }
 
   window.ArcadeAudio = {
@@ -232,7 +413,15 @@
     isMuted,
     toggleMuted,
     bindMuteButtons,
+    playBgm,
+    stopBgm,
+    setBgmVolume,
+    duckBgm,
+    unduckBgm,
+    suspend: suspendAudio,
+    resume: resumeAudio,
     SOUND_MAP,
+    BGM_TRACKS,
   };
 
   if (document.readyState === "loading") {

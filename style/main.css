@@ -1018,3 +1018,67 @@ body::after {
   -webkit-text-fill-color: transparent;
   animation: glitch 0.4s steps(1) 0s 1;
 }
+
+/* App shell — game iframe overlay */
+#hubRoot.hub-hidden {
+  visibility: hidden;
+  pointer-events: none;
+  position: fixed;
+  width: 100%;
+  left: 0;
+  top: 0;
+}
+
+.game-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--dark-bg);
+}
+
+.game-shell.hidden {
+  display: none;
+}
+
+.game-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--dark-bg);
+}
+
+.game-frame-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(5, 5, 16, 0.92);
+  color: var(--neon-cyan);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.game-frame-loading.hidden {
+  display: none;
+}
+
+.game-frame-loading-icon {
+  font-size: 2.5rem;
+  animation: game-load-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes game-load-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+body.game-active {
+  overflow: hidden;
+}

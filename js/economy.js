@@ -38,6 +38,9 @@
     renderGameLocks(playerState);
     animateCoins();
     hapticSuccess();
+    if (window.ArcadeAudio && typeof window.ArcadeAudio.play === 'function') {
+      window.ArcadeAudio.play('ui.coin', { volume: 0.5 });
+    }
 
     const toast = document.createElement("div");
     toast.className = "exit-reward-toast";
@@ -235,6 +238,13 @@
   renderProfile(playerState);
   renderGameLocks(playerState);
   showExitRewardToast();
+
+  window.addEventListener("arcade-hub-visible", () => {
+    playerState = loadPlayerState();
+    renderProfile(playerState);
+    renderGameLocks(playerState);
+    showExitRewardToast();
+  });
 
   const devCoinsBtn = document.getElementById("devCoinsBtn");
   if (devCoinsBtn) {

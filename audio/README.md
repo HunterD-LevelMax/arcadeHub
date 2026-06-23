@@ -20,6 +20,19 @@ audio/sfx/
 
 Files are renamed short `.ogg` clips mapped in [`js/audio.js`](../js/audio.js).
 
+## Background music
+
+```
+audio/bgm/
+  music_1.mp3
+  music_2.mp3
+  music_3.mp3
+```
+
+- User-provided background tracks for the hub shell
+- Random track on first play and when each track ends (no repeat back-to-back)
+- Controlled via `ArcadeAudio.playBgm()`, `stopBgm()`, `duckBgm()` / `unduckBgm()`
+
 ## Adding sounds
 
 1. Add the `.ogg` file under `audio/sfx/<game>/`.

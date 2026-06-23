@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>SNAKE — ARCADE HUB</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
   <link rel="stylesheet" href="../style/game.css">
   <link rel="stylesheet" href="../style/snake.css">
 </head>
@@ -266,23 +263,28 @@ function loop(t) {
 }
 
 // Input
+function setSnakeDirection(dir) {
+  gameState.nextDirection = dir;
+  playSfx('snake.turn', { volume: 0.18 });
+}
+
 document.addEventListener('keydown', e => {
   if (gameState.state !== 'playing') return;
   
   if (KEYS.UP.includes(e.code) && gameState.direction.y !== 1) {
-    gameState.nextDirection = { x: 0, y: -1 };
+    setSnakeDirection({ x: 0, y: -1 });
     e.preventDefault();
   }
   if (KEYS.DOWN.includes(e.code) && gameState.direction.y !== -1) {
-    gameState.nextDirection = { x: 0, y: 1 };
+    setSnakeDirection({ x: 0, y: 1 });
     e.preventDefault();
   }
   if (KEYS.LEFT.includes(e.code) && gameState.direction.x !== 1) {
-    gameState.nextDirection = { x: -1, y: 0 };
+    setSnakeDirection({ x: -1, y: 0 });
     e.preventDefault();
   }
   if (KEYS.RIGHT.includes(e.code) && gameState.direction.x !== -1) {
-    gameState.nextDirection = { x: 1, y: 0 };
+    setSnakeDirection({ x: 1, y: 0 });
     e.preventDefault();
   }
 });
@@ -301,11 +303,11 @@ canvas.addEventListener('touchend', e => {
   const dy = e.changedTouches[0].clientY - touchStart.y;
   
   if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx > 30 && gameState.direction.x !== -1) gameState.nextDirection = { x: 1, y: 0 };
-    if (dx < -30 && gameState.direction.x !== 1) gameState.nextDirection = { x: -1, y: 0 };
+    if (dx > 30 && gameState.direction.x !== -1) setSnakeDirection({ x: 1, y: 0 });
+    if (dx < -30 && gameState.direction.x !== 1) setSnakeDirection({ x: -1, y: 0 });
   } else {
-    if (dy > 30 && gameState.direction.y !== -1) gameState.nextDirection = { x: 0, y: 1 };
-    if (dy < -30 && gameState.direction.y !== 1) gameState.nextDirection = { x: 0, y: -1 };
+    if (dy > 30 && gameState.direction.y !== -1) setSnakeDirection({ x: 0, y: 1 });
+    if (dy < -30 && gameState.direction.y !== 1) setSnakeDirection({ x: 0, y: -1 });
   }
   
   touchStart = null;

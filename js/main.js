@@ -1071,11 +1071,11 @@
     history.scrollRestoration = 'manual';
   }
 
-  function saveHubScroll() {
-    sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || window.pageYOffset || 0));
-  }
-
   function restoreHubScroll() {
+    if (window.ArcadeRouter && typeof ArcadeRouter.restoreHubScroll === 'function') {
+      ArcadeRouter.restoreHubScroll();
+      return;
+    }
     const raw = sessionStorage.getItem(SCROLL_KEY);
     if (raw === null) return;
     const y = Number(raw);
@@ -1088,20 +1088,25 @@
     setTimeout(apply, 100);
   }
 
-  document.querySelectorAll('.game-card[data-game-id]').forEach((card) => {
-    card.addEventListener('click', () => {
-      saveHubScroll();
-      const id = card.dataset.gameId;
-      if (id) sessionStorage.setItem('arcadeHub_lastGameId', id);
-    });
-  });
-
-  window.addEventListener('pagehide', saveHubScroll);
+  window.addEventListener('arcade-hub-visible', restoreHubScroll);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', restoreHubScroll);
   } else {
     restoreHubScroll();
   }
+})();
+
+(function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  const isLocal =
+    location.protocol === 'https:' ||
+    location.hostname === 'localhost' ||
+    location.hostname === '127.0.0.1';
+  if (!isLocal) return;
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
 })();
 

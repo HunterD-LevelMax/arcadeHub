@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>PRISM CASCADE — ARCADE HUB</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
   <link rel="stylesheet" href="../style/game.css">
   <link rel="stylesheet" href="../style/prismcascade.css">
 </head>
@@ -138,7 +135,7 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
 initGameCommon(canvas, BASE_W, BASE_H);
-preloadSfx(['prismcascade.match', 'prismcascade.cascade', 'prismcascade.bomb', 'prismcascade.gameover']);
+preloadSfx(['prismcascade.match', 'prismcascade.cascade', 'prismcascade.bomb', 'prismcascade.gameover', 'prismcascade.swap', 'prismcascade.hammer', 'prismcascade.shuffle']);
 
 function W() { return canvas.width; }
 function H() { return canvas.height; }
@@ -1710,6 +1707,7 @@ async function resolveCascades(comboLevel) {
 async function doReshuffle() {
   boardState = 'noMoves';
   addFloatText(W() / 2, H() * 0.5, 'RESHUFFLE', '#aa00ff');
+  playSfx('prismcascade.shuffle', { volume: 0.45 });
   ui.gameContainer.classList.add('reshuffle-flash');
   reshuffleFlash = 1;
   shuffleBoard(grid);
@@ -1733,6 +1731,7 @@ async function trySwap(r1, c1, r2, c2) {
 
   boardState = 'swapping';
   resetIdle();
+  playSfx('prismcascade.swap', { volume: 0.28 });
 
   lastSwapCell = { r: r2, c: c2 };
 
@@ -1808,6 +1807,7 @@ async function useHammer(r, c) {
   boardState = 'resolving';
   lastSwapCell = null;
   haptic('medium');
+  playSfx('prismcascade.hammer', { volume: 0.5 });
 
   if (grid[r][c] < 0 && blockGrid[r][c] && blockGrid[r][c].type === 'crate') {
     blockGrid[r][c] = null;
@@ -1837,6 +1837,7 @@ async function useShuffle() {
   ui.timer.textContent = Math.max(0, timeLeft);
   addFloatText(W() / 2, H() * 0.5, '-5s SHUFFLE', '#ff8800');
   haptic('medium');
+  playSfx('prismcascade.shuffle', { volume: 0.45 });
   boardState = 'noMoves';
   ui.gameContainer.classList.add('reshuffle-flash');
   reshuffleFlash = 1;

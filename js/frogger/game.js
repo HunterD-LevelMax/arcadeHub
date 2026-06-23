@@ -132,6 +132,7 @@
           Entities.spawnParticles(this.particles, p.x, p.y, "#FFC107", 10, "burst");
           this.spawnScorePopup("+5 COIN", p.x - 24, p.y - 28, "#FFC107");
           if (window.hapticLight) hapticLight();
+          if (typeof playSfx === "function") playSfx("frogger.coin", { volume: 0.5 });
         }
       }
     }
@@ -180,6 +181,7 @@
             gs.score += 10;
             this.spawnScorePopup("PERFECT x10 +10", fromPos.x - 40, fromPos.y - 50, "#ffff00");
             if (window.hapticSuccess) hapticSuccess();
+            if (typeof playSfx === "function") playSfx("frogger.goal", { volume: 0.6 });
           }
         }
       } else {

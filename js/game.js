@@ -138,19 +138,58 @@ function beginCoinSession(currentBest, gameId, getScore) {
 function awardAndShowCoins(gameId, score) {
   if (!window.ArcadeEconomy) return null;
   const reward = ArcadeEconomy.awardAndShowCoins(gameId, score);
-  if (reward && reward.earned > 0) hapticSuccess();
+  if (reward && reward.earned > 0) {
+    hapticSuccess();
+    playSfx('ui.coin', { volume: 0.55 });
+  }
   return reward;
 }
 
-function initGameExitEconomy() {
-  if (!window.ArcadeEconomy || typeof ArcadeEconomy.flushCoinSession !== "function") return;
-  if (!/\/games\//i.test(window.location.pathname)) return;
+function arcadeBack() {
+  if (window.parent !== window) {
+    try {
+      if (window.parent.ArcadeRouter && typeof window.parent.ArcadeRouter.backToHub === "function") {
+        window.parent.ArcadeRouter.backToHub();
+        return;
+      }
+    } catch (_e) {}
+    try {
+      window.parent.postMessage({ type: "arcade-hub-back" }, "*");
+    } catch (_e2) {}
+    return;
+  }
+  location.href = "../index.html";
+}
+
+function isGamePage() {
+  if (/\/games\//i.test(window.location.pathname)) return true;
+  if (/\/games\//i.test(window.location.href)) return true;
+  return !!document.querySelector(".back-btn");
+}
+
+function initGameBackNavigation() {
+  if (!isGamePage()) return;
 
   document.querySelectorAll(".back-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      ArcadeEconomy.flushCoinSession();
+    if (btn.dataset.backBound === "1") return;
+    btn.dataset.backBound = "1";
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.ArcadeEconomy && typeof ArcadeEconomy.flushCoinSession === "function") {
+        ArcadeEconomy.flushCoinSession();
+      }
+      arcadeBack();
     });
   });
+}
+
+function initGameExitEconomy() {
+  if (!isGamePage()) return;
+
+  initGameBackNavigation();
+
+  if (!window.ArcadeEconomy || typeof ArcadeEconomy.flushCoinSession !== "function") return;
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {

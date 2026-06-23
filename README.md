@@ -6,6 +6,10 @@
 
 # 
 
+# Runs as an **installable PWA** or inside an **Android WebView** (see [`ANDROID.md`](ANDROID.md)). The hub uses an app shell — games open in an iframe without full page reload.
+
+# 
+
 # \## Project structure
 
 # 

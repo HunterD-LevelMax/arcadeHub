@@ -211,6 +211,8 @@ body::after {
   background: rgba(10, 10, 31, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: var(--md-sys-elevation-1);
+  position: relative;
+  z-index: 101;
 }
 
 .back-btn {

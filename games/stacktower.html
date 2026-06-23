@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>STACK TOWER — ARCADE HUB</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
   <link rel="stylesheet" href="../style/game.css">
   <link rel="stylesheet" href="../style/stacktower.css">
 </head>
@@ -421,7 +418,10 @@ function placeBlock() {
     if (perfectStreak >= 2) {
       addFloatText(placedX + placedW / 2, mover.y - 10, `PERFECT x${perfectStreak}`, '#ffff00');
     }
-    if (perfectStreak >= 3) hapticMedium();
+    if (perfectStreak >= 3) {
+      hapticMedium();
+      playSfx('stacktower.streak', { volume: 0.5 });
+    }
   } else {
     perfectStreak = 0;
     hapticTick();

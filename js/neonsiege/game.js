@@ -817,6 +817,7 @@
       }
       this.ui.victoryOverlay.classList.remove('hidden');
       if (typeof hapticSuccess === 'function') hapticSuccess();
+      if (typeof playSfx === 'function') playSfx('neonsiege.victory', { volume: 0.65 });
     }
 
     continueEndless() {
@@ -843,6 +844,7 @@
       if (this.state === 'dead') return;
       this.state = 'dead';
       if (typeof hapticHeavy === 'function') hapticHeavy();
+      if (typeof playSfx === 'function') playSfx('neonsiege.gameover', { volume: 0.6 });
       if (this.score > this.best) {
         this.best = this.score;
         if (typeof setHighScore === 'function') setHighScore(C.GAME_ID, this.best);
