@@ -45,6 +45,7 @@
     <div class="footer">← → : MOVE · SPACE : SHOOT · B : BOMB · HOLD CENTER : BOMB (mobile)</div>
   </div>
 
+<script src="../js/audio.js"></script>
 <script src="../js/game.js"></script>
 <script src="../js/economy-api.js"></script>
 <script>
@@ -53,6 +54,7 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
 initGameCommon(canvas, BASE_W, BASE_H);
+preloadSfx(['spaceinvaders.shoot', 'spaceinvaders.hit', 'spaceinvaders.playerHit', 'spaceinvaders.wave']);
 
 function W() { return canvas.width; }
 function H() { return canvas.height; }
@@ -579,6 +581,7 @@ function fireBullet() {
   } else {
     gameState.bullets.push({ x: cx - BULLET_W / 2, y, dx: 0 });
   }
+  playSfx('spaceinvaders.shoot', { volume: 0.4 });
 }
 
 function killAlien(a, scoreMultiplier) {
@@ -587,6 +590,7 @@ function killAlien(a, scoreMultiplier) {
   gameState.score += Math.floor(base * gameState.wave * scoreMultiplier);
   ui.score.textContent = gameState.score;
   hapticLight();
+  playSfx('spaceinvaders.hit', { volume: 0.5 });
   spawnExplosion(a.x + ALIEN_W / 2, a.y + ALIEN_H / 2, ALIEN_COLORS[a.type], 8);
   spawnDrop(a.x, a.y);
   gameState.killStreak++;
@@ -643,6 +647,7 @@ function triggerPlayerBomb(t) {
 
 function nextWave() {
   hapticMedium();
+  playSfx('spaceinvaders.wave', { volume: 0.65 });
   gameState.waveClearText = `WAVE ${gameState.wave} — CLEAR!`;
   gameState.waveClearUntil = performance.now() + 1500;
   gameState.wave++;
@@ -661,6 +666,7 @@ function loseLife(t) {
   gameState.invincibleUntil = t + INVINCIBLE_MS;
   gameState.bombs = [];
   hapticHeavy();
+  playSfx('spaceinvaders.playerHit');
 
   if (gameState.lives <= 0) {
     endGame();
@@ -1192,6 +1198,7 @@ canvas.addEventListener('touchmove', e => {
 });
 
 document.getElementById('startBtn').addEventListener('click', () => {
+  unlockAudio();
   init();
   gameState.state = 'playing';
   beginCoinSession(gameState.best, 'spaceinvaders', () => gameState.score);

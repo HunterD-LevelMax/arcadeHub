@@ -435,6 +435,7 @@
       }
       this.towers.push(new Ent.Tower(type, r, c));
       if (typeof hapticTick === 'function') hapticTick();
+      if (typeof playSfx === 'function') playSfx('neonsiege.build', { volume: 0.5 });
       const pos = this.pathFinder.cellCenter(r, c);
       this.particles.push(new Ent.Particle(pos.x, pos.y, B.TOWER_TYPES[type].color, 8));
       this.fxRings.push(new Ent.RingFx(pos.x, pos.y, B.TOWER_TYPES[type].color, this.metrics.cellSize * 0.55, 0.45));
@@ -451,6 +452,7 @@
       tower.totalSpent += cost;
       tower.tier++;
       if (typeof hapticSuccess === 'function') hapticSuccess();
+      if (typeof playSfx === 'function') playSfx('neonsiege.upgrade');
       const pos = this.pathFinder.cellCenter(tower.r, tower.c);
       this.particles.push(new Ent.Particle(pos.x, pos.y, B.TOWER_TYPES[tower.type].color, 10));
       this.selectTower(tower);
@@ -485,6 +487,7 @@
       this.spawnTimer = 0.3;
       this.spawnIndex = 0;
       if (typeof hapticMedium === 'function') hapticMedium();
+      if (typeof playSfx === 'function') playSfx('neonsiege.wave', { volume: 0.6 });
       this.updateTowerBar();
       this.updateHud();
       this.updateWavePreview();
@@ -621,7 +624,7 @@
       ));
       this._registerKillStreak(enemy.x, enemy.y);
       if (typeof hapticTick === 'function') hapticTick();
-
+      if (typeof playSfx === 'function') playSfx('neonsiege.hit', { volume: 0.3 });
       if (enemy.split) {
         const hpMult = this.currentMap.hpMod * 0.35;
         for (let i = 0; i < 2; i++) {
@@ -651,7 +654,7 @@
         this.floatingTexts.push(new Ent.FloatingText(goal.x, goal.y - 20, '-1 CORE', '#ff3344'));
       }
       if (typeof hapticHeavy === 'function') hapticHeavy();
-      this.shake = 8;
+      if (typeof playSfx === 'function') playSfx('neonsiege.coreHit');
       this.updateHud();
       if (this.baseHp <= 0) this.endGame();
     }
@@ -711,6 +714,7 @@
         {
           onNovaHit(enemy, dmg, shattered) { self._onEnemyHit(enemy, dmg, null, shattered); },
           onFireFx(fx) {
+            if (typeof playSfx === 'function') playSfx('neonsiege.shoot', { volume: 0.18 });
             if (fx.shake) self.shake = Math.max(self.shake, fx.shake);
             if (fx.particles) {
               self.particles.push(new Ent.Particle(fx.particles.x, fx.particles.y, fx.particles.color, fx.particles.n));
@@ -823,6 +827,7 @@
     }
 
     startPlaying() {
+      if (typeof unlockAudio === 'function') unlockAudio();
       this.init();
       this.state = 'playing';
       if (typeof beginCoinSession === 'function') {

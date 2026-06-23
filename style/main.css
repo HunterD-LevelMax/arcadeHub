@@ -477,6 +477,18 @@ body::after {
   font-family: 'Share Tech Mono', monospace;
 }
 
+.audio-mute-btn {
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+}
+
+.audio-mute-btn .material-symbols-outlined {
+  font-size: 1.125rem;
+}
+
 .exit-reward-toast {
   position: fixed;
   left: 50%;

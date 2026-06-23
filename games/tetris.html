@@ -53,6 +53,7 @@
     <div class="footer" id="controlsHint">ARROWS: MOVE/ROTATE · DOWN: SOFT DROP · SPACE: HARD DROP</div>
   </div>
 
+<script src="../js/audio.js"></script>
 <script src="../js/game.js"></script>
 <script src="../js/economy-api.js"></script>
 <script>
@@ -63,6 +64,7 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
 initGameCommon(canvas, BASE_W, BASE_H);
+preloadSfx(['tetris.move', 'tetris.rotate', 'tetris.clear', 'tetris.tetris', 'tetris.gameover']);
 
 function W() { return canvas.width; }
 function H() { return canvas.height; }
@@ -171,6 +173,7 @@ function rotatePiece() {
   
   if (isValidPosition(gameState.currentX, gameState.currentY, rotated)) {
     gameState.currentPiece = rotated;
+    playSfx('tetris.rotate', { volume: 0.35 });
   }
 }
 
@@ -207,6 +210,7 @@ function lockPiece() {
     gameState.level = Math.floor(gameState.lines / 10) + 1;
     if (clearedLines >= 3) hapticHeavy();
     else hapticMedium();
+    playSfx(clearedLines >= 4 ? 'tetris.tetris' : 'tetris.clear', { volume: 0.6 });
   }
   
   spawnPiece();
@@ -224,6 +228,7 @@ function hardDrop() {
 function endGame() {
   gameState.state = 'dead';
   hapticHeavy();
+  playSfx('tetris.gameover');
 
   if (gameState.score > gameState.best) {
     gameState.best = gameState.score;
@@ -407,6 +412,7 @@ function moveLeft() {
   if (gameState.state !== 'playing') return;
   if (isValidPosition(gameState.currentX - 1, gameState.currentY, gameState.currentPiece)) {
     gameState.currentX--;
+    playSfx('tetris.move', { volume: 0.25 });
   }
 }
 
@@ -414,6 +420,7 @@ function moveRight() {
   if (gameState.state !== 'playing') return;
   if (isValidPosition(gameState.currentX + 1, gameState.currentY, gameState.currentPiece)) {
     gameState.currentX++;
+    playSfx('tetris.move', { volume: 0.25 });
   }
 }
 
@@ -546,6 +553,7 @@ if ('ontouchstart' in window) {
 
 // Buttons
 document.getElementById('startBtn').addEventListener('click', () => {
+  unlockAudio();
   gameState.state = 'playing';
   beginCoinSession(gameState.best, 'tetris', () => gameState.score);
   ui.startOverlay.classList.add('hidden');

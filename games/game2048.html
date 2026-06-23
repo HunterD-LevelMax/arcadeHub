@@ -61,6 +61,7 @@
     <div class="footer" id="controlsHint">ARROWS / WASD · DRAG OR SWIPE TO SLIDE</div>
   </div>
 
+<script src="../js/audio.js"></script>
 <script src="../js/game.js"></script>
 <script src="../js/economy-api.js"></script>
 <script>
@@ -75,6 +76,7 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
 initGameCommon(canvas, BASE_W, BASE_H);
+preloadSfx(['game2048.merge', 'game2048.spawn', 'game2048.win', 'game2048.gameover']);
 
 function W() { return canvas.width; }
 function H() { return canvas.height; }
@@ -393,6 +395,7 @@ function finishMove(gained, merges) {
     if (maxValue >= 128) hapticHeavy();
     else if (maxValue >= 32) hapticMedium();
     else hapticLight();
+    playSfx('game2048.merge', { volume: maxValue >= 128 ? 0.7 : 0.45 });
   }
 
   if (gameState.score > gameState.best) {
@@ -414,6 +417,7 @@ function finishMove(gained, merges) {
 
   const spawned = addRandomTile(false);
   if (spawned) {
+    playSfx('game2048.spawn', { volume: 0.3 });
     anim = { phase: 'spawn', start: performance.now(), tile: spawned, onDone: afterSpawn };
   } else {
     afterSpawn();
@@ -426,6 +430,7 @@ function afterSpawn() {
   if (!gameState.won && hasTile(2048)) {
     gameState.won = true;
     hapticSuccess();
+    playSfx('game2048.win');
     ui.winScore.textContent = String(gameState.score);
     ui.winOverlay.classList.remove('hidden');
     gameState.state = 'won';
@@ -439,6 +444,7 @@ function afterSpawn() {
 function endGame() {
   gameState.state = 'dead';
   hapticHeavy();
+  playSfx('game2048.gameover');
   ui.finalScore.textContent = String(gameState.score);
   ui.bestScore.textContent = `BEST: ${gameState.best}`;
   awardAndShowCoins('game2048', gameState.score);
@@ -792,6 +798,7 @@ canvas.addEventListener('pointercancel', (e) => {
 });
 
 document.getElementById('startBtn').addEventListener('click', () => {
+  unlockAudio();
   initBoard();
   gameState.state = 'playing';
   beginCoinSession(gameState.best, 'game2048', () => gameState.score);

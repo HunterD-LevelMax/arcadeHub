@@ -95,12 +95,33 @@ function setHighScore(gameId, score) {
  * Haptic feedback via Android WebView bridge (ArcadeAndroid.vibrate).
  * Kinds: tick, light, medium, heavy, success, error
  */
+function playSfx(id, opts) {
+  if (window.ArcadeAudio && typeof window.ArcadeAudio.play === 'function') {
+    window.ArcadeAudio.play(id, opts);
+  }
+}
+
+function preloadSfx(ids) {
+  if (window.ArcadeAudio && typeof window.ArcadeAudio.preload === 'function') {
+    window.ArcadeAudio.preload(ids);
+  }
+}
+
+function unlockAudio() {
+  if (window.ArcadeAudio && typeof window.ArcadeAudio.unlock === 'function') {
+    window.ArcadeAudio.unlock();
+  }
+}
+
 function haptic(kind) {
   try {
     if (window.ArcadeAndroid && typeof window.ArcadeAndroid.vibrate === 'function') {
       window.ArcadeAndroid.vibrate(kind || 'light');
     }
   } catch (_e) {}
+  if (window.ArcadeAudio && typeof window.ArcadeAudio.playForHaptic === 'function') {
+    window.ArcadeAudio.playForHaptic(kind || 'light');
+  }
 }
 
 function hapticTick() { haptic('tick'); }

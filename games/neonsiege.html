@@ -150,6 +150,7 @@
     </div>
   </div>
 
+<script src="../js/audio.js"></script>
 <script src="../js/game.js"></script>
 <script src="../js/economy-api.js"></script>
 <script src="../js/neonsiege/constants.js"></script>
@@ -204,6 +205,7 @@ const game = new NeonSiegeGame({
 
 NeonSiegeCodex.populateCodex(document.getElementById('codexBody'));
 game.init();
+preloadSfx(['neonsiege.build', 'neonsiege.shoot', 'neonsiege.hit', 'neonsiege.wave', 'neonsiege.coreHit', 'neonsiege.upgrade']);
 initGameCommon(canvas, 400, 600, () => {
   game.resize();
   if (game.state === 'title') game.init();

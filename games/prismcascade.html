@@ -70,6 +70,7 @@
     <div class="footer">MATCH 4+ FOR BONUS CRYSTALS · ICE &amp; CRATES BLOCK · USE ABILITIES &amp; HIT GOALS</div>
   </div>
 
+<script src="../js/audio.js"></script>
 <script src="../js/game.js"></script>
 <script src="../js/economy-api.js"></script>
 <script>
@@ -137,6 +138,7 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
 initGameCommon(canvas, BASE_W, BASE_H);
+preloadSfx(['prismcascade.match', 'prismcascade.cascade', 'prismcascade.bomb', 'prismcascade.gameover']);
 
 function W() { return canvas.width; }
 function H() { return canvas.height; }
@@ -1601,8 +1603,10 @@ function scoreMatches(matches, comboLevel, clearCount, activations) {
     addFloatText(W() / 2, H() * 0.38, `COMBO x${comboLevel}`, '#ffff00');
     if (comboLevel >= 5) addFloatText(W() / 2, H() * 0.48, 'PRISM SURGE!', '#aa00ff');
     haptic('light');
+    playSfx('prismcascade.cascade', { volume: 0.5 });
   } else {
     haptic('tick');
+    playSfx('prismcascade.match', { volume: 0.4 });
   }
 }
 
@@ -1784,6 +1788,7 @@ async function useBomb(r, c) {
   const activations = processSpecialExplosions(clearSet);
   triggerShake(0.9);
   haptic('heavy');
+  playSfx('prismcascade.bomb', { volume: 0.65 });
   scoreMatches([], 1, clearSet.size, activations);
   await clearAndFall(clearSet);
   await resolveCascades(1);
@@ -1890,6 +1895,7 @@ function endGame() {
   awardAndShowCoins('prismcascade', gameState.score);
   ui.gameoverOverlay.classList.remove('hidden');
   haptic('error');
+  playSfx('prismcascade.gameover');
 }
 
 function init() {
@@ -2103,6 +2109,7 @@ ui.abilityHammer.addEventListener('click', () => armTool('hammer'));
 ui.abilityShuffle.addEventListener('click', () => { useShuffle(); });
 
 document.getElementById('startBtn').addEventListener('click', () => {
+  unlockAudio();
   init();
   gameState.state = 'playing';
   beginCoinSession(gameState.best, 'prismcascade', () => gameState.score);

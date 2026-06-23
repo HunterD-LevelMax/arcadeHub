@@ -51,6 +51,7 @@
     <div class="footer" id="controlsHint">TAP · SPACE · STACK AS HIGH AS YOU CAN</div>
   </div>
 
+<script src="../js/audio.js"></script>
 <script src="../js/game.js"></script>
 <script src="../js/economy-api.js"></script>
 <script>
@@ -73,6 +74,7 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
 initGameCommon(canvas, BASE_W, BASE_H);
+preloadSfx(['stacktower.drop', 'stacktower.perfect', 'stacktower.miss']);
 
 function W() { return canvas.width; }
 function H() { return canvas.height; }
@@ -390,6 +392,7 @@ function placeBlock() {
     spawnDebris({ x: mover.x, y: mover.y, w: mover.w, h: BLOCK_H, style: mover.style }, mover.dir * 2);
     mover = null;
     ui.deathMsg.textContent = 'BLOCK MISSED THE TOWER';
+    playSfx('stacktower.miss');
     endGame();
     return;
   }
@@ -413,6 +416,7 @@ function placeBlock() {
     perfectStreak++;
     flashPerfect = 1;
     hapticLight();
+    playSfx('stacktower.perfect', { volume: 0.55 });
     burstParticles(placedX + placedW / 2, mover.y + BLOCK_H / 2, mover.style.glow);
     if (perfectStreak >= 2) {
       addFloatText(placedX + placedW / 2, mover.y - 10, `PERFECT x${perfectStreak}`, '#ffff00');
@@ -421,6 +425,7 @@ function placeBlock() {
   } else {
     perfectStreak = 0;
     hapticTick();
+    playSfx('stacktower.drop', { volume: 0.35 });
   }
   updateStreakHud();
 
@@ -464,6 +469,7 @@ function placeBlock() {
 function endGame() {
   gameState.state = 'dead';
   hapticHeavy();
+  playSfx('stacktower.miss');
   shake = 6;
   setPlayingHud(false);
   ui.finalScore.textContent = String(gameState.score);
@@ -890,6 +896,7 @@ if ('ontouchstart' in window) {
 }
 
 document.getElementById('startBtn').addEventListener('click', () => {
+  unlockAudio();
   resetTower();
   gameState.state = 'playing';
   setPlayingHud(true);

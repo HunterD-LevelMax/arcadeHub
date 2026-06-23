@@ -53,6 +53,7 @@
     }
 
     startSession() {
+      if (typeof unlockAudio === "function") unlockAudio();
       if (window.beginCoinSession) beginCoinSession(this.gameState.best, 'frogger', () => this.gameState.maxZ);
       this.gameState.state = "playing";
       this.ui.startOverlay.classList.add("hidden");
@@ -147,6 +148,7 @@
       if (newZ < 0) return;
 
       gs.lastHop = performance.now();
+      if (typeof playSfx === "function") playSfx("frogger.hop", { volume: 0.4 });
       gs.anim = {
         active: true,
         fromX: frog.worldX,
@@ -173,6 +175,7 @@
           const color = pts >= 5 ? "#ffff00" : pts >= 2 ? "#ff00ff" : "#39ff14";
           this.spawnScorePopup(pts >= 5 ? "+" + pts + "!" : pts >= 2 ? "+" + pts + " COMBO" : "+1", fromPos.x - 20, fromPos.y - 30, color);
           if (window.hapticLight) hapticLight();
+          if (typeof playSfx === "function") playSfx("frogger.hop", { volume: 0.35 });
           if (gs.forwardStreak === 10) {
             gs.score += 10;
             this.spawnScorePopup("PERFECT x10 +10", fromPos.x - 40, fromPos.y - 50, "#ffff00");
@@ -196,6 +199,7 @@
       this.updateComboUI();
       gs.shake = cause === "road" ? 10 : 6;
       if (window.hapticMedium) hapticMedium();
+      if (typeof playSfx === "function") playSfx(cause === "road" ? "frogger.hit" : "frogger.splash", { volume: 0.6 });
 
       const render = this.getRenderPosition();
       const p = World.worldToScreen(render.worldX, render.z, this.camZ, this.canvas.width, this.canvas.height);
@@ -227,6 +231,7 @@
       const gs = this.gameState;
       gs.state = "dead";
       if (window.hapticHeavy) hapticHeavy();
+      if (typeof playSfx === "function") playSfx(cause === "road" ? "frogger.hit" : "frogger.splash");
       const isNew = gs.maxZ > gs.best;
       if (isNew) {
         gs.best = gs.maxZ;

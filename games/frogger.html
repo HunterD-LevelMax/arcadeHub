@@ -63,6 +63,7 @@
   </div>
 
 <script src="../js/haptics.js"></script>
+<script src="../js/audio.js"></script>
 <script src="../js/game.js"></script>
 <script src="../js/economy-api.js"></script>
 <script src="../js/frogger/constants.js"></script>
@@ -88,6 +89,7 @@ const game = new CrossyFrogGame({
   }
 });
 game.boot();
+preloadSfx(['frogger.hop', 'frogger.splash', 'frogger.hit', 'frogger.goal']);
 </script>
 
 </body>

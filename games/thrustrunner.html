@@ -45,6 +45,7 @@
     <div class="footer">HOLD TO RISE · RELEASE TO FALL · SPACE · ENTER</div>
   </div>
 
+<script src="../js/audio.js"></script>
 <script src="../js/game.js"></script>
 <script src="../js/economy-api.js"></script>
 <script>
@@ -621,6 +622,7 @@ function updatePlayer() {
 
   if (isThrusting && !wasThrusting) {
     gameState.thrustShake = 5;
+    playSfx('thrustrunner.thrust', { volume: 0.3 });
   }
   if (gameState.thrustShake > 0) gameState.thrustShake--;
 
@@ -701,6 +703,7 @@ function updateWorld() {
       ui.score.textContent = gameState.score;
       if (mult > 1) gameState.comboFlash = 20;
       hapticTick();
+      playSfx('thrustrunner.collect', { volume: 0.45 });
       for (let i = 0; i < 6; i++) {
         gameState.particles.push({
           x: csx, y: coin.y,
@@ -757,6 +760,7 @@ function endGame() {
   gameState.deathTimer = 28;
   gameState.collisionShake = 14;
   hapticHeavy();
+  playSfx('thrustrunner.crash');
   spawnExplosion(playerScreenX(), gameState.player.y, 38);
 
   if (gameState.score > gameState.best) {
@@ -770,6 +774,7 @@ function endGame() {
 }
 
 function startPlaying() {
+  unlockAudio();
   init();
   gameState.state = 'playing';
   beginCoinSession(gameState.best, 'thrustrunner', () => gameState.score);
@@ -1356,6 +1361,7 @@ init();
 initGameCommon(canvas, BASE_W, BASE_H, () => {
   if (gameState.state === 'title') init();
 });
+preloadSfx(['thrustrunner.thrust', 'thrustrunner.collect', 'thrustrunner.crash']);
 createGameLoop(update, draw);
 
 </script>

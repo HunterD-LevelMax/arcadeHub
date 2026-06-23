@@ -45,6 +45,7 @@
     <div class="footer">ARROWS · WASD TO MOVE</div>
   </div>
 
+<script src="../js/audio.js"></script>
 <script src="../js/game.js"></script>
 <script src="../js/economy-api.js"></script>
 <script>
@@ -54,6 +55,7 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
 initGameCommon(canvas, BASE_W, BASE_H);
+preloadSfx(['snake.eat', 'snake.die']);
 
 function W() { return canvas.width; }
 function H() { return canvas.height; }
@@ -138,6 +140,7 @@ function spawnFood() {
 function endGame() {
   gameState.state = 'dead';
   hapticHeavy();
+  playSfx('snake.die');
   
   if (gameState.score > gameState.best) {
     gameState.best = gameState.score;
@@ -183,6 +186,7 @@ function update() {
     gameState.score += 10;
     ui.score.textContent = gameState.score;
     hapticLight();
+    playSfx('snake.eat');
     spawnFood();
   } else {
     gameState.snake.pop();
@@ -310,6 +314,7 @@ canvas.addEventListener('touchend', e => {
 
 // Buttons
 document.getElementById('startBtn').addEventListener('click', () => {
+  unlockAudio();
   gameState.state = 'playing';
   beginCoinSession(gameState.best, 'snake', () => gameState.score);
   ui.startOverlay.classList.add('hidden');

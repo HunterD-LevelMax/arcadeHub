@@ -45,6 +45,7 @@
     <div class="footer">SPACE · TAP · W · ARROW UP TO FLAP</div>
   </div>
 
+<script src="../js/audio.js"></script>
 <script src="../js/game.js"></script>
 <script src="../js/economy-api.js"></script>
 <script>
@@ -53,6 +54,7 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
 initGameCommon(canvas, BASE_W, BASE_H);
+preloadSfx(['flappy.flap', 'flappy.score', 'flappy.hit']);
 
 function W() { return canvas.width; }
 function H() { return canvas.height; }
@@ -128,6 +130,7 @@ function handleFlap() {
   const { state } = gameState;
   
   if (state === 'title') {
+    unlockAudio();
     gameState.state = 'play';
     beginCoinSession(gameState.best, 'flappy', () => gameState.score);
     ui.startOverlay.classList.add('hidden');
@@ -138,6 +141,7 @@ function handleFlap() {
   if (state === 'play') {
     gameState.bird.vy = CONFIG.FLAP;
     spawnPuff();
+    playSfx('flappy.flap', { volume: 0.5 });
     return;
   }
   
@@ -229,6 +233,7 @@ function checkCollision() {
 function endGame() {
   gameState.state = 'dead';
   hapticHeavy();
+  playSfx('flappy.hit');
   spawnExplosion(gameState.bird.x, gameState.bird.y);
   
   if (gameState.score > gameState.best) {
@@ -413,6 +418,7 @@ function updatePipes() {
       gameState.score++;
       ui.score.textContent = gameState.score;
       hapticTick();
+      playSfx('flappy.score', { volume: 0.45 });
     }
   });
 

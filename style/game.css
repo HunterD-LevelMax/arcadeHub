@@ -220,6 +220,19 @@ body::after {
   font-size: 10px;
 }
 
+.audio-mute-btn {
+  flex-shrink: 0;
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+}
+
+.audio-mute-btn .material-symbols-outlined {
+  font-size: 1.125rem;
+}
+
 .game-title {
   font-family: 'Orbitron', sans-serif;
   font-size: 17px;

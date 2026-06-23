@@ -6,7 +6,7 @@
   <title>ARCADE HUB</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=add_circle,apartment,arrow_forward,auto_awesome,castle,check,close,diamond,flight,fort,grid_4x4,grid_view,lock,monetization_on,north,paid,person,play_arrow,policy,rocket_launch,smart_toy,speed,sports_esports,toll,videogame_asset,volume_off,volume_up&display=swap">
   <link rel="stylesheet" href="style/main.css">
 </head>
 <body>
@@ -40,6 +40,9 @@
         <button type="button" id="devCoinsBtn" class="dev-coins-btn md-btn md-btn-outlined md-ripple" title="Testing only">
           <span class="material-symbols-outlined" aria-hidden="true">add_circle</span>
           +1000 TEST
+        </button>
+        <button type="button" class="audio-mute-btn md-btn md-btn-outlined md-ripple" data-audio-mute title="Mute sound" aria-label="Toggle sound">
+          <span class="material-symbols-outlined" aria-hidden="true">volume_up</span>
         </button>
       </div>
       <div class="next-unlock md-surface md-elev-1" id="nextUnlock"></div>
@@ -440,6 +443,7 @@
   </div>
 
   <script src="js/haptics.js"></script>
+  <script src="js/audio.js"></script>
   <script src="js/economy-api.js"></script>
   <script src="js/economy.js"></script>
   <script src="js/main.js"></script>

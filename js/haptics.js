@@ -10,6 +10,9 @@ function haptic(kind) {
   } catch (_e) {
     // Ignore when bridge is unavailable.
   }
+  if (window.ArcadeAudio && typeof window.ArcadeAudio.playForHaptic === "function") {
+    window.ArcadeAudio.playForHaptic(kind || "light");
+  }
 }
 
 function hapticTick() { haptic("tick"); }
