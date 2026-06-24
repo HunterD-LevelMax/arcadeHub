@@ -1,6 +1,7 @@
 // Generate stars
     const starsContainer = document.getElementById('stars');
-    for (let i = 0; i < 120; i++) {
+    const hubStarCount = (window.ArcadePerf && ArcadePerf.hubStarCount) || 120;
+    for (let i = 0; i < hubStarCount; i++) {
       const star = document.createElement('div');
       star.className = 'star';
       star.style.cssText = `
@@ -13,6 +14,24 @@
         height: ${1 + Math.random() * 2}px;
       `;
       starsContainer.appendChild(star);
+    }
+
+    function hubPreviewShadow(ctx, color, blur) {
+      if (window.ArcadePerf && ArcadePerf.hubPreviewShadows === false) return;
+      if (window.ArcadePerf && typeof ArcadePerf.applyShadow === 'function') {
+        ArcadePerf.applyShadow(ctx, color, blur);
+      } else {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = blur;
+      }
+    }
+
+    function hubPreviewClearShadow(ctx) {
+      if (window.ArcadePerf && typeof ArcadePerf.clearShadow === 'function') {
+        ArcadePerf.clearShadow(ctx);
+      } else {
+        ctx.shadowBlur = 0;
+      }
     }
 
     // Animated preview for Asteroids card
@@ -79,9 +98,8 @@
           ctx.fill();
         });
 
-        requestAnimationFrame(tick);
       }
-      tick();
+      HubPreviewManager.register(canvas, card, tick);
     })();
 
     // Animated preview for Flappy card
@@ -100,15 +118,15 @@
       let birdV = 0;
       let t = 0;
 
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      skyGrad.addColorStop(0, 'rgba(15,3,24,0.0)');
+      skyGrad.addColorStop(1, 'rgba(15,3,24,0.4)');
+
       function tick() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         t += 0.04;
 
-        // Ground/sky gradient
-        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        grad.addColorStop(0, 'rgba(15,3,24,0.0)');
-        grad.addColorStop(1, 'rgba(15,3,24,0.4)');
-        ctx.fillStyle = grad;
+        ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Pipes
@@ -136,9 +154,8 @@
         ctx.fillStyle = grd;
         ctx.fillRect(40, birdY - 18, 40, 36);
 
-        requestAnimationFrame(tick);
       }
-      tick();
+      HubPreviewManager.register(canvas, card, tick);
     })();
     // Animated preview for SPACE HOPPER card
     (function() {
@@ -198,9 +215,8 @@
         ctx.fillRect(px + 14, playerY + 5, 4, 4);
         ctx.shadowBlur = 0;
 
-        requestAnimationFrame(tick);
       }
-       tick();
+       HubPreviewManager.register(canvas, card, tick);
      })();
      
      // Animated preview for Snake card
@@ -244,8 +260,7 @@
          }
          
          // Food
-         ctx.shadowColor = '#39ff14';
-         ctx.shadowBlur = 6;
+         hubPreviewShadow(ctx, '#39ff14', 6);
          ctx.fillStyle = '#39ff14';
          ctx.fillRect(food.x * GRID + 2, food.y * GRID + 2, GRID - 4, GRID - 4);
          
@@ -258,9 +273,8 @@
          });
          ctx.shadowBlur = 0;
          
-         requestAnimationFrame(tick);
        }
-       tick();
+       HubPreviewManager.register(canvas, card, tick);
      })();
      
      // Animated preview for Space Tetris
@@ -348,9 +362,8 @@
          
          ctx.shadowBlur = 0;
          
-         requestAnimationFrame(tick);
        }
-       tick();
+       HubPreviewManager.register(canvas, card, tick);
      })();
      
       // Animated preview for Frogger
@@ -408,8 +421,7 @@
           
           // Moon
           ctx.fillStyle = '#ffffcc';
-          ctx.shadowColor = '#ffffcc';
-          ctx.shadowBlur = 15;
+          hubPreviewShadow(ctx, '#ffffcc', 15);
           ctx.beginPath();
           ctx.arc(mx, my, 14, 0, Math.PI * 2);
           ctx.fill();
@@ -443,8 +455,7 @@
               ctx.setLineDash([]);
               lane.objects.forEach(o => {
                 ctx.fillStyle = '#ff3344';
-                ctx.shadowColor = '#ff3344';
-                ctx.shadowBlur = 4;
+                hubPreviewShadow(ctx, '#ff3344', 4);
                 ctx.fillRect(o.x, lane.y + 10, o.w, 10);
                 ctx.shadowBlur = 0;
               });
@@ -459,8 +470,7 @@
           const bounce = t % 50 < 10 ? 3 : 0;
           
           ctx.fillStyle = '#39ff14';
-          ctx.shadowColor = '#39ff14';
-          ctx.shadowBlur = 10;
+          hubPreviewShadow(ctx, '#39ff14', 10);
           ctx.beginPath();
           ctx.ellipse(w/2, frogY + bounce, 10, 7, 0, 0, Math.PI * 2);
           ctx.fill();
@@ -478,9 +488,8 @@
           ctx.arc(w/2 + 4, frogY - 5 + bounce, 1.5, 0, Math.PI * 2);
           ctx.fill();
           
-          requestAnimationFrame(tick);
         }
-        tick();
+        HubPreviewManager.register(canvas, card, tick);
       })();
       
       // Animated preview for SPACE ALIENS
@@ -540,8 +549,7 @@
           const colors = ['#ff00ff', '#ff8800', '#00f5ff', '#ffff00'];
           aliens.forEach((a, i) => {
             const col = colors[a.type % colors.length];
-            ctx.shadowColor = col;
-            ctx.shadowBlur = 6;
+            hubPreviewShadow(ctx, col, 6);
             ctx.fillStyle = col;
             
             // Simple alien shape
@@ -560,8 +568,7 @@
           // Player ship
           const px = canvas.width / 2 + Math.sin(t * 0.05) * 30;
           const py = canvas.height - 25;
-          ctx.shadowColor = '#39ff14';
-          ctx.shadowBlur = 8;
+          hubPreviewShadow(ctx, '#39ff14', 8);
           ctx.fillStyle = '#39ff14';
           ctx.fillRect(px - 3, py, 6, 6);
           ctx.fillRect(px - 10, py + 6, 20, 4);
@@ -569,9 +576,8 @@
           
           ctx.shadowBlur = 0;
           
-          requestAnimationFrame(tick);
         }
-        tick();
+        HubPreviewManager.register(canvas, card, tick);
       })();
 
       // Animated preview for NEON 2048
@@ -611,8 +617,7 @@
               ctx.fillStyle = value ? `${COLORS[value] || '#ff8800'}33` : 'rgba(255,255,255,0.04)';
               ctx.fillRect(px, py, cell, cell);
               if (!value) continue;
-              ctx.shadowColor = COLORS[value] || '#ff8800';
-              ctx.shadowBlur = 8;
+              hubPreviewShadow(ctx, COLORS[value] || '#ff8800', 8);
               ctx.fillStyle = COLORS[value] || '#ff8800';
               ctx.font = 'bold 11px Orbitron';
               ctx.textAlign = 'center';
@@ -644,9 +649,8 @@
             }
           }
           drawGrid();
-          requestAnimationFrame(tick);
         }
-        tick();
+        HubPreviewManager.register(canvas, card, tick);
       })();
 
       // Animated preview for STACK TOWER
@@ -679,8 +683,7 @@
           if (mover.x < 10 || mover.x + mover.w > canvas.width - 10) mover.dir *= -1;
 
           blocks.forEach((b) => {
-            ctx.shadowColor = b.color;
-            ctx.shadowBlur = 8;
+            hubPreviewShadow(ctx, b.color, 8);
             ctx.fillStyle = b.color + '55';
             ctx.fillRect(b.x, b.y, b.w, 12);
             ctx.fillStyle = b.color;
@@ -690,8 +693,7 @@
           const top = blocks[blocks.length - 1];
           const y = top.y - 16;
           const color = COLORS[blocks.length % COLORS.length];
-          ctx.shadowColor = color;
-          ctx.shadowBlur = 10;
+          hubPreviewShadow(ctx, color, 10);
           ctx.fillStyle = color + '88';
           ctx.fillRect(mover.x, y, top.w, 12);
           ctx.fillStyle = color;
@@ -708,9 +710,8 @@
             mover.w = top.w - 4;
           }
 
-          requestAnimationFrame(tick);
         }
-        tick();
+        HubPreviewManager.register(canvas, card, tick);
       })();
 
       // Animated preview for THRUST RUNNER
@@ -752,8 +753,7 @@
             const px = playerX - 16 - i * 5 - Math.sin(t * 3 + i) * 3;
             const py = playerY + Math.sin(t * 2 + i) * 4;
             ctx.fillStyle = i % 2 ? '#ffcc00' : ACCENT;
-            ctx.shadowColor = ACCENT;
-            ctx.shadowBlur = 6;
+            hubPreviewShadow(ctx, ACCENT, 6);
             ctx.beginPath();
             ctx.arc(px, py, 2 + Math.random(), 0, Math.PI * 2);
             ctx.fill();
@@ -761,8 +761,7 @@
           ctx.shadowBlur = 0;
 
           // Player capsule
-          ctx.shadowColor = ACCENT;
-          ctx.shadowBlur = 12;
+          hubPreviewShadow(ctx, ACCENT, 12);
           ctx.fillStyle = '#1a0d00';
           ctx.strokeStyle = ACCENT;
           ctx.lineWidth = 1.5;
@@ -774,9 +773,8 @@
           ctx.fillRect(playerX - 3, playerY - 4, 6, 3);
           ctx.shadowBlur = 0;
 
-          requestAnimationFrame(tick);
         }
-        tick();
+        HubPreviewManager.register(canvas, card, tick);
       })();
 
       // Animated preview for PRISM CASCADE
@@ -818,8 +816,7 @@
         function drawShape(type, x, y, s, color, alpha, glow) {
           ctx.save();
           ctx.globalAlpha = alpha == null ? 1 : alpha;
-          ctx.shadowColor = color;
-          ctx.shadowBlur = glow || 8;
+          hubPreviewShadow(ctx, color, glow || 8);
           ctx.fillStyle = color;
           ctx.strokeStyle = color;
           ctx.lineWidth = 1.5;
@@ -928,8 +925,7 @@
             p.life -= 0.04;
             ctx.globalAlpha = Math.max(0, p.life);
             ctx.fillStyle = p.color;
-            ctx.shadowColor = p.color;
-            ctx.shadowBlur = 6;
+            hubPreviewShadow(ctx, p.color, 6);
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
@@ -938,9 +934,8 @@
           ctx.shadowBlur = 0;
           particles = particles.filter((p) => p.life > 0);
 
-          requestAnimationFrame(tick);
         }
-        tick();
+        HubPreviewManager.register(canvas, card, tick);
       })();
 
       // Animated preview for NEON SIEGE
@@ -1000,8 +995,7 @@
           for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
           ctx.stroke();
 
-          ctx.shadowColor = '#00f5ff';
-          ctx.shadowBlur = 12;
+          hubPreviewShadow(ctx, '#00f5ff', 12);
           ctx.fillStyle = '#00f5ff';
           ctx.fillRect(tower.x - 8, tower.y - 8, 16, 16);
           ctx.shadowBlur = 0;
@@ -1019,8 +1013,7 @@
             s.x += (dx / dist) * 4;
             s.y += (dy / dist) * 4;
             s.life -= 0.02;
-            ctx.shadowColor = ACCENT;
-            ctx.shadowBlur = 8;
+            hubPreviewShadow(ctx, ACCENT, 8);
             ctx.fillStyle = ACCENT;
             ctx.beginPath();
             ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
@@ -1042,8 +1035,7 @@
             }
             const pos = pathPos(e.seg, e.prog);
             const colors = ['#ff6688', '#39ff14', '#aa44ff', '#00f5ff'];
-            ctx.shadowColor = colors[idx % 4];
-            ctx.shadowBlur = 8;
+            hubPreviewShadow(ctx, colors[idx % 4], 8);
             ctx.fillStyle = colors[idx % 4];
             ctx.fillRect(pos.x + lane - 5, pos.y - 5, 10, 10);
           });
@@ -1057,9 +1049,8 @@
           ctx.fill();
           ctx.stroke();
 
-          requestAnimationFrame(tick);
         }
-        tick();
+        HubPreviewManager.register(canvas, card, tick);
       })();
 
 (function initHubScrollMemory() {

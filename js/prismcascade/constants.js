@@ -1,0 +1,66 @@
+(function () {
+  const C = {
+    GAME_ID: 'prismcascade',
+    BASE_W: 400,
+    BASE_H: 600,
+    GRID_SIZE: 8,
+    GEM_TYPES: 6,
+    GAME_TIME: 60,
+    TIME_BONUS_MOVE: 4,
+    TIME_BONUS_CASCADE: 2,
+    MAX_TIME: 99,
+    SWAP_ANIM_MS: 150,
+    FALL_ANIM_MS: 200,
+    CLEAR_ANIM_MS: 200,
+    GEM_SIZE_RATIO: 0.78,
+    SELECT_PULSE_MS: 200,
+    PRESS_PULSE_MS: 120,
+    SPECIAL: {
+      NOVA: 'nova',
+      BEAM_H: 'beam_h',
+      BEAM_V: 'beam_v',
+      PRISM: 'prism',
+      CROSS: 'cross',
+      CHRONO: 'chrono',
+    },
+    BONUS_CONFIG: {
+      novaRadius: 1,
+      megaNovaRadius: 2,
+      chronoTimeBonus: 6,
+      comboSpawnThreshold: 4,
+      specialScoreMult: 1.5,
+      particleBurstLarge: 24,
+    },
+    SPAWN_LABELS: {
+      nova: 'NOVA BORN!',
+      beam_h: 'BEAM BORN!',
+      beam_v: 'BEAM BORN!',
+      prism: 'PRISM BORN!',
+      cross: 'CROSS BORN!',
+      chrono: 'TIME SHARD!',
+    },
+    ACTIVATION_LABELS: {
+      nova: 'NOVA!',
+      beam_h: 'BEAM!',
+      beam_v: 'BEAM!',
+      prism: 'PRISM!',
+      cross: 'CROSS!',
+      chrono: 'TIME!',
+    },
+    GEM_DEFS: [
+      { shape: 'circle', color: '#00f5ff', core: '#0088aa', rim: '#ccfcff', bg: '#031820', pad: 'rgba(0, 245, 255, 0.14)' },
+      { shape: 'diamond', color: '#ff00ff', core: '#aa00aa', rim: '#ff99ff', bg: '#180818', pad: 'rgba(255, 0, 255, 0.14)' },
+      { shape: 'triangle', color: '#39ff14', core: '#1faa0a', rim: '#b8ff9e', bg: '#061408', pad: 'rgba(57, 255, 20, 0.14)' },
+      { shape: 'hex', color: '#ffff00', core: '#aaaa00', rim: '#ffffaa', bg: '#181800', pad: 'rgba(255, 255, 0, 0.14)' },
+      { shape: 'star', color: '#ff8800', core: '#cc5500', rim: '#ffcc88', bg: '#180c00', pad: 'rgba(255, 136, 0, 0.14)' },
+      { shape: 'square', color: '#aa00ff', core: '#6600aa', rim: '#dd99ff', bg: '#120018', pad: 'rgba(170, 0, 255, 0.14)' },
+    ],
+    DIFFICULTY_TIERS: [
+      { atSec: 0, obstacleEvery: 0, ice: false, crate: false, label: 'CALM', color: '#39ff14' },
+      { atSec: 20, obstacleEvery: 5, ice: true, crate: false, label: 'HEATING', color: '#ffaa00' },
+      { atSec: 40, obstacleEvery: 4, ice: true, crate: true, label: 'INTENSE', color: '#ff3344' },
+    ],
+  };
+
+  window.PrismCascadeConstants = C;
+})();

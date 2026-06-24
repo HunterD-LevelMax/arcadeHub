@@ -59,21 +59,23 @@
   </div>
 
 <script src="../../js/audio.js"></script>
+<script src="../../js/perf.js"></script>
 <script src="../../js/game.js"></script>
 <script src="../../js/economy-api.js"></script>
 <script>
 const BASE_W = 400, BASE_H = 520;
 const SIZE = 4;
 const SWIPE_MIN = 18;
-const SLIDE_MS = 50;
-const MERGE_MS = 55;
-const SPAWN_MS = 60;
+const SLIDE_MS = 32;
+const MERGE_MS = 38;
+const SPAWN_MS = 42;
 
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-initGameCommon(canvas, BASE_W, BASE_H);
-preloadSfx(['game2048.merge', 'game2048.spawn', 'game2048.win', 'game2048.gameover']);
+const USE_SHADOWS = !window.ArcadePerf || window.ArcadePerf.shadows !== false;
+const REDUCED_FX = !!(window.ArcadePerf && window.ArcadePerf.reducedEffects);
+const MAX_PARTICLES = REDUCED_FX ? 24 : 48;
 
 function W() { return canvas.width; }
 function H() { return canvas.height; }
@@ -119,6 +121,88 @@ let boardPulse = 0;
 let shake = 0;
 let anim = null;
 let bgPhase = 0;
+let needsRedraw = true;
+let tilesList = [];
+let cellPosCache = [];
+let boardLayerCanvas = null;
+let boardLayerKey = '';
+let cachedBoardMetrics = null;
+let cachedBgGradient = null;
+const tileGradCache = new Map();
+const tileFontCache = new Map();
+
+let renderLoop = null;
+
+initGameCommon(canvas, BASE_W, BASE_H, refreshBoardMetrics);
+refreshBoardMetrics();
+preloadSfx(['game2048.merge', 'game2048.spawn', 'game2048.win', 'game2048.gameover', 'game2048.slide']);
+
+function markDirty() {
+  needsRedraw = true;
+  renderLoop?.resume();
+}
+
+function syncRenderLoop() {
+  if (!renderLoop) return;
+  const active =
+    anim !== null ||
+    particles.length > 0 ||
+    floatTexts.length > 0 ||
+    shake > 0.4 ||
+    boardPulse > 0.02 ||
+    needsRedraw;
+  if (active) renderLoop.resume();
+  else renderLoop.pause();
+}
+
+function rebuildTilesList() {
+  tilesList = [];
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      if (grid[y][x]) tilesList.push(grid[y][x]);
+    }
+  }
+  tilesList.sort((a, b) => a.value - b.value);
+}
+
+function g2048Shadow(color, blur) {
+  if (!USE_SHADOWS) return;
+  if (window.ArcadePerf && typeof ArcadePerf.applyShadow === 'function') {
+    ArcadePerf.applyShadow(ctx, color, blur);
+  } else {
+    ctx.shadowColor = color;
+    ctx.shadowBlur = blur;
+  }
+}
+
+function g2048ClearShadow() {
+  if (window.ArcadePerf && typeof ArcadePerf.clearShadow === 'function') {
+    ArcadePerf.clearShadow(ctx);
+  } else {
+    ctx.shadowBlur = 0;
+  }
+}
+
+function getTileGradient(value, size) {
+  const style = tileStyle(value);
+  const key = value + ':' + Math.round(size);
+  let grad = tileGradCache.get(key);
+  if (!grad) {
+    grad = ctx.createLinearGradient(0, 0, size, size);
+    grad.addColorStop(0, style.bg[0]);
+    grad.addColorStop(1, style.bg[1]);
+    tileGradCache.set(key, grad);
+  }
+  return grad;
+}
+
+function getTileFont(value) {
+  if (!tileFontCache.has(value)) {
+    const fontSize = value >= 1024 ? 17 : value >= 128 ? 21 : 25;
+    tileFontCache.set(value, `700 ${fontSize}px Orbitron`);
+  }
+  return tileFontCache.get(value);
+}
 
 let gameState = {
   score: 0,
@@ -212,6 +296,8 @@ function initBoard() {
   ui.score.textContent = '0';
   addRandomTile(true);
   addRandomTile(true);
+  rebuildTilesList();
+  markDirty();
 }
 
 function init() {
@@ -355,7 +441,7 @@ function hasTile(value) {
 }
 
 function burstParticles(cx, cy, color, intensity) {
-  const count = 8 + intensity * 6;
+  const count = Math.min(MAX_PARTICLES - particles.length, REDUCED_FX ? 4 + intensity * 2 : 6 + intensity * 3);
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 1.5 + Math.random() * (2 + intensity);
@@ -402,9 +488,9 @@ function finishMove(gained, merges) {
     ui.bestScore.textContent = `BEST: ${gameState.best}`;
   }
 
-  const metrics = boardMetrics();
+  const metrics = getBoardMetrics();
   merges.forEach((tile) => {
-    const pos = cellPos(tile.row, tile.col, metrics, 1);
+    const pos = getCellPos(tile.row, tile.col, metrics);
     const style = tileStyle(tile.value);
     const intensity = Math.min(4, Math.log2(tile.value) - 1);
     burstParticles(pos.cx, pos.cy, style.glow, intensity);
@@ -413,6 +499,8 @@ function finishMove(gained, merges) {
   });
 
   const spawned = addRandomTile(false);
+  rebuildTilesList();
+  markDirty();
   if (spawned) {
     playSfx('game2048.spawn', { volume: 0.3 });
     anim = { phase: 'spawn', start: performance.now(), tile: spawned, onDone: afterSpawn };
@@ -432,6 +520,7 @@ function afterSpawn() {
     ui.winOverlay.classList.remove('hidden');
     gameState.state = 'won';
     boardPulse = 1;
+    markDirty();
     return;
   }
 
@@ -454,6 +543,8 @@ function tryMove(direction) {
   const { moved, gained, merges } = applyMove(direction);
   if (!moved) return false;
 
+  rebuildTilesList();
+  markDirty();
   playSfx('game2048.slide', { volume: 0.22 });
 
   anim = {
@@ -483,6 +574,129 @@ function boardMetrics() {
   return { pad, size, gap, cell, ox, oy };
 }
 
+function refreshBoardMetrics() {
+  cachedBoardMetrics = boardMetrics();
+  tileGradCache.clear();
+  const { ox, oy, size, gap, cell } = cachedBoardMetrics;
+  const cx = ox + size / 2;
+  const cy = oy + size / 2;
+  cachedBgGradient = ctx.createRadialGradient(cx, cy, size * 0.1, cx, cy, size * 0.75);
+  cachedBgGradient.addColorStop(0, 'rgba(255, 136, 0, 0.12)');
+  cachedBgGradient.addColorStop(0.55, 'rgba(255, 0, 255, 0.05)');
+  cachedBgGradient.addColorStop(1, 'transparent');
+
+  cellPosCache = new Array(SIZE * SIZE);
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const px = ox + gap + x * (cell + gap);
+      const py = oy + gap + y * (cell + gap);
+      cellPosCache[y * SIZE + x] = {
+        x: px,
+        y: py,
+        cx: px + cell / 2,
+        cy: py + cell / 2,
+        cell,
+      };
+    }
+  }
+
+  rebuildBoardLayer();
+  markDirty();
+}
+
+function rebuildBoardLayer() {
+  const metrics = cachedBoardMetrics;
+  if (!metrics) return;
+  const key = [W(), H(), metrics.ox, metrics.oy, metrics.size, metrics.gap, metrics.cell].join('|');
+  if (boardLayerKey === key && boardLayerCanvas) return;
+  boardLayerKey = key;
+
+  if (!boardLayerCanvas) boardLayerCanvas = document.createElement('canvas');
+  boardLayerCanvas.width = W();
+  boardLayerCanvas.height = H();
+  const bctx = boardLayerCanvas.getContext('2d');
+  const { ox, oy, size, cell, gap } = metrics;
+  const boardW = cell * SIZE + gap * (SIZE + 1);
+  const boardH = boardW;
+  const bx = ox - gap * 0.35;
+  const by = oy - gap * 0.35;
+
+  bctx.fillStyle = '#050510';
+  bctx.fillRect(0, 0, W(), H());
+  if (cachedBgGradient) {
+    bctx.fillStyle = cachedBgGradient;
+    bctx.fillRect(0, 0, W(), H());
+  }
+
+  bctx.beginPath();
+  roundRectPath(bctx, bx, by, boardW + gap * 0.7, boardH + gap * 0.7, 14);
+  bctx.fillStyle = 'rgba(255, 136, 0, 0.06)';
+  bctx.fill();
+  bctx.strokeStyle = 'rgba(255, 136, 0, 0.22)';
+  bctx.lineWidth = 1.5;
+  bctx.stroke();
+
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const slot = cellPosCache[y * SIZE + x];
+      bctx.beginPath();
+      roundRectPath(bctx, slot.x, slot.y, slot.cell, slot.cell, 8);
+      bctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+      bctx.fill();
+      if (!REDUCED_FX) {
+        bctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        bctx.stroke();
+      }
+    }
+  }
+
+  if (!REDUCED_FX) {
+    const corners = [
+      [bx + 4, by + 4, 1, 1],
+      [bx + boardW + gap * 0.7 - 4, by + 4, -1, 1],
+      [bx + 4, by + boardH + gap * 0.7 - 4, 1, -1],
+      [bx + boardW + gap * 0.7 - 4, by + boardH + gap * 0.7 - 4, -1, -1],
+    ];
+    bctx.strokeStyle = 'rgba(255, 136, 0, 0.45)';
+    bctx.lineWidth = 2;
+    corners.forEach(([px, py, dx, dy]) => {
+      bctx.beginPath();
+      bctx.moveTo(px, py);
+      bctx.lineTo(px + dx * 12, py);
+      bctx.moveTo(px, py);
+      bctx.lineTo(px, py + dy * 12);
+      bctx.stroke();
+    });
+  }
+}
+
+function roundRectPath(targetCtx, x, y, w, h, r) {
+  const radius = Math.min(r, w / 2, h / 2);
+  targetCtx.moveTo(x + radius, y);
+  targetCtx.lineTo(x + w - radius, y);
+  targetCtx.quadraticCurveTo(x + w, y, x + w, y + radius);
+  targetCtx.lineTo(x + w, y + h - radius);
+  targetCtx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+  targetCtx.lineTo(x + radius, y + h);
+  targetCtx.quadraticCurveTo(x, y + h, x, y + h - radius);
+  targetCtx.lineTo(x, y + radius);
+  targetCtx.quadraticCurveTo(x, y, x + radius, y);
+  targetCtx.closePath();
+}
+
+function getBoardMetrics() {
+  if (!cachedBoardMetrics) refreshBoardMetrics();
+  return cachedBoardMetrics;
+}
+
+function getCellPos(row, col, metrics) {
+  if (cellPosCache.length) {
+    const base = cellPosCache[Math.round(row) * SIZE + Math.round(col)];
+    if (base) return base;
+  }
+  return cellPos(row, col, metrics, 1);
+}
+
 function cellPos(row, col, metrics, slideT) {
   const { gap, cell, ox, oy } = metrics;
   const x = ox + gap + col * (cell + gap);
@@ -491,83 +705,40 @@ function cellPos(row, col, metrics, slideT) {
 }
 
 function drawRoundedRect(x, y, w, h, r) {
-  const radius = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + w - radius, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-  ctx.lineTo(x + w, y + h - radius);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-  ctx.lineTo(x + radius, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
+  roundRectPath(ctx, x, y, w, h, r);
 }
 
 function drawBackground(metrics, now) {
-  ctx.fillStyle = '#050510';
-  ctx.fillRect(0, 0, W(), H());
+  if (boardLayerCanvas) {
+    ctx.drawImage(boardLayerCanvas, 0, 0);
+  } else {
+    ctx.fillStyle = '#050510';
+    ctx.fillRect(0, 0, W(), H());
+  }
+
+  if (REDUCED_FX) return;
 
   bgPhase += 0.012;
   const { ox, oy, size, cell, gap } = metrics;
-  const cx = ox + size / 2;
-  const cy = oy + size / 2;
-
-  const aura = ctx.createRadialGradient(cx, cy, size * 0.1, cx, cy, size * 0.75);
-  aura.addColorStop(0, 'rgba(255, 136, 0, 0.12)');
-  aura.addColorStop(0.55, 'rgba(255, 0, 255, 0.05)');
-  aura.addColorStop(1, 'transparent');
-  ctx.fillStyle = aura;
-  ctx.fillRect(0, 0, W(), H());
-
   const boardW = cell * SIZE + gap * (SIZE + 1);
   const boardH = boardW;
   const bx = ox - gap * 0.35;
   const by = oy - gap * 0.35;
 
-  drawRoundedRect(bx, by, boardW + gap * 0.7, boardH + gap * 0.7, 14);
-  ctx.fillStyle = 'rgba(255, 136, 0, 0.06)';
-  ctx.fill();
-  ctx.strokeStyle = `rgba(255, 136, 0, ${0.22 + Math.sin(bgPhase) * 0.08})`;
+  ctx.strokeStyle = `rgba(255, 136, 0, ${0.08 + Math.sin(bgPhase) * 0.05})`;
   ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  roundRectPath(ctx, bx, by, boardW + gap * 0.7, boardH + gap * 0.7, 14);
   ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(0, 245, 255, 0.08)';
+  ctx.strokeStyle = 'rgba(0, 245, 255, 0.06)';
   ctx.lineWidth = 1;
   const scanY = by + ((now * 0.04) % (boardH + gap * 0.7));
   ctx.beginPath();
   ctx.moveTo(bx, scanY);
   ctx.lineTo(bx + boardW + gap * 0.7, scanY);
   ctx.stroke();
-
-  for (let y = 0; y < SIZE; y++) {
-    for (let x = 0; x < SIZE; x++) {
-      const slot = cellPos(y, x, metrics, 1);
-      drawRoundedRect(slot.x, slot.y, slot.cell, slot.cell, 8);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-      ctx.stroke();
-    }
-  }
-
-  const corners = [
-    [bx + 4, by + 4, 1, 1],
-    [bx + boardW + gap * 0.7 - 4, by + 4, -1, 1],
-    [bx + 4, by + boardH + gap * 0.7 - 4, 1, -1],
-    [bx + boardW + gap * 0.7 - 4, by + boardH + gap * 0.7 - 4, -1, -1],
-  ];
-  ctx.strokeStyle = 'rgba(255, 136, 0, 0.45)';
-  ctx.lineWidth = 2;
-  corners.forEach(([x, y, dx, dy]) => {
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + dx * 12, y);
-    ctx.moveTo(x, y);
-    ctx.lineTo(x, y + dy * 12);
-    ctx.stroke();
-  });
 }
 
 function drawTile(tile, metrics, now, slideT) {
@@ -577,89 +748,87 @@ function drawTile(tile, metrics, now, slideT) {
   const toCol = tile.col;
   const row = fromRow + (toRow - fromRow) * slideT;
   const col = fromCol + (toCol - fromCol) * slideT;
-  const pos = cellPos(row, col, metrics, 1);
+
+  const fromPos = getCellPos(fromRow, fromCol, metrics);
+  const toPos = getCellPos(toRow, toCol, metrics);
+  const cx = fromPos.cx + (toPos.cx - fromPos.cx) * slideT;
+  const cy = fromPos.cy + (toPos.cy - fromPos.cy) * slideT;
+  const cell = fromPos.cell + (toPos.cell - fromPos.cell) * slideT;
+
   const style = tileStyle(tile.value);
 
   let scale = 1;
   if (tile.spawnT < 1) scale = easeOutBack(tile.spawnT);
   if (tile.mergeT > 0 && tile.mergeT < 1) {
-    scale *= 1 + 0.22 * Math.sin(tile.mergeT * Math.PI);
+    scale *= 1 + 0.18 * Math.sin(tile.mergeT * Math.PI);
   }
 
-  const pulse = 1 + Math.sin(now * 0.004 + tile.pulse) * (tile.value >= 512 ? 0.04 : tile.value >= 128 ? 0.025 : 0);
-  scale *= pulse;
-
-  const size = pos.cell * scale;
-  const dx = pos.cx - size / 2;
-  const dy = pos.cy - size / 2;
+  const size = cell * scale;
+  const dx = cx - size / 2;
+  const dy = cy - size / 2;
 
   ctx.save();
-  ctx.shadowColor = style.glow;
-  ctx.shadowBlur = 10 + Math.min(24, Math.log2(tile.value) * 3);
+  g2048Shadow(style.glow, USE_SHADOWS ? 8 + Math.min(12, Math.log2(tile.value)) : 0);
   drawRoundedRect(dx, dy, size, size, 9);
-  const grad = ctx.createLinearGradient(dx, dy, dx + size, dy + size);
-  grad.addColorStop(0, style.bg[0]);
-  grad.addColorStop(1, style.bg[1]);
-  ctx.fillStyle = grad;
+  ctx.translate(dx, dy);
+  ctx.fillStyle = getTileGradient(tile.value, size);
   ctx.fill();
-  ctx.shadowBlur = 0;
+  g2048ClearShadow();
 
   ctx.strokeStyle = `${style.rim}aa`;
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  drawRoundedRect(dx + 3, dy + 3, size - 6, (size - 6) * 0.35, 6);
-  ctx.fillStyle = 'rgba(255,255,255,0.08)';
-  ctx.fill();
+  if (!REDUCED_FX) {
+    drawRoundedRect(3, 3, size - 6, (size - 6) * 0.35, 6);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fill();
+  }
 
   if (tile.value >= 2048) {
-    const hue = (now * 0.12) % 360;
-    ctx.strokeStyle = `hsla(${hue}, 100%, 65%, 0.75)`;
+    ctx.strokeStyle = 'rgba(255, 224, 102, 0.85)';
     ctx.lineWidth = 2;
     ctx.stroke();
   }
 
-  ctx.shadowColor = style.glow;
-  ctx.shadowBlur = 14;
+  if (USE_SHADOWS) g2048Shadow(style.glow, 10);
   ctx.fillStyle = style.fg;
-  const fontSize = tile.value >= 1024 ? 17 : tile.value >= 128 ? 21 : 25;
-  ctx.font = `700 ${fontSize}px Orbitron`;
+  ctx.font = getTileFont(tile.value);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(String(tile.value), pos.cx, pos.cy + 1);
-  ctx.shadowBlur = 0;
+  ctx.fillText(String(tile.value), size / 2, size / 2 + 1);
+  g2048ClearShadow();
   ctx.restore();
 }
 
 function drawParticles() {
+  if (!particles.length) return;
   particles.forEach((p) => {
     ctx.globalAlpha = p.life;
-    ctx.shadowColor = p.color;
-    ctx.shadowBlur = 8;
     ctx.fillStyle = p.color;
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
     ctx.fill();
   });
   ctx.globalAlpha = 1;
-  ctx.shadowBlur = 0;
 }
 
 function drawFloatTexts() {
+  if (!floatTexts.length) return;
   floatTexts.forEach((f) => {
     ctx.globalAlpha = f.life;
     ctx.font = '700 13px Orbitron';
     ctx.textAlign = 'center';
     ctx.fillStyle = f.color;
-    ctx.shadowColor = f.color;
-    ctx.shadowBlur = 10;
+    if (USE_SHADOWS) g2048Shadow(f.color, 6);
     ctx.fillText(f.text, f.x, f.y);
+    g2048ClearShadow();
   });
   ctx.globalAlpha = 1;
-  ctx.shadowBlur = 0;
 }
 
 function updateEffects() {
+  const hadFx = particles.length > 0 || floatTexts.length > 0 || shake > 0.4 || boardPulse > 0.02;
   particles = particles.filter((p) => {
     p.x += p.vx;
     p.y += p.vy;
@@ -676,10 +845,15 @@ function updateEffects() {
 
   if (shake > 0) shake *= 0.82;
   if (boardPulse > 0) boardPulse *= 0.96;
+  if (hadFx || particles.length || floatTexts.length || shake > 0.4 || boardPulse > 0.02) {
+    markDirty();
+  }
 }
 
 function updateAnimation(now) {
   if (!anim) return;
+
+  markDirty();
 
   if (anim.phase === 'slide') {
     const t = Math.min(1, (now - anim.start) / SLIDE_MS);
@@ -710,10 +884,13 @@ function getSlideT(now) {
 }
 
 function draw(now) {
+  const hasFx = particles.length > 0 || floatTexts.length > 0 || shake > 0.4 || boardPulse > 0.02;
+  if (!anim && !hasFx && !needsRedraw) return;
+
   updateEffects();
   updateAnimation(now);
 
-  const metrics = boardMetrics();
+  const metrics = getBoardMetrics();
   ctx.save();
   if (shake > 0.4) {
     ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
@@ -722,14 +899,9 @@ function draw(now) {
   drawBackground(metrics, now);
 
   const slideT = getSlideT(now);
-  const tiles = [];
-  for (let y = 0; y < SIZE; y++) {
-    for (let x = 0; x < SIZE; x++) {
-      if (grid[y][x]) tiles.push(grid[y][x]);
-    }
+  for (let i = 0; i < tilesList.length; i++) {
+    drawTile(tilesList[i], metrics, now, slideT);
   }
-  tiles.sort((a, b) => a.value - b.value);
-  tiles.forEach((tile) => drawTile(tile, metrics, now, slideT));
 
   drawParticles();
   drawFloatTexts();
@@ -743,12 +915,21 @@ function draw(now) {
   }
 
   ctx.restore();
+
+  if (!anim && !particles.length && !floatTexts.length && shake <= 0.4 && boardPulse <= 0.02) {
+    needsRedraw = false;
+  }
+  syncRenderLoop();
 }
 
 function gameLoop(now) {
   draw(now || performance.now());
-  requestAnimationFrame(gameLoop);
 }
+
+renderLoop = createRenderLoop(gameLoop, {
+  shouldRun: () => true,
+});
+renderLoop.pause();
 
 document.addEventListener('keydown', (e) => {
   if (gameState.state !== 'playing') return;
@@ -802,12 +983,14 @@ document.getElementById('startBtn').addEventListener('click', () => {
   gameState.state = 'playing';
   beginCoinSession(gameState.best, 'game2048', () => gameState.score);
   ui.startOverlay.classList.add('hidden');
+  markDirty();
 });
 
 document.getElementById('continueBtn').addEventListener('click', () => {
   gameState.keepPlaying = true;
   gameState.state = 'playing';
   ui.winOverlay.classList.add('hidden');
+  markDirty();
 });
 
 document.getElementById('restartBtn').addEventListener('click', () => {
@@ -815,10 +998,12 @@ document.getElementById('restartBtn').addEventListener('click', () => {
   gameState.state = 'playing';
   beginCoinSession(gameState.best, 'game2048', () => gameState.score);
   ui.gameoverOverlay.classList.add('hidden');
+  markDirty();
 });
 
 init();
-requestAnimationFrame(gameLoop);
+draw(performance.now());
+syncRenderLoop();
 </script>
 
 </body>

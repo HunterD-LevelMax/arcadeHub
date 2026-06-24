@@ -1,12 +1,30 @@
 (function () {
   const B = window.NeonSiegeBalance;
   const C = window.NeonSiegeConstants;
+  const Placement = window.NeonSiegePlacement;
+
+  function perfShadows() {
+    return !window.ArcadePerf || window.ArcadePerf.shadows !== false;
+  }
+
+  function perfReduced() {
+    return !!(window.ArcadePerf && window.ArcadePerf.reducedEffects);
+  }
+
+  function applyShadow(ctx, color, blur) {
+    if (perfShadows()) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = blur;
+    }
+  }
 
   class NeonSiegeRenderer {
     constructor(canvas) {
       this.canvas = canvas;
       this.ctx = canvas.getContext('2d');
       this.frame = 0;
+      this._bgCanvas = null;
+      this._bgKey = '';
     }
 
     get W() { return this.canvas.width; }
@@ -39,24 +57,51 @@
     }
 
     _drawBackground(m) {
-      const ctx = this.ctx;
-      ctx.fillStyle = '#050510';
-      ctx.fillRect(0, 0, this.W, this.H);
-      ctx.strokeStyle = 'rgba(255, 204, 0, 0.04)';
-      ctx.lineWidth = 1;
-      const step = m.cellSize;
-      for (let x = m.offsetX; x <= m.offsetX + m.gridW; x += step) {
-        ctx.beginPath();
-        ctx.moveTo(x, m.offsetY);
-        ctx.lineTo(x, m.offsetY + m.gridH);
-        ctx.stroke();
+      const key = [m.offsetX, m.offsetY, m.gridW, m.gridH, m.cellSize, this.W, this.H].join('|');
+      if (!this._bgCanvas || this._bgKey !== key) {
+        this._bgKey = key;
+        if (!this._bgCanvas) this._bgCanvas = document.createElement('canvas');
+        this._bgCanvas.width = this.W;
+        this._bgCanvas.height = this.H;
+        const bctx = this._bgCanvas.getContext('2d');
+        bctx.fillStyle = '#050510';
+        bctx.fillRect(0, 0, this.W, this.H);
+        bctx.strokeStyle = 'rgba(255, 204, 0, 0.04)';
+        bctx.lineWidth = 1;
+        const step = m.cellSize;
+        for (let x = m.offsetX; x <= m.offsetX + m.gridW; x += step) {
+          bctx.beginPath();
+          bctx.moveTo(x, m.offsetY);
+          bctx.lineTo(x, m.offsetY + m.gridH);
+          bctx.stroke();
+        }
+        for (let y = m.offsetY; y <= m.offsetY + m.gridH; y += step) {
+          bctx.beginPath();
+          bctx.moveTo(m.offsetX, y);
+          bctx.lineTo(m.offsetX + m.gridW, y);
+          bctx.stroke();
+        }
       }
-      for (let y = m.offsetY; y <= m.offsetY + m.gridH; y += step) {
-        ctx.beginPath();
-        ctx.moveTo(m.offsetX, y);
-        ctx.lineTo(m.offsetX + m.gridW, y);
-        ctx.stroke();
+      this.ctx.drawImage(this._bgCanvas, 0, 0);
+    }
+
+    _slotClusterSet(mapGrid) {
+      const clusters = new Set();
+      for (let r = 0; r < C.GRID_ROWS; r++) {
+        for (let c = 0; c < C.GRID_COLS; c++) {
+          if (mapGrid[r][c] !== C.CELL_SLOT) continue;
+          for (const [dr, dc] of [[0, 1], [1, 0]]) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= C.GRID_ROWS || nc >= C.GRID_COLS) continue;
+            if (mapGrid[nr][nc] === C.CELL_SLOT) {
+              clusters.add(r + ',' + c);
+              clusters.add(nr + ',' + nc);
+            }
+          }
+        }
       }
+      return clusters;
     }
 
     _drawMap(state) {
@@ -70,19 +115,33 @@
       const junctionSet = new Set(
         (state.junctions || []).map(([jr, jc]) => jr + ',' + jc)
       );
+      const occupied = state.towerOccupancy || new Set();
+      const slotCluster = mazeMap ? this._slotClusterSet(state.mapGrid) : null;
 
       for (let r = 0; r < C.GRID_ROWS; r++) {
         for (let c = 0; c < C.GRID_COLS; c++) {
           const cell = state.mapGrid[r][c];
-          if (cell === C.CELL_VOID) continue;
           const x = m.offsetX + c * cs;
           const y = m.offsetY + r * cs;
           const w = cs - inset * 2;
           const h = cs - inset * 2;
 
+          if (cell === C.CELL_VOID) {
+            if (!mazeMap) continue;
+            ctx.fillStyle = 'rgba(8, 8, 20, 0.55)';
+            ctx.strokeStyle = 'rgba(40, 50, 80, 0.28)';
+            ctx.lineWidth = 1;
+            if (typeof roundRect === 'function') roundRect(ctx, x + inset, y + inset, w, h, 3);
+            else ctx.rect(x + inset, y + inset, w, h);
+            ctx.fill();
+            ctx.stroke();
+            continue;
+          }
+
           if (cell === C.CELL_PATH) {
-            ctx.fillStyle = 'rgba(255, 204, 0, 0.22)';
-            ctx.strokeStyle = 'rgba(255, 204, 0, 0.45)';
+            ctx.fillStyle = mazeMap ? 'rgba(255, 204, 0, 0.14)' : 'rgba(255, 204, 0, 0.22)';
+            ctx.strokeStyle = mazeMap ? 'rgba(255, 204, 0, 0.58)' : 'rgba(255, 204, 0, 0.45)';
+            ctx.lineWidth = mazeMap ? 1.5 : 1;
             if (typeof roundRect === 'function') roundRect(ctx, x + inset, y + inset, w, h, 4);
             else ctx.rect(x + inset, y + inset, w, h);
             ctx.fill();
@@ -102,22 +161,38 @@
             ctx.textBaseline = 'middle';
             ctx.fillText('▮', x + cs / 2, y + cs / 2);
           } else if (cell === C.CELL_SLOT) {
-            const occupied = state.towers.some((t) => t.r === r && t.c === c);
-            if (!occupied) {
+            const occupiedSlot = occupied.has(r + ',' + c);
+            if (!occupiedSlot) {
+              const slotKey = r + ',' + c;
+              const tierInfo = highlightSlots && state.slotTiers ? state.slotTiers[slotKey] : null;
+              const tier = tierInfo ? tierInfo.tier : null;
+              const tierColors = tier && Placement ? Placement.TIER_COLORS[tier] : null;
               const slotPulse = mazeMap ? pulse : pulse;
-              ctx.fillStyle = highlightSlots
-                ? `rgba(0, 245, 255, ${0.08 + slotPulse * 0.06})`
-                : 'rgba(0, 245, 255, 0.05)';
-              ctx.strokeStyle = highlightSlots
-                ? `rgba(0, 245, 255, ${0.5 + slotPulse * 0.35})`
-                : 'rgba(0, 245, 255, 0.35)';
-              ctx.lineWidth = 1.5;
+              if (tierColors) {
+                ctx.fillStyle = tierColors.fill + (0.08 + slotPulse * 0.06) + ')';
+                ctx.strokeStyle = tierColors.stroke;
+              } else {
+                ctx.fillStyle = highlightSlots
+                  ? `rgba(0, 245, 255, ${mazeMap ? 0.12 + slotPulse * 0.08 : 0.08 + slotPulse * 0.06})`
+                  : mazeMap ? 'rgba(0, 245, 255, 0.1)' : 'rgba(0, 245, 255, 0.05)';
+                ctx.strokeStyle = highlightSlots
+                  ? `rgba(0, 245, 255, ${0.5 + slotPulse * 0.35})`
+                  : mazeMap ? 'rgba(0, 245, 255, 0.55)' : 'rgba(0, 245, 255, 0.35)';
+              }
+              ctx.lineWidth = tier === 'A' ? 2 : 1.5;
               ctx.setLineDash([4, 4]);
               if (typeof roundRect === 'function') roundRect(ctx, x + inset, y + inset, w, h, 5);
               else ctx.rect(x + inset, y + inset, w, h);
               ctx.stroke();
               ctx.setLineDash([]);
               ctx.fill();
+              if (mazeMap && slotCluster && slotCluster.has(r + ',' + c)) {
+                ctx.strokeStyle = 'rgba(0, 245, 255, 0.28)';
+                ctx.lineWidth = 1.5;
+                if (typeof roundRect === 'function') roundRect(ctx, x + inset - 1, y + inset - 1, w + 2, h + 2, 6);
+                else ctx.rect(x + inset - 1, y + inset - 1, w + 2, h + 2);
+                ctx.stroke();
+              }
               const plus = cs * 0.14;
               ctx.strokeStyle = `rgba(0, 245, 255, ${0.45 + pulse * 0.3})`;
               ctx.lineWidth = 2;
@@ -127,6 +202,16 @@
               ctx.moveTo(x + cs / 2, y + cs / 2 - plus);
               ctx.lineTo(x + cs / 2, y + cs / 2 + plus);
               ctx.stroke();
+              if (tier && highlightSlots) {
+                const isHover = state.hoverCell && state.hoverCell.r === r && state.hoverCell.c === c;
+                if (isHover) {
+                  ctx.fillStyle = tierColors ? tierColors.stroke : '#00f5ff';
+                  ctx.font = `bold ${Math.max(8, cs * 0.22)}px Orbitron`;
+                  ctx.textAlign = 'right';
+                  ctx.textBaseline = 'top';
+                  ctx.fillText(tier, x + cs - inset - 2, y + inset + 1);
+                }
+              }
             } else {
               ctx.fillStyle = 'rgba(20, 20, 30, 0.55)';
               if (typeof roundRect === 'function') roundRect(ctx, x + inset, y + inset, w, h, 5);
@@ -142,8 +227,7 @@
         const flash = state.coreFlash > 0 ? 1 + state.coreFlash * 2 : 1;
         const critical = state.baseHp <= 5;
         const pulse = critical ? 1 + Math.sin(this.frame * 0.14) * 0.25 : 1;
-        ctx.shadowColor = '#ff3344';
-        ctx.shadowBlur = (16 + (critical ? 10 : 0)) * flash * pulse;
+        applyShadow(ctx, '#ff3344', (16 + (critical ? 10 : 0)) * flash * pulse);
         ctx.fillStyle = `rgba(255, 51, 68, ${0.3 + (state.coreFlash || 0) * 0.35})`;
         ctx.strokeStyle = '#ff3344';
         ctx.lineWidth = critical ? 3 : 2;
@@ -165,8 +249,7 @@
           const [jr, jc] = jk.split(',').map(Number);
           const jx = m.offsetX + jc * cs + cs / 2;
           const jy = m.offsetY + jr * cs + cs / 2;
-          ctx.shadowColor = '#39ff14';
-          ctx.shadowBlur = 10 * jPulse;
+          applyShadow(ctx, '#39ff14', 10 * jPulse);
           ctx.strokeStyle = `rgba(57, 255, 20, ${0.55 + jPulse * 0.3})`;
           ctx.lineWidth = 2;
           ctx.beginPath();
@@ -231,11 +314,14 @@
       const ctx = this.ctx;
       const hover = state.hoverCell;
       const pulse = 0.35 + Math.sin(this.frame * 0.1) * 0.12;
+      const occupied = state.towerOccupancy || new Set();
+      const reduced = perfReduced();
 
       for (let r = 0; r < C.GRID_ROWS; r++) {
         for (let c = 0; c < C.GRID_COLS; c++) {
           if (state.mapGrid[r][c] !== C.CELL_SLOT) continue;
-          if (state.towers.some((t) => t.r === r && t.c === c)) continue;
+          if (occupied.has(r + ',' + c)) continue;
+          if (reduced && (!hover || hover.r !== r || hover.c !== c)) continue;
           const pos = state.pathFinder.cellCenter(r, c);
           const isHover = hover && hover.r === r && hover.c === c;
           const alpha = isHover ? 0.55 : 0.28;
@@ -267,7 +353,8 @@
       if (!state.selectedTowerType || !state.hoverCell) return;
       const { r, c } = state.hoverCell;
       if (state.mapGrid[r][c] !== C.CELL_SLOT) return;
-      if (state.towers.some((t) => t.r === r && t.c === c)) return;
+      const occupied = state.towerOccupancy || new Set();
+      if (occupied.has(r + ',' + c)) return;
       const def = B.TOWER_TYPES[state.selectedTowerType];
       const pos = state.pathFinder.cellCenter(r, c);
       const cs = state.metrics.cellSize;
@@ -298,8 +385,7 @@
       ctx.translate(-pos.x, -pos.y);
 
       if (boosted) {
-        ctx.shadowColor = '#39ff14';
-        ctx.shadowBlur = 18;
+        applyShadow(ctx, '#39ff14', 18);
         ctx.strokeStyle = 'rgba(57, 255, 20, 0.45)';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -307,8 +393,7 @@
         ctx.stroke();
       }
 
-      ctx.shadowColor = def.glow;
-      ctx.shadowBlur = 10 + tower.tier * 4;
+      applyShadow(ctx, def.glow, 10 + tower.tier * 4);
       ctx.fillStyle = def.color;
       ctx.strokeStyle = def.color;
 
@@ -355,6 +440,48 @@
         ctx.arc(pos.x, pos.y, r * 0.85, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillRect(pos.x - r * 0.5, pos.y - r * 0.15, r, r * 0.7);
+      } else if (def.shape === 'flak') {
+        for (let i = 0; i < 4; i++) {
+          const a = (Math.PI / 2) * i + this.frame * 0.04;
+          ctx.beginPath();
+          ctx.moveTo(pos.x, pos.y);
+          ctx.lineTo(pos.x + Math.cos(a) * r, pos.y + Math.sin(a) * r);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (def.shape === 'lance') {
+        const ang = tower.aimAngle || -Math.PI / 2;
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.rotate(ang);
+        ctx.fillRect(-r * 1.4, -r * 0.12, r * 2.8, r * 0.24);
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = 0.5 + (tower.lanceRamp || 1) * 0.15;
+        ctx.fillRect(r * 0.4, -r * 0.08, r * 0.9, r * 0.16);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      } else if (def.shape === 'reactor') {
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r * 0.9, 0, Math.PI * 2);
+        ctx.stroke();
+        const pulse = 0.6 + Math.sin(this.frame * 0.08) * 0.25;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (def.shape === 'crypt') {
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y - r);
+        ctx.lineTo(pos.x + r * 0.85, pos.y);
+        ctx.lineTo(pos.x, pos.y + r);
+        ctx.lineTo(pos.x - r * 0.85, pos.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
       }
       ctx.shadowBlur = 0;
 
@@ -406,8 +533,7 @@
       }
 
       if (e.inTunnel) {
-        ctx.shadowColor = '#b050ff';
-        ctx.shadowBlur = 12;
+        applyShadow(ctx, '#b050ff', 12);
         ctx.strokeStyle = 'rgba(180, 80, 255, 0.55)';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -416,13 +542,22 @@
       }
 
       if (e.slowTimer > 0) {
-        ctx.shadowColor = '#0088ff';
-        ctx.shadowBlur = 14;
+        applyShadow(ctx, '#0088ff', 14);
         ctx.strokeStyle = 'rgba(0, 136, 255, 0.45)';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(e.x, e.y, sz + 6, 0, Math.PI * 2);
         ctx.stroke();
+      }
+
+      if (e.stunTimer > 0) {
+        ctx.strokeStyle = 'rgba(0, 245, 255, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, sz + 10, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
 
       if (def.shape === 'swift') {
@@ -440,8 +575,7 @@
         ctx.globalAlpha = 1;
       }
 
-      ctx.shadowColor = def.color;
-      ctx.shadowBlur = 10;
+      applyShadow(ctx, def.color, 10);
       ctx.fillStyle = '#0a0a14';
       ctx.strokeStyle = def.color;
       ctx.lineWidth = 2;
@@ -560,8 +694,9 @@
 
     _drawProjectiles(state) {
       const ctx = this.ctx;
+      const reduced = perfReduced();
       state.projectiles.forEach((p) => {
-        if (p.trail && p.trail.length > 1) {
+        if (!reduced && p.trail && p.trail.length > 1) {
           p.trail.forEach((pt, i) => {
             ctx.globalAlpha = (i + 1) / p.trail.length * 0.45;
             ctx.fillStyle = p.color;
@@ -571,8 +706,7 @@
           });
           ctx.globalAlpha = 1;
         }
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 8;
+        applyShadow(ctx, p.color, 8);
         ctx.fillStyle = p.color;
         const pr = p.kind === 'mortar' ? 5 : 3;
         ctx.beginPath();
@@ -626,8 +760,7 @@
         ctx.strokeStyle = ring.color;
         ctx.globalAlpha = ring.alpha;
         ctx.lineWidth = 2 + (1 - ring.alpha) * 2;
-        ctx.shadowColor = ring.color;
-        ctx.shadowBlur = 10;
+        applyShadow(ctx, ring.color, 10);
         ctx.beginPath();
         ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
         ctx.stroke();
@@ -644,8 +777,7 @@
         ctx.strokeStyle = chain.color;
         ctx.globalAlpha = alpha * 0.9;
         ctx.lineWidth = 2;
-        ctx.shadowColor = chain.color;
-        ctx.shadowBlur = 8;
+        applyShadow(ctx, chain.color, 8);
         ctx.beginPath();
         ctx.moveTo(chain.points[0].x, chain.points[0].y);
         for (let i = 1; i < chain.points.length; i++) {

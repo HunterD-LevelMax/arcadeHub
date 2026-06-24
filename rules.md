@@ -1,6 +1,8 @@
 # ARCADE HUB — Game Development Rules
 
-This document describes how to create new games for the Arcade Vault project. Follow these rules to maintain consistency across all games.
+This document describes how to create new games for Arcade Hub. Follow these rules to maintain consistency across all games.
+
+See also [`README.md`](README.md) for hub navigation and [`audio/README.md`](audio/README.md) for sound layout.
 
 ---
 
@@ -8,33 +10,37 @@ This document describes how to create new games for the Arcade Vault project. Fo
 
 ```
 arcadeHub/
-├── index.html          # Main page with game cards
-├── games/             # Game HTML files
-│   ├── flappy.html
-│   ├── asteroids.html
-│   ├── doodle.html
-│   └── snake.html
-├── style/             # CSS files
-│   ├── main.css       # Main page styles
-│   ├── game.css      # Common game styles (REQUIRED)
-│   ├── flappy.css    # Game-specific styles
-│   ├── asteroids.css
-│   ├── doodle.css
-│   └── snake.css
+├── index.html              # Hub shell (game cards, iframe, scripts)
+├── games/{gameId}/
+│   ├── index.html          # Game page (CANONICAL entry point)
+│   └── audio/              # Game-specific SFX (.ogg)
+├── style/
+│   ├── main.css            # Hub styles
+│   ├── game.css            # Common game styles (REQUIRED)
+│   └── {gameId}.css        # Game-specific styles
+├── audio/
+│   ├── sfx/ui/             # Shared UI sounds
+│   └── bgm/                # Hub background music (music_1–3.mp3)
 └── js/
-    └── game.js       # Common utilities (REQUIRED)
+    ├── router.js           # Hub ↔ game navigation (iframe)
+    ├── audio.js            # Shared audio layer
+    ├── game.js             # Common utilities (REQUIRED)
+    └── economy-api.js      # Coins / unlocks
 ```
+
+**12 games:** `prismcascade`, `frogger`, `tetris`, `snake`, `asteroids`, `flappy`, `doodle`, `spaceinvaders`, `game2048`, `stacktower`, `thrustrunner`, `neonsiege`
 
 ---
 
-## 1. Creating Game HTML File
+## 1. Creating a Game Page
 
-### Location and Naming
-- Create file in `games/` directory
-- Name format: `snake.html`, `SPACE Space Tetris.html`, etc.
-- Use lowercase with underscores if needed
+### Location and naming
 
-### Required HTML Structure
+- Create `games/{gameId}/index.html` (lowercase id, no spaces)
+- Add optional `games/{gameId}/audio/` for game SFX
+- Do **not** create flat `games/{gameId}.html` — the router loads folder pages only
+
+### Required HTML structure
 
 ```html
 <!DOCTYPE html>
@@ -43,308 +49,144 @@ arcadeHub/
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>GAME NAME — ARCADE HUB</title>
-  <link rel="stylesheet" href="../style/game.css">
-  <link rel="stylesheet" href="../style/game-name.css">
+  <link rel="stylesheet" href="../../style/game.css">
+  <link rel="stylesheet" href="../../style/game-id.css">
 </head>
 <body>
-
   <div class="page">
     <div class="header">
-      <a href="../index.html" class="back-btn">← BACK</a>
+      <a href="../../index.html" class="back-btn md-btn md-btn-outlined md-ripple">BACK</a>
       <div class="game-title">GAME NAME</div>
-      <div class="score-display">SCORE: <span id="scoreVal">0</span></div>
+      <!-- score / stats -->
     </div>
-
     <div class="game-container">
       <canvas id="c"></canvas>
-
-      <div class="overlay" id="startOverlay">
-        <div class="overlay-title" style="color: var(--neon-ACCENT); text-shadow: 0 0 30px var(--neon-ACCENT);">GAME NAME</div>
-        <div class="overlay-sub">GAME GENRE OR DESCRIPTION</div>
-        <button class="start-btn" id="startBtn">PLAY</button>
-      </div>
-
-      <div class="overlay hidden" id="gameoverOverlay">
-        <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
-        <div class="overlay-sub">DEATH MESSAGE</div>
-        <div class="overlay-score" id="finalScore">0</div>
-        <div class="overlay-best" id="bestScore">BEST: 0</div>
-        <button class="start-btn" id="restartBtn">RETRY</button>
-      </div>
+      <div class="overlay" id="startOverlay">…</div>
+      <div class="overlay hidden" id="gameoverOverlay">…</div>
     </div>
-
     <div class="footer">CONTROLS HINT</div>
   </div>
 
-<script src="../js/game.js"></script>
+<script src="../../js/audio.js"></script>
+<script src="../../js/perf.js"></script>
+<script src="../../js/game.js"></script>
+<script src="../../js/economy-api.js"></script>
 <script>
   // Game code here
 </script>
-
 </body>
 </html>
 ```
 
-### Required IDs for UI Elements
-- `scoreVal` — Current score display
-- `finalScore` — Score shown on game over
-- `bestScore` — Best score shown on game over
-- `startOverlay` — Start screen overlay
-- `gameoverOverlay` — Game over screen overlay
-- `startBtn` — Play button
-- `restartBtn` — Retry button
+The BACK link uses `class="back-btn"`. `initGameBackNavigation()` in `game.js` wires it to `arcadeBack()`, which returns to the hub shell when the game runs inside the iframe.
+
+### Required IDs for UI elements
+
+- `scoreVal` — current score
+- `finalScore` — score on game over
+- `bestScore` — best score on game over
+- `startOverlay`, `gameoverOverlay`
+- `startBtn`, `restartBtn`
 
 ---
 
-## 2. Creating Game CSS File
+## 2. Game CSS
 
-### Location and Naming
-- Create file in `style/` directory
-- Name format: `game-name.css` (e.g., `snake.css`, `SPACE Space Tetris.css`)
-
-### Required CSS Structure
-
-```css
-:root {
-  --game-accent: #HEXCOLOR;
-}
-
-.back-btn { color: var(--game-accent); border-color: var(--game-accent); }
-.back-btn:hover { box-shadow: 0 0 12px var(--game-accent); }
-.game-title { color: var(--game-accent); text-shadow: 0 0 20px var(--game-accent); }
-.score-display { color: var(--game-accent); }
-
-canvas {
-  border-color: rgba(R, G, B, 0.3);
-  box-shadow: 0 0 40px rgba(R, G, B, 0.15);
-  image-rendering: pixelated;
-}
-
-.overlay {
-  border: 1px solid rgba(R, G, B, 0.2);
-  box-shadow: 0 0 40px rgba(R, G, B, 0.1);
-}
-
-.overlay-title {
-  color: var(--game-accent);
-  text-shadow: 0 0 30px var(--game-accent);
-}
-
-.overlay-score {
-  color: var(--game-accent);
-  text-shadow: 0 0 30px var(--game-accent);
-}
-
-.start-btn {
-  border-color: var(--game-accent);
-  color: var(--game-accent);
-}
-
-.start-btn:hover {
-  box-shadow: 0 0 30px var(--game-accent);
-}
-```
-
-### Available Accent Colors
-```css
---neon-cyan: #00f5ff;
---neon-magenta: #ff00ff;
---neon-yellow: #ffff00;
---neon-green: #39ff14;
-```
+- File: `style/{gameId}.css`
+- Set `--game-accent` in `:root`
+- Import patterns from an existing game CSS (e.g. `style/snake.css`)
 
 ---
 
-## 3. JavaScript Game Code
+## 3. JavaScript game code
 
-### Required Setup
+### Required setup
 
 ```javascript
 const BASE_W = 400, BASE_H = 600;
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
+// Declare all let/const used in resize callbacks BEFORE initGameCommon
 initGameCommon(canvas, BASE_W, BASE_H);
 
 function W() { return canvas.width; }
 function H() { return canvas.height; }
 ```
 
-### High Score System (REQUIRED)
+**Important:** `initGameCommon()` calls `onResize` immediately. Any `let`/`const` assigned inside the resize callback must be declared **before** the `initGameCommon()` call (temporal dead zone).
+
+### High score (required)
 
 ```javascript
-// Reading high score
 let best = getHighScore('game_id');
-
-// Saving new high score
 if (score > best) {
   best = score;
   setHighScore('game_id', best);
 }
 ```
 
-### UI Object
+### Audio
 
 ```javascript
-const ui = {
-  score: document.getElementById('scoreVal'),
-  finalScore: document.getElementById('finalScore'),
-  bestScore: document.getElementById('bestScore'),
-  startOverlay: document.getElementById('startOverlay'),
-  gameoverOverlay: document.getElementById('gameoverOverlay'),
-};
+preloadSfx(['gameid.event', 'gameid.gameover']);
+playSfx('gameid.event');
 ```
 
-### Game State
-
-```javascript
-let gameState = {
-  score: 0,
-  best: getHighScore('game_id'),
-  state: 'title',
-};
-```
-
-### Init Function
-
-```javascript
-function init() {
-  gameState.score = 0;
-  gameState.state = 'title';
-  ui.score.textContent = '0';
-  ui.bestScore.textContent = `BEST: ${gameState.best}`;
-}
-```
-
-### Button Handlers
-
-```javascript
-document.getElementById('startBtn').addEventListener('click', () => {
-  gameState.state = 'playing';
-  ui.startOverlay.classList.add('hidden');
-});
-
-document.getElementById('restartBtn').addEventListener('click', () => {
-  init();
-  gameState.state = 'playing';
-  ui.gameoverOverlay.classList.add('hidden');
-});
-```
-
-### Touch Controls Example
-
-```javascript
-canvas.addEventListener('touchstart', e => {
-  e.preventDefault();
-  const x = e.touches[0].clientX - canvas.getBoundingClientRect().left;
-  if (x < canvas.width / 3) {
-    // Left zone
-  } else if (x > canvas.width * 2 / 3) {
-    // Right zone
-  } else {
-    // Center zone
-  }
-});
-```
+Game SFX files go in `games/{gameId}/audio/`. Do **not** duplicate them under `audio/sfx/{gameId}/`.
 
 ---
 
-## 4. Adding Game to Main Page
+## 4. Adding a game to the hub
 
-### Game Card Template
+### Game card in `index.html`
 
 ```html
-<a class="game-card" href="games/game-name.html" style="--card-accent: #HEXCOLOR; --preview-bg: #BGHEX;">
-  <div class="card-accent-bar"></div>
-  <div class="card-glow"></div>
-  <div class="card-preview">
-    <div class="preview-corner tl"></div>
-    <div class="preview-corner tr"></div>
-    <div class="preview-corner bl"></div>
-    <div class="preview-corner br"></div>
-    <div class="preview-badge">GENRE</div>
-    <canvas id="gameNameCanvas"></canvas>
-    <div class="preview-icon">EMOJI</div>
-  </div>
-  <div class="card-body">
-    <div class="card-number">GAME_## / ##</div>
-    <div class="card-title">GAME NAME</div>
-    <div class="card-desc">DESCRIPTION</div>
-    <div class="card-footer">
-      <div class="card-tags">
-        <span class="tag">TAG1</span>
-        <span class="tag">TAG2</span>
-      </div>
-      <div class="play-btn">
-        PLAY
-        <div class="play-btn-arrow">▶</div>
-      </div>
-    </div>
-  </div>
+<a class="game-card md-card md-ripple" data-game-id="gameid" data-rarity="common" href="#" style="--card-accent: #HEX; --preview-bg: #BG;">
+  <!-- card preview with canvas id="{gameid}Canvas" -->
 </a>
 ```
 
-### Animated Preview
+Navigation is handled by [`js/router.js`](js/router.js): `ArcadeRouter.openGame(id)` loads `games/{id}/index.html` in `#gameFrame`.
 
-```javascript
-(function() {
-  const canvas = document.getElementById('gameNameCanvas');
-  const card = canvas.closest('.card-preview');
-  canvas.width = card.offsetWidth || 320;
-  canvas.height = card.offsetHeight || 180;
-  const ctx = canvas.getContext('2d');
-  
-  let t = 0;
-  
-  function tick() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    t++;
-    // Draw animation
-    requestAnimationFrame(tick);
-  }
-  tick();
-})();
-```
+Do **not** link cards directly to `games/gameid.html`.
+
+### Animated preview
+
+Register canvas previews in [`js/main.js`](js/main.js) or [`js/hub-previews.js`](js/hub-previews.js). Use `HubPreviewManager.register(canvas, card, tick)` for pause/resume when games open.
 
 ---
 
-## 5. Code Style Rules
+## 5. Code style
 
-- Use `const` for constants, `let` for variables
-- Use camelCase for names
-- All text in English, `lang="en"`
-- Use `requestAnimationFrame` for game loop
-- Clear canvas each frame: `ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, W(), H());`
-- Use neon glow effects:
-  ```javascript
-  ctx.shadowColor = '#39ff14';
-  ctx.shadowBlur = 10;
-  ```
+- `const` for constants, `let` for variables, camelCase names
+- All UI text in English, `lang="en"`
+- Use `createGameLoop()` / `createRenderLoop()` from `game.js` where appropriate
+- Neon glow: `ctx.shadowColor = '#39ff14'; ctx.shadowBlur = 10;`
 
 ---
 
 ## 6. Checklist
 
-- [ ] HTML file in `games/`
-- [ ] CSS file in `style/`
-- [ ] `lang="en"` in HTML
-- [ ] `game.js` connected
-- [ ] High score system implemented
-- [ ] Touch controls (if needed)
-- [ ] Card added to `index.html`
-- [ ] Game numbers updated
-- [ ] Animated preview added
+- [ ] `games/{gameId}/index.html` created
+- [ ] `style/{gameId}.css` created
+- [ ] `games/{gameId}/audio/` for game SFX (if needed)
+- [ ] `audio.js`, `perf.js`, `game.js`, `economy-api.js` included
+- [ ] High score via `getHighScore` / `setHighScore`
+- [ ] `class="back-btn"` on BACK control
+- [ ] Hub card with `data-game-id` in `index.html`
+- [ ] Canvas preview registered
+- [ ] Run `node scripts/build-precache.js` after adding assets (updates `sw.js`)
 
 ---
 
-## 7. Color Palette
+## 7. Color palette
 
-| Color | Hex | Game |
-|-------|-----|------|
-| Dark BG | #050510 | All |
-| Neon Cyan | #00f5ff | Asteroids |
-| Neon Magenta | #ff00ff | FLY HARD |
-| Neon Green | #39ff14 | Snake, SPACE HOPPER |
-| Neon Yellow | #ffff00 | Best Score |
-| Neon Red | #ff3344 | Game Over |
-
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Dark BG | `#050510` | All games |
+| Neon Cyan | `#00f5ff` | Asteroids, accents |
+| Neon Magenta | `#ff00ff` | Flappy, accents |
+| Neon Green | `#39ff14` | Snake, Frogger |
+| Neon Yellow | `#ffff00` | Best score, highlights |
+| Neon Red | `#ff3344` | Game over |

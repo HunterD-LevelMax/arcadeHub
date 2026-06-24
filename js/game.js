@@ -49,29 +49,147 @@ function getCookie(name) {
 
 const TARGET_FPS = 60;
 const FIXED_DT = 1000 / TARGET_FPS;
+const MAX_FRAME_MS = 100;
+const MAX_PHYSICS_STEPS = 3;
 
-function createGameLoop(update, draw) {
+function createGameLoop(update, draw, options) {
+  options = options || {};
+  const shouldRun = typeof options.shouldRun === 'function' ? options.shouldRun : () => true;
+  let manualPaused = false;
+  let rafId = 0;
   let accumulator = 0;
   let lastTime = 0;
-  
+  let running = true;
+
+  function isActive() {
+    return running && !manualPaused && !document.hidden && shouldRun();
+  }
+
+  function schedule() {
+    if (!running || rafId) return;
+    rafId = requestAnimationFrame(gameLoop);
+  }
+
   function gameLoop(time) {
+    rafId = 0;
+    if (!running) return;
+
+    if (!isActive()) {
+      schedule();
+      return;
+    }
+
     if (!lastTime) lastTime = time;
-    
-    const deltaTime = time - lastTime;
+
+    const deltaTime = Math.min(time - lastTime, MAX_FRAME_MS);
     lastTime = time;
-    
+
     accumulator += deltaTime;
-    
-    while (accumulator >= FIXED_DT) {
+    accumulator = Math.min(accumulator, MAX_FRAME_MS);
+
+    let steps = 0;
+    while (accumulator >= FIXED_DT && steps < MAX_PHYSICS_STEPS) {
       update(FIXED_DT);
       accumulator -= FIXED_DT;
+      steps++;
     }
-    
-    draw();
-    requestAnimationFrame(gameLoop);
+
+    draw(time);
+    schedule();
   }
-  
-  requestAnimationFrame(gameLoop);
+
+  function pause() {
+    manualPaused = true;
+    lastTime = 0;
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
+  }
+
+  function resume() {
+    manualPaused = false;
+    lastTime = 0;
+    schedule();
+  }
+
+  function stop() {
+    running = false;
+    pause();
+  }
+
+  function onVisibilityChange() {
+    if (!document.hidden && running && !manualPaused) {
+      lastTime = 0;
+      schedule();
+    }
+  }
+
+  document.addEventListener('visibilitychange', onVisibilityChange);
+
+  schedule();
+
+  return {
+    pause,
+    resume,
+    stop,
+    isRunning: () => running && !manualPaused,
+  };
+}
+
+/** Draw-only loop (no fixed timestep physics). */
+function createRenderLoop(draw, options) {
+  options = options || {};
+  const shouldRun = typeof options.shouldRun === 'function' ? options.shouldRun : () => true;
+  let manualPaused = false;
+  let rafId = 0;
+  let running = true;
+
+  function isActive() {
+    return running && !manualPaused && !document.hidden && shouldRun();
+  }
+
+  function schedule() {
+    if (!running || rafId) return;
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function loop(time) {
+    rafId = 0;
+    if (!running) return;
+    if (!isActive()) {
+      if (!manualPaused && running) schedule();
+      return;
+    }
+    draw(time);
+    schedule();
+  }
+
+  function pause() {
+    manualPaused = true;
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
+  }
+
+  function resume() {
+    manualPaused = false;
+    schedule();
+  }
+
+  function stop() {
+    running = false;
+    pause();
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && running && !manualPaused) schedule();
+  });
+
+  schedule();
+
+  return { pause, resume, stop, isRunning: () => running && !manualPaused };
 }
 
 // High score management - saves to both localStorage and cookies

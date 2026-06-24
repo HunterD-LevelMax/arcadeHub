@@ -308,7 +308,9 @@
       if (gs.shake > 0.2) ctx.translate((Math.random() - 0.5) * gs.shake, (Math.random() - 0.5) * gs.shake);
 
       Render.drawSky(ctx, w, h, time, this.camZ);
-      Object.keys(gs.lanes).map(Number).sort((a, b) => a - b).forEach((z) => {
+      const laneZs = this._laneZs || Object.keys(gs.lanes).map(Number).sort((a, b) => a - b);
+      this._laneZs = laneZs;
+      laneZs.forEach((z) => {
         const pos = World.worldToScreen(0, z, this.camZ, w, h);
         if (pos.y - pos.sz / 2 < h + pos.sz && pos.y - pos.sz / 2 > -pos.sz * 2) {
           Render.drawLane(ctx, gs.lanes[z], this.camZ, time, w, h);
@@ -332,14 +334,6 @@
         ctx.globalAlpha = 1;
       }
       ctx.restore();
-    }
-
-    loop(ts) {
-      requestAnimationFrame((t) => this.loop(t));
-      const dt = this.lastTime ? Math.min((ts - this.lastTime) / 1000, 0.05) : 0;
-      this.lastTime = ts;
-      this.update(dt);
-      this.draw(ts);
     }
 
     bindInput() {
@@ -377,8 +371,16 @@
       window.addEventListener("resize", () => this.resize());
       this.init();
       this.bindInput();
-      this.lastTime = 0;
-      requestAnimationFrame((t) => this.loop(t));
+      this.loopHandle = createGameLoop(
+        (dt) => this.update(dt / 1000),
+        (time) => this.draw(time),
+        {
+          shouldRun: () => {
+            const s = this.gameState.state;
+            return s === "playing" || s === "dying";
+          },
+        }
+      );
     }
   }
 

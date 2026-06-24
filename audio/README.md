@@ -21,6 +21,8 @@ games/{gameId}/
 
 Game sounds live next to each game. Shared UI sounds stay in `audio/sfx/ui/`. Resolution is handled in [`js/audio.js`](../js/audio.js) via `new URL()` relative to the current page.
 
+**Do not duplicate game SFX under `audio/sfx/{gameId}/`.** Only `audio/sfx/ui/` and `games/{gameId}/audio/` are used at runtime.
+
 ## Background music
 
 ```

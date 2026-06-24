@@ -56,6 +56,30 @@
         name: B.ENEMY_TYPES[type].name,
       }));
     }
+
+    getWaveCounterTips(queue, modifierKey) {
+      const types = new Set();
+      queue.forEach((e) => types.add(e.type));
+      const mod = B.getModifierDef(modifierKey);
+      const candidates = [];
+
+      if (types.has('boss')) candidates.push('LANCE', 'RAIL');
+      if (types.has('shield')) candidates.push('RAIL');
+      if (types.has('swift') || (mod && mod.speedMult > 1)) candidates.push('FROST', 'FLAK');
+      if (types.has('tank') || (mod && mod.hpMult >= 1.3)) candidates.push('LANCE', 'MORTAR');
+      if (types.has('splitter') || (mod && mod.countMult >= 1.4)) candidates.push('TESLA', 'NOVA');
+      if (mod && mod.eliteCount) candidates.push('LANCE');
+
+      const out = [];
+      const seen = new Set();
+      for (let i = 0; i < candidates.length && out.length < 2; i++) {
+        const tag = candidates[i];
+        if (seen.has(tag)) continue;
+        seen.add(tag);
+        out.push(tag);
+      }
+      return out.join('·');
+    }
   }
 
   class EconomySystem {
@@ -100,7 +124,7 @@
       }
       this.lastKillTime = now;
       if (this.combo >= B.COMBO_GOLD_THRESHOLD) {
-        goldGain += Math.min(3, Math.floor((this.combo - 1) * 4));
+        goldGain += Math.min(2, Math.floor((this.combo - 1) * 4));
       }
       this.gold += goldGain;
       addScoreFn(Math.floor(scoreValue * this.combo));
@@ -114,21 +138,238 @@
       }
     }
 
-    waveClearBonus() {
-      return { score: B.WAVE_CLEAR_SCORE };
+    waveClearBonus(wave) {
+      return { score: B.WAVE_CLEAR_SCORE, gold: B.waveClearGold(wave || 0) };
+    }
+  }
+
+  class ArsenalSystem {
+    constructor() {
+      this.techStacks = {};
+      this.strikeCharges = {};
+      this.intermissionBuys = 0;
+      this.armedStrike = null;
+    }
+
+    reset() {
+      this.techStacks = {};
+      this.strikeCharges = {};
+      this.intermissionBuys = 0;
+      this.armedStrike = null;
+    }
+
+    resetIntermissionBuys() {
+      this.intermissionBuys = 0;
+    }
+
+    getTechStacks(id) {
+      return this.techStacks[id] || 0;
+    }
+
+    getTechMods() {
+      const od = this.getTechStacks('overdrive');
+      const cap = this.getTechStacks('capacitor');
+      return {
+        damageMult: od ? 1 + od * B.ARSENAL_TECH.overdrive.damagePer : 1,
+        rangeMult: cap ? 1 + cap * B.ARSENAL_TECH.capacitor.rangePer : 1,
+      };
+    }
+
+    getSellBonus() {
+      const stacks = this.getTechStacks('salvage');
+      return stacks * B.ARSENAL_TECH.salvage.sellPer;
+    }
+
+    getOverchargeBonusMs() {
+      return this.getTechStacks('reactor') * B.ARSENAL_TECH.reactor.boostMs;
+    }
+
+    totalStrikeCharges() {
+      return Object.values(this.strikeCharges).reduce((a, n) => a + n, 0);
+    }
+
+    canBuyMore(wave) {
+      return this.intermissionBuys < B.getArsenalBuyLimit(wave);
+    }
+
+    buyStrike(id, economy, wave) {
+      if (!this.canBuyMore(wave)) return false;
+      const def = B.ARSENAL_STRIKES[id];
+      const cost = B.getStrikeCost(id, wave);
+      if (!def || cost == null || !economy.spend(cost)) return false;
+      this.strikeCharges[id] = (this.strikeCharges[id] || 0) + 1;
+      this.intermissionBuys++;
+      return true;
+    }
+
+    buyTech(id, economy, wave) {
+      if (!this.canBuyMore(wave)) return false;
+      const def = B.ARSENAL_TECH[id];
+      if (!def) return false;
+      const stacks = this.getTechStacks(id);
+      if (stacks >= B.getTechMaxStacks(id, wave)) return false;
+      const cost = B.getTechCost(id, stacks, wave);
+      if (cost == null || !economy.spend(cost)) return false;
+      this.techStacks[id] = stacks + 1;
+      this.intermissionBuys++;
+      return true;
+    }
+
+    armStrike(id) {
+      if (!this.strikeCharges[id]) return false;
+      this.armedStrike = id;
+      return true;
+    }
+
+    disarmStrike() {
+      this.armedStrike = null;
+    }
+
+    consumeStrike(id) {
+      if (!this.strikeCharges[id]) return false;
+      this.strikeCharges[id]--;
+      if (this.strikeCharges[id] <= 0) delete this.strikeCharges[id];
+      this.armedStrike = null;
+      return true;
+    }
+
+    applyStrike(id, x, y, game) {
+      const def = B.ARSENAL_STRIKES[id];
+      if (!def) return null;
+      const cs = game.metrics.cellSize;
+      const fx = { rings: [], particles: [], shake: 0, flash: null };
+
+      if (id === 'repair') {
+        const maxHp = B.BASE_HP_MAX + B.CORE_HP_MAX_BONUS;
+        if (game.baseHp < maxHp) {
+          game.baseHp++;
+          const goal = game.pathFinder.waypointPixels[game.pathFinder.waypointPixels.length - 1];
+          if (goal) {
+            fx.rings.push({ x: goal.x, y: goal.y, color: def.color, radius: cs * 2, duration: 0.6 });
+            fx.particles.push({ x: goal.x, y: goal.y, color: def.color, n: 16 });
+          }
+          fx.flash = { color: def.color, strength: 0.35, duration: 0.4 };
+        }
+        return fx;
+      }
+
+      if (id === 'shockwave') {
+        const radius = def.radius * cs;
+        const dmg = B.strikeDamage(game.wave);
+        const rangeSq = radius * radius;
+        for (const enemy of [...game.enemies]) {
+          const dx = enemy.x - x;
+          const dy = enemy.y - y;
+          if (dx * dx + dy * dy <= rangeSq) {
+            game._onEnemyHit(enemy, dmg, null, false);
+          }
+        }
+        fx.rings.push({ x, y, color: def.color, radius, duration: 0.45 });
+        fx.particles.push({ x, y, color: def.color, n: 20 });
+        fx.shake = 8;
+        return fx;
+      }
+
+      if (id === 'emp') {
+        const radius = def.radius * cs;
+        const rangeSq = radius * radius;
+        for (const enemy of game.enemies) {
+          const dx = enemy.x - x;
+          const dy = enemy.y - y;
+          if (dx * dx + dy * dy <= rangeSq) {
+            enemy.stunTimer = Math.max(enemy.stunTimer, def.stunMs);
+          }
+        }
+        fx.rings.push({ x, y, color: def.color, radius, duration: 0.55 });
+        fx.particles.push({ x, y, color: def.color, n: 14 });
+        return fx;
+      }
+
+      if (id === 'cryo') {
+        const radius = def.radius * cs;
+        const rangeSq = radius * radius;
+        for (const enemy of game.enemies) {
+          const dx = enemy.x - x;
+          const dy = enemy.y - y;
+          if (dx * dx + dy * dy <= rangeSq) {
+            enemy.slowTimer = def.slowMs;
+            enemy.slowFactor = def.slow;
+            game.particles.push(new E.Particle(enemy.x, enemy.y, '#88ddff', 5));
+          }
+        }
+        fx.rings.push({ x, y, color: def.color, radius, duration: 0.5 });
+        fx.particles.push({ x, y, color: def.color, n: 12 });
+        return fx;
+      }
+
+      if (id === 'cluster') {
+        const sorted = game.enemies.slice().sort(
+          (a, b) => (a.pathIndex + a.segT) - (b.pathIndex + b.segT)
+        );
+        let startIdx = 0;
+        let bestDist = Infinity;
+        for (let i = 0; i < sorted.length; i++) {
+          const dx = sorted[i].x - x;
+          const dy = sorted[i].y - y;
+          const d = dx * dx + dy * dy;
+          if (d < bestDist) {
+            bestDist = d;
+            startIdx = i;
+          }
+        }
+        const hits = sorted.slice(startIdx, startIdx + def.hits);
+        const dmg = B.strikeDamage(game.wave) * 0.65;
+        hits.forEach((enemy, i) => {
+          game._onEnemyHit(enemy, dmg, null, false);
+          fx.rings.push({
+            x: enemy.x, y: enemy.y, color: def.color,
+            radius: cs * 0.9, duration: 0.3 + i * 0.05,
+          });
+          fx.particles.push({ x: enemy.x, y: enemy.y, color: def.color, n: 8 });
+        });
+        fx.shake = 5;
+        return fx;
+      }
+
+      return fx;
     }
   }
 
   class CombatSystem {
+    _cellDist(ta, tb) {
+      const dr = ta.r - tb.r;
+      const dc = ta.c - tb.c;
+      return Math.sqrt(dr * dr + dc * dc);
+    }
+
+    _reactorMult(tower, towers) {
+      let bonus = 0;
+      for (const other of towers) {
+        if (other.type !== 'reactor' || other.id === tower.id) continue;
+        const stats = other.stats;
+        if (this._cellDist(tower, other) <= stats.range) {
+          bonus = Math.max(bonus, stats.auraRate || 0.18);
+        }
+      }
+      return 1 + bonus;
+    }
+
+    _applyFastBonus(dmg, enemy, stats) {
+      if (stats.fastBonus && stats.fastThreshold && enemy.speed >= stats.fastThreshold) {
+        return dmg * stats.fastBonus;
+      }
+      return dmg;
+    }
     findTarget(tower, enemies, pathFinder, metrics) {
       const stats = tower.stats;
       const rangePx = stats.range * metrics.cellSize;
+      const rangeSq = rangePx * rangePx;
       const pos = pathFinder.cellCenter(tower.r, tower.c);
       const inRange = [];
       for (const enemy of enemies) {
         const dx = enemy.x - pos.x;
         const dy = enemy.y - pos.y;
-        if (Math.sqrt(dx * dx + dy * dy) > rangePx) continue;
+        if (dx * dx + dy * dy > rangeSq) continue;
         inRange.push(enemy);
       }
       if (!inRange.length) return null;
@@ -177,12 +418,36 @@
       const fireMult = overchargeActive ? B.OVERCHARGE_FIRE_MULT : 1;
       const onHit = hooks.onNovaHit;
 
+      if (B.TOWER_TYPES[tower.type].supportOnly) {
+        tower.cooldown = 0.5;
+        return null;
+      }
+
+      if (tower.type === 'lance') {
+        if (tower.lanceTargetId !== target.id) {
+          tower.lanceTargetId = target.id;
+          tower.lanceRamp = 1;
+        } else {
+          tower.lanceRamp = Math.min(stats.rampCap || 2.5, tower.lanceRamp + (stats.rampPerSec || 0.15) * stats.fireRate);
+        }
+        const dmg = stats.damage * tower.lanceRamp;
+        onHit(target, dmg, false);
+        tower.recoil = 0.06;
+        tower.aimAngle = Math.atan2(target.y - pos.y, target.x - pos.x);
+        tower.cooldown = stats.fireRate * fireMult / (hooks.reactorMult(tower) || 1);
+        return {
+          particles: { x: target.x, y: target.y, color: def.color, n: 8 },
+          ring: { x: target.x, y: target.y, color: def.color, radius: metrics.cellSize * 0.35, duration: 0.25 },
+        };
+      }
+
       if (tower.type === 'nova') {
         const rangePx = (stats.aoe || 1.2) * metrics.cellSize;
+        const rangeSq = rangePx * rangePx;
         for (const enemy of [...enemies]) {
           const dx = enemy.x - target.x;
           const dy = enemy.y - target.y;
-          if (Math.sqrt(dx * dx + dy * dy) <= rangePx) {
+          if (dx * dx + dy * dy <= rangeSq) {
             let dmg = stats.damage;
             const shattered = enemy.slowTimer > 0;
             if (shattered) dmg *= (1 + B.SHATTER_BONUS);
@@ -190,7 +455,7 @@
           }
         }
         tower.recoil = 0.08;
-        tower.cooldown = stats.fireRate * fireMult;
+        tower.cooldown = stats.fireRate * fireMult / (hooks.reactorMult(tower) || 1);
         return {
           shake: 4,
           particles: { x: target.x, y: target.y, color: def.color, n: 14 },
@@ -226,7 +491,7 @@
           current = next;
         }
         tower.recoil = 0.06;
-        tower.cooldown = stats.fireRate * fireMult;
+        tower.cooldown = stats.fireRate * fireMult / (hooks.reactorMult(tower) || 1);
         return {
           particles: { x: target.x, y: target.y, color: def.color, n: 10 },
           chain: { points: chainPoints, color: def.color },
@@ -254,18 +519,22 @@
           aoe: stats.aoe || 1.1, trail: [],
         }));
       } else {
+        const isFlak = tower.type === 'flak';
         projectiles.push(new E.Projectile({
-          x: pos.x, y: pos.y, tx: target.x, ty: target.y, speed: 280,
+          x: pos.x, y: pos.y, tx: target.x, ty: target.y, speed: isFlak ? 340 : 280,
           damage: stats.damage, color: def.color, targetId: target.id,
           kind: tower.type,
           slow: tower.type === 'frost' ? stats.slow : 0,
           slowMs: tower.type === 'frost' ? stats.slowMs : 0,
+          fastBonus: stats.fastBonus,
+          fastThreshold: stats.fastThreshold,
           trail: [],
         }));
       }
-      tower.recoil = 0.08;
+      tower.recoil = tower.type === 'flak' ? 0.04 : 0.08;
       tower.aimAngle = Math.atan2(target.y - pos.y, target.x - pos.x);
-      tower.cooldown = stats.fireRate * fireMult;
+      const auraMult = hooks.reactorMult ? hooks.reactorMult(tower) : 1;
+      tower.cooldown = stats.fireRate * fireMult / auraMult;
       return {
         ring: { x: pos.x, y: pos.y, color: def.color, radius: metrics.cellSize * 0.22, duration: 0.2 },
       };
@@ -273,11 +542,30 @@
 
     updateTowers(dt, towers, enemies, pathFinder, metrics, overchargeActive, projectiles, hooks) {
       const sec = dt / 1000;
+      const reactorMult = (tower) => this._reactorMult(tower, towers);
+      hooks.reactorMult = reactorMult;
+
       for (const tower of towers) {
         if (tower.recoil > 0) tower.recoil = Math.max(0, tower.recoil - sec);
         if (tower.cooldown > 0) tower.cooldown -= sec;
         if (tower.cooldown > 0) continue;
-        const target = this.findTarget(tower, enemies, pathFinder, metrics);
+        if (B.TOWER_TYPES[tower.type].supportOnly) continue;
+
+        let target = null;
+        if (tower.cachedTargetId != null) {
+          target = enemies.find((e) => e.id === tower.cachedTargetId) || null;
+          if (target) {
+            const pos = pathFinder.cellCenter(tower.r, tower.c);
+            const dx = target.x - pos.x;
+            const dy = target.y - pos.y;
+            const rangePx = tower.stats.range * metrics.cellSize;
+            if (dx * dx + dy * dy > rangePx * rangePx) target = null;
+          }
+        }
+        if (!target) {
+          target = this.findTarget(tower, enemies, pathFinder, metrics);
+          tower.cachedTargetId = target ? target.id : null;
+        }
         if (!target) continue;
         const fx = this.fireTower(
           tower, target, enemies, pathFinder, metrics,
@@ -298,11 +586,13 @@
         if (p.kind === 'prism') {
           p.x += Math.cos(p.angle) * p.speed * sec;
           p.y += Math.sin(p.angle) * p.speed * sec;
+          const hitR = metrics.cellSize * 0.28;
+          const hitSq = hitR * hitR;
           for (const enemy of enemies) {
             if (p.hitIds.has(enemy.id)) continue;
             const dx = enemy.x - p.x;
             const dy = enemy.y - p.y;
-            if (Math.sqrt(dx * dx + dy * dy) < metrics.cellSize * 0.28) {
+            if (dx * dx + dy * dy < hitSq) {
               p.hitIds.add(enemy.id);
               onHit(enemy, p.damage, null);
               p.pierceLeft--;
@@ -322,10 +612,11 @@
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 10) {
             const rangePx = (p.aoe || 1.1) * metrics.cellSize;
+            const rangeSq = rangePx * rangePx;
             for (const enemy of enemies) {
               const ex = enemy.x - tx;
               const ey = enemy.y - ty;
-              if (Math.sqrt(ex * ex + ey * ey) <= rangePx) {
+              if (ex * ex + ey * ey <= rangeSq) {
                 onHit(enemy, p.damage, null);
               }
             }
@@ -346,11 +637,16 @@
               const hitTarget = target || enemies.find((e) => {
                 const ddx = e.x - p.tx;
                 const ddy = e.y - p.ty;
-                return Math.sqrt(ddx * ddx + ddy * ddy) < metrics.cellSize * 0.35;
+                const hitR = metrics.cellSize * 0.35;
+                return ddx * ddx + ddy * ddy < hitR * hitR;
               });
               if (hitTarget) {
                 let dmg = p.damage;
                 if (p.shieldBonus && hitTarget.shield > 0) dmg *= p.shieldBonus;
+                dmg = this._applyFastBonus(dmg, hitTarget, {
+                  fastBonus: p.fastBonus,
+                  fastThreshold: p.fastThreshold,
+                });
                 onHit(hitTarget, dmg, p.slow ? { slow: p.slow, slowMs: p.slowMs } : null);
               }
             }
@@ -368,5 +664,6 @@
     WaveSystem,
     EconomySystem,
     CombatSystem,
+    ArsenalSystem,
   };
 })();

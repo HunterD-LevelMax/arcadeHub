@@ -15,6 +15,7 @@
     COMBO_MAX: 2.5,
     OVERCHARGE_MS: 5000,
     WAVE_INTERMISSION_MS: 12000,
+    EARLY_START_GOLD_PER_SEC: 3,
     MIN_STAGGER_DIST: 0.45,
     STAGGER_SLOW: 0.4,
     LANE_SPREAD: 0.12,
@@ -24,6 +25,6 @@
       WAVE: ['Space', 'Enter', 'NumpadEnter'],
       CANCEL: ['Escape'],
     },
-    TOWER_ORDER: ['pulse', 'nova', 'prism', 'frost', 'tesla', 'rail', 'mortar'],
+    TOWER_ORDER: ['pulse', 'nova', 'prism', 'frost', 'flak', 'tesla', 'rail', 'mortar', 'lance', 'reactor', 'crypt'],
   };
 })();

@@ -49,6 +49,7 @@
   </div>
 
 <script src="../../js/audio.js"></script>
+<script src="../../js/perf.js"></script>
 <script src="../../js/game.js"></script>
 <script src="../../js/economy-api.js"></script>
 <script>
@@ -745,7 +746,6 @@ function drawHeightMeter(cam) {
 }
 
 function draw() {
-  updatePhysics();
   const cam = cameraY;
   drawBackground(cam);
 
@@ -866,10 +866,14 @@ function draw() {
   ctx.restore();
 }
 
-function gameLoop() {
+function tickFrame() {
+  updatePhysics();
   draw();
-  requestAnimationFrame(gameLoop);
 }
+
+const gameLoopHandle = createRenderLoop(tickFrame, {
+  shouldRun: () => gameState.state === 'playing',
+});
 
 function tryPlace() {
   if (gameState.state !== 'playing' || !mover || mover.state !== 'moving') return;
@@ -914,7 +918,7 @@ document.getElementById('restartBtn').addEventListener('click', () => {
 
 initBgStars();
 init();
-requestAnimationFrame(gameLoop);
+gameLoopHandle.resume();
 </script>
 
 </body>

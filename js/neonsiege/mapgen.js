@@ -6,10 +6,12 @@
   const LAST_ROW = ROWS - 1;
   const LAST_COL = COLS - 1;
   const DIRS = [[0, 1], [0, -1], [1, 0], [-1, 0]];
-  const MIN_PATH_LEN = 45;
-  const MAX_PATH_LEN = 80;
-  const MIN_SLOTS = 18;
-  const MAX_SLOTS = 28;
+  const MIN_PATH_LEN = 38;
+  const MAX_PATH_LEN = 62;
+  const MAX_PATH_CELLS = 58;
+  const MIN_SLOTS = 24;
+  const MAX_SLOTS = 36;
+  const MAX_TOTAL_SLOTS = 64;
   const MIN_TURNS = 12;
   const MIN_ROUTES = 2;
   const TUNNEL_MIN = 3;
@@ -57,6 +59,34 @@
       corners: [[0, 1], [0, 8], [3, 8], [3, 2], [6, 2], [6, 9], [9, 9], [9, 1], [12, 1], [13, 6]],
       hpMod: 1.06,
       countMod: 0,
+    },
+    {
+      id: 'delta',
+      label: 'DELTA',
+      corners: [[0, 5], [0, 2], [4, 2], [4, 9], [8, 9], [8, 1], [12, 1], [13, 6]],
+      hpMod: 1.04,
+      countMod: 0,
+    },
+    {
+      id: 'omega',
+      label: 'OMEGA',
+      corners: [[0, 6], [0, 10], [2, 10], [2, 3], [7, 3], [7, 11], [11, 11], [11, 4], [13, 4], [13, 6]],
+      hpMod: 1.07,
+      countMod: 1,
+    },
+    {
+      id: 'cross',
+      label: 'CROSS',
+      corners: [[0, 6], [3, 6], [3, 2], [6, 2], [6, 10], [9, 10], [9, 6], [13, 6]],
+      hpMod: 1.03,
+      countMod: 0,
+    },
+    {
+      id: 'pulse',
+      label: 'PULSE',
+      corners: [[0, 2], [0, 9], [4, 9], [4, 4], [9, 4], [9, 10], [12, 10], [13, 5]],
+      hpMod: 1.09,
+      countMod: 1,
     },
   ];
 
@@ -189,6 +219,204 @@
     return turns;
   }
 
+  function generateCompactSpiral() {
+    const left = 3;
+    const right = LAST_COL - 3;
+    for (let attempt = 0; attempt < 25; attempt++) {
+      let startCol = left + Math.floor(Math.random() * (right - left + 1));
+      let c = startCol;
+      const path = [[0, c]];
+      let goingRight = true;
+      const minRowSpan = 2;
+      const maxRowSpan = 3;
+
+      for (let r = 1; r <= LAST_ROW; r++) {
+        if (path[path.length - 1][0] !== r) path.push([r, c]);
+        if (r === LAST_ROW) {
+          const goalCol = left + Math.floor(Math.random() * (right - left + 1));
+          while (c !== goalCol) {
+            c += Math.sign(goalCol - c);
+            path.push([r, c]);
+          }
+        } else {
+          const span = minRowSpan + Math.floor(Math.random() * (maxRowSpan - minRowSpan + 1));
+          const dir = goingRight ? 1 : -1;
+          for (let s = 0; s < span; s++) {
+            const nc = c + dir;
+            if (nc < left || nc > right) break;
+            c = nc;
+            path.push([r, c]);
+          }
+          goingRight = !goingRight;
+        }
+      }
+      const finalPath = dedupePath(path);
+      if (finalPath.length < 35 || finalPath.length > 58) continue;
+      if (finalPath[0][0] !== 0 || finalPath[finalPath.length - 1][0] !== LAST_ROW) continue;
+      if (countTurns(finalPath) < 8) continue;
+      return finalPath;
+    }
+    return null;
+  }
+
+  function generateLongCorridor() {
+    for (let i = 0; i < 25; i++) {
+      let pathCells = generateSerpentinePath();
+      if (!pathCells) pathCells = generateWindyPath();
+      if (!pathCells) continue;
+      if (pathCells.length < 55) continue;
+      return pathCells;
+    }
+    return null;
+  }
+
+  function placeIslandSlots(grid, count) {
+    let placed = 0;
+    const attempts = count * 12;
+    for (let i = 0; i < attempts && placed < count; i++) {
+      const r = 2 + Math.floor(Math.random() * (ROWS - 4));
+      const c = 1 + Math.floor(Math.random() * (COLS - 2));
+      if (grid[r][c] !== C.CELL_VOID) continue;
+      let nearPath = false;
+      for (const [dr, dc] of DIRS) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (!inBounds(nr, nc)) continue;
+        const cell = grid[nr][nc];
+        if (cell === C.CELL_PATH || cell === C.CELL_TUNNEL) nearPath = true;
+      }
+      if (!nearPath) continue;
+
+      const clusterDirs = DIRS.filter(([dr, dc]) => {
+        const nr = r + dr;
+        const nc = c + dc;
+        return inBounds(nr, nc) && grid[nr][nc] === C.CELL_VOID;
+      });
+
+      if (placed < count - 1 && clusterDirs.length && Math.random() < 0.35) {
+        const [dr, dc] = clusterDirs[Math.floor(Math.random() * clusterDirs.length)];
+        const nr = r + dr;
+        const nc = c + dc;
+        let mateNearPath = false;
+        for (const [dr2, dc2] of DIRS) {
+          const ar = nr + dr2;
+          const ac = nc + dc2;
+          if (!inBounds(ar, ac)) continue;
+          const cell = grid[ar][ac];
+          if (cell === C.CELL_PATH || cell === C.CELL_TUNNEL) mateNearPath = true;
+        }
+        if (mateNearPath) {
+          grid[r][c] = C.CELL_SLOT;
+          grid[nr][nc] = C.CELL_SLOT;
+          placed += 2;
+          continue;
+        }
+      }
+
+      grid[r][c] = C.CELL_SLOT;
+      placed++;
+    }
+    return placed;
+  }
+
+  function distCellToPathSet(cell, pathSet) {
+    const [cr, cc] = cell;
+    let min = 999;
+    for (const pk of pathSet) {
+      const [pr, pc] = parseKey(pk);
+      min = Math.min(min, Math.abs(cr - pr) + Math.abs(cc - pc));
+    }
+    return min;
+  }
+
+  function placeSlotPlatforms(grid, routes, opts) {
+    opts = opts || {};
+    const targetCount = opts.platformSlots != null
+      ? opts.platformSlots
+      : 8 + Math.floor(Math.random() * 7);
+
+    const pathSet = new Set();
+    routes.forEach((route) => {
+      route.forEach(([r, c]) => pathSet.add(key(r, c)));
+    });
+
+    const visited = new Set();
+    const pockets = [];
+
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const k = key(r, c);
+        if (grid[r][c] !== C.CELL_VOID || visited.has(k)) continue;
+
+        const pocket = [];
+        const queue = [[r, c]];
+        visited.add(k);
+        const pathNeighborKeys = new Set();
+
+        while (queue.length) {
+          const [cr, cc] = queue.shift();
+          pocket.push([cr, cc]);
+          for (const [dr, dc] of DIRS) {
+            const nr = cr + dr;
+            const nc = cc + dc;
+            if (!inBounds(nr, nc)) continue;
+            const nk = key(nr, nc);
+            const cell = grid[nr][nc];
+            if (cell === C.CELL_PATH || cell === C.CELL_TUNNEL) {
+              pathNeighborKeys.add(nk);
+            } else if (cell === C.CELL_VOID && !visited.has(nk)) {
+              visited.add(nk);
+              queue.push([nr, nc]);
+            }
+          }
+        }
+
+        if (pocket.length < 2 || pocket.length > 10) continue;
+        if (!pathNeighborKeys.size) continue;
+
+        pockets.push({ cells: pocket });
+      }
+    }
+
+    pockets.sort((a, b) => {
+      const maxA = Math.max(...a.cells.map((cell) => distCellToPathSet(cell, pathSet)));
+      const maxB = Math.max(...b.cells.map((cell) => distCellToPathSet(cell, pathSet)));
+      return maxB - maxA;
+    });
+
+    let placed = 0;
+    for (const pocket of pockets) {
+      if (placed >= targetCount) break;
+      const slotsToPlace = Math.min(3, pocket.cells.length, targetCount - placed);
+      const sorted = pocket.cells.slice().sort(
+        (a, b) => distCellToPathSet(b, pathSet) - distCellToPathSet(a, pathSet)
+      );
+      let n = 0;
+      for (const [cr, cc] of sorted) {
+        if (n >= slotsToPlace) break;
+        if (grid[cr][cc] !== C.CELL_VOID) continue;
+        grid[cr][cc] = C.CELL_SLOT;
+        placed++;
+        n++;
+      }
+    }
+    return placed;
+  }
+
+  function tryInjectThirdRoute(grid, routes, junctions) {
+    if (routes.length < 2) return null;
+    const altPath = routes[1];
+    const forkResult = injectForkMerge(grid, altPath);
+    if (!forkResult) return null;
+    const allRoutes = enumerateRoutes(grid, routes[0][0], routes[0][routes[0].length - 1], 6);
+    if (allRoutes.length < 3) return null;
+    return {
+      routes: allRoutes.slice(0, 3),
+      junctions: junctions.concat(forkResult.junctions),
+      shorterRoute: forkResult.shorterRoute,
+    };
+  }
+
   function generateSerpentinePath() {
     const left = 2;
     const right = LAST_COL - 2;
@@ -211,7 +439,7 @@
             path.push([r, c]);
           }
         } else {
-          const span = 3 + Math.floor(Math.random() * 4);
+          const span = 2 + Math.floor(Math.random() * 3);
           const dir = goingRight ? 1 : -1;
           for (let s = 0; s < span; s++) {
             const nc = c + dir;
@@ -244,8 +472,8 @@
       while (r < LAST_ROW && stuck < 100) {
         const options = [];
         if (r < LAST_ROW) options.push([1, 0, 0.55]);
-        if (c > 1) options.push([0, -1, 0.2]);
-        if (c < LAST_COL - 1) options.push([0, 1, 0.2]);
+        if (c > 1) options.push([0, -1, 0.12]);
+        if (c < LAST_COL - 1) options.push([0, 1, 0.12]);
         if (r > 0 && Math.random() < 0.06) options.push([-1, 0, 0.05]);
 
         let picked = null;
@@ -577,26 +805,33 @@
     return mod;
   }
 
-  function validateGenerated(grid, spawn, goal, routes) {
-    if (!spawn || !goal || !routes || routes.length < MIN_ROUTES) return false;
+  function validateGenerated(grid, spawn, goal, routes, opts) {
+    opts = opts || {};
+    const minRoutes = opts.minRoutes != null ? opts.minRoutes : MIN_ROUTES;
+    const minPath = opts.minPathLen != null ? opts.minPathLen : MIN_PATH_LEN;
+    const maxPath = opts.maxPathLen != null ? opts.maxPathLen : MAX_PATH_LEN;
+    const minTurns = opts.minTurns != null ? opts.minTurns : MIN_TURNS;
+
+    if (!spawn || !goal || !routes || routes.length < minRoutes) return false;
     if (spawn[0] !== 0 || goal[0] !== LAST_ROW) return false;
     if (!isWalkableCell(grid, spawn[0], spawn[1])) return false;
     if (!isWalkableCell(grid, goal[0], goal[1])) return false;
 
     for (const route of routes) {
-      if (route.length < MIN_PATH_LEN || route.length > MAX_PATH_LEN) return false;
+      if (route.length < minPath || route.length > maxPath) return false;
       if (route[0][0] !== spawn[0] || route[0][1] !== spawn[1]) return false;
       const end = route[route.length - 1];
       if (end[0] !== goal[0] || end[1] !== goal[1]) return false;
     }
 
-    if (countTurns(routes[0]) < MIN_TURNS) return false;
+    if (countTurns(routes[0]) < minTurns) return false;
 
     const stats = countCells(grid);
-    if (stats.slots < MIN_SLOTS || stats.slots > MAX_SLOTS + 2) return false;
+    if (stats.slots < MIN_SLOTS || stats.slots > MAX_TOTAL_SLOTS) return false;
+    if (stats.path + stats.tunnels > MAX_PATH_CELLS) return false;
 
     const enumerated = enumerateRoutes(grid, spawn, goal, 6);
-    if (enumerated.length < MIN_ROUTES) return false;
+    if (enumerated.length < minRoutes) return false;
 
     if (!PathLib) return true;
     try {
@@ -609,7 +844,10 @@
 
   function buildMazeMap(mainPath, meta) {
     meta = meta || {};
-    if (!mainPath || mainPath.length < MIN_PATH_LEN) return null;
+    const requireFork = meta.requireFork !== false;
+    const allowTunnels = meta.allowTunnels !== false;
+    const minPathLen = meta.minPathLen || MIN_PATH_LEN;
+    if (!mainPath || mainPath.length < minPathLen) return null;
 
     const spawn = mainPath[0];
     const goal = mainPath[mainPath.length - 1];
@@ -618,28 +856,67 @@
     const grid = blankGrid();
     placePath(grid, mainPath);
 
-    const forkResult = injectForkMerge(grid, mainPath);
-    if (!forkResult) return null;
+    let routes;
+    let junctions;
+    let shorterRoute = 0;
 
-    const { routes, junctions, shorterRoute } = forkResult;
-    const tunnelCells = markTunnelSegments(grid, routes, shorterRoute);
-    const slotCount = placeChokepointSlots(grid, routes);
+    if (requireFork) {
+      const forkResult = injectForkMerge(grid, mainPath);
+      if (!forkResult) return null;
+      routes = forkResult.routes;
+      junctions = forkResult.junctions;
+      shorterRoute = forkResult.shorterRoute;
 
-    if (!validateGenerated(grid, spawn, goal, routes)) return null;
+      if (meta.tripleFork) {
+        const third = tryInjectThirdRoute(grid, routes, junctions);
+        if (third) {
+          routes = third.routes;
+          junctions = third.junctions;
+          shorterRoute = third.shorterRoute;
+        }
+      }
+    } else {
+      routes = [mainPath];
+      junctions = [];
+    }
+
+    const tunnelCells = allowTunnels ? markTunnelSegments(grid, routes, shorterRoute) : [];
+    let slotCount = placeChokepointSlots(grid, routes);
+    slotCount += placeSlotPlatforms(grid, routes, {
+      platformSlots: meta.platformSlots != null
+        ? meta.platformSlots
+        : 8 + Math.floor(Math.random() * 7),
+    });
+    const islandBonus = meta.islandBonus || 0;
+    slotCount += placeIslandSlots(grid, 6 + Math.floor(Math.random() * 5) + islandBonus);
+    if (meta.extraSlots) {
+      slotCount += placeChokepointSlots(grid, routes);
+    }
+
+    const valOpts = {
+      minRoutes: requireFork ? MIN_ROUTES : 1,
+      minPathLen: meta.minPathLen,
+      maxPathLen: meta.maxPathLen,
+      minTurns: meta.minTurns,
+    };
+    if (!validateGenerated(grid, spawn, goal, routes, valOpts)) return null;
 
     const stats = countCells(grid);
     const code = meta.code || Math.floor(100 + Math.random() * 900);
     const label = meta.label || 'MAZE';
     const baseHpMod = meta.hpMod || 1.05;
     const hpMod = hpModForMaze(baseHpMod, routes);
+    let rewardMod = meta.rewardMod != null ? meta.rewardMod : 1 + (hpMod - 1) * 0.55;
+    let countMod = meta.countMod || 0;
 
     return {
       id: 'random',
       templateId: meta.templateId || 'procedural',
+      themeLabel: meta.themeLabel || label,
       name: 'RANDOM ' + label + '-' + code,
       hpMod,
-      countMod: meta.countMod || 0,
-      rewardMod: 1 + (hpMod - 1) * 0.55,
+      countMod,
+      rewardMod,
       spawn,
       goal,
       grid,
@@ -673,27 +950,126 @@
     });
   }
 
+  function tryTheme(themeId, code) {
+    const baseMeta = { code, templateId: themeId };
+
+    if (themeId === 'fortress') {
+      for (let i = 0; i < 20; i++) {
+        const path = generateCompactSpiral();
+        if (!path) continue;
+        const map = buildMazeMap(path, Object.assign({}, baseMeta, {
+          themeLabel: 'FORTRESS',
+          label: 'FORTRESS',
+          hpMod: 0.95,
+          extraSlots: true,
+          minPathLen: 35,
+          maxPathLen: 60,
+          minTurns: 8,
+        }));
+        if (map) return map;
+      }
+      return null;
+    }
+
+    if (themeId === 'corridor') {
+      for (let i = 0; i < 20; i++) {
+        const path = generateLongCorridor();
+        if (!path) continue;
+        const map = buildMazeMap(path, Object.assign({}, baseMeta, {
+          themeLabel: 'CORRIDOR',
+          label: 'CORRIDOR',
+          requireFork: false,
+          allowTunnels: false,
+          hpMod: 1.02,
+          countMod: -1,
+          rewardMod: 1.15,
+          minPathLen: 55,
+          maxPathLen: 95,
+        }));
+        if (map) return map;
+      }
+      return null;
+    }
+
+    if (themeId === 'rift') {
+      for (let i = 0; i < 25; i++) {
+        let path = generateWindyPath();
+        if (!path) path = generateSerpentinePath();
+        if (!path) continue;
+        const map = buildMazeMap(path, Object.assign({}, baseMeta, {
+          themeLabel: 'RIFT',
+          label: 'RIFT',
+          tripleFork: true,
+          hpMod: 1.08,
+          rewardMod: 1.12,
+        }));
+        if (map) return map;
+      }
+      return null;
+    }
+
+    if (themeId === 'chaos') {
+      for (let i = 0; i < 25; i++) {
+        let path = generateWindyPath();
+        if (!path) path = generateSerpentinePath();
+        if (!path) continue;
+        const map = buildMazeMap(path, Object.assign({}, baseMeta, {
+          themeLabel: 'CHAOS',
+          label: 'CHAOS',
+          hpMod: 1.1,
+          islandBonus: 4,
+        }));
+        if (map) return map;
+      }
+      return null;
+    }
+
+    for (let i = 0; i < 20; i++) {
+      let path = generateSerpentinePath();
+      if (!path) path = generateWindyPath();
+      if (!path) continue;
+      const map = buildMazeMap(path, Object.assign({}, baseMeta, {
+        themeLabel: 'MAZE',
+        label: 'MAZE',
+        hpMod: 1.05,
+        countMod: 0,
+      }));
+      if (map) return map;
+    }
+    return null;
+  }
+
   function generateRandomMap() {
-    for (let i = 0; i < 30; i++) {
+    const code = Math.floor(100 + Math.random() * 900);
+    const themes = ['maze', 'maze', 'fortress', 'fortress', 'fortress', 'corridor', 'rift', 'chaos'];
+    const order = themes.slice().sort(() => Math.random() - 0.5);
+
+    for (const themeId of order) {
+      const map = tryTheme(themeId, code);
+      if (map) return map;
+    }
+
+    for (let i = 0; i < 15; i++) {
       let pathCells = generateSerpentinePath();
       if (!pathCells) pathCells = generateWindyPath();
       const map = buildMazeMap(pathCells, {
         templateId: 'procedural',
+        themeLabel: 'MAZE',
         label: 'MAZE',
         hpMod: 1.05,
         countMod: 0,
-        code: Math.floor(100 + Math.random() * 900),
+        code,
       });
       if (map) return map;
     }
 
-    const order = PATH_TEMPLATES.slice();
-    for (let i = order.length - 1; i > 0; i--) {
+    const templateOrder = PATH_TEMPLATES.slice();
+    for (let i = templateOrder.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [order[i], order[j]] = [order[j], order[i]];
+      [templateOrder[i], templateOrder[j]] = [templateOrder[j], templateOrder[i]];
     }
 
-    for (const template of order) {
+    for (const template of templateOrder) {
       const mirrors = Math.random() < 0.5 ? [false, true] : [true, false];
       const shifts = [0];
       if (Math.random() < 0.45) shifts.push(-1, 1);
@@ -740,11 +1116,14 @@
     generateRandomMap,
     generateSerpentinePath,
     generateWindyPath,
+    generateCompactSpiral,
     buildMazeMap,
     buildFromTemplate,
     expandCorners,
     injectForkMerge,
     placeChokepointSlots,
+    placeIslandSlots,
+    placeSlotPlatforms,
     markTunnelSegments,
     enumerateRoutes,
     countTurns,

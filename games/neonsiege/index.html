@@ -30,6 +30,14 @@
         <div class="status-line status-combo hidden" id="comboDisplay">COMBO x1.0</div>
       </div>
 
+      <div class="game-hud-top-left">
+        <div class="strike-charges hidden" id="strikeCharges" aria-live="polite"></div>
+      </div>
+
+      <div class="game-hud-bottom">
+        <div class="bar-hint hidden" id="barHint" aria-live="polite"></div>
+      </div>
+
       <div class="tower-radial hidden" id="towerRadial">
         <div class="radial-ring" aria-hidden="true"></div>
         <div class="radial-hub" id="towerPanelInfo">PULSE T1</div>
@@ -61,7 +69,7 @@
             <span class="material-symbols-outlined" aria-hidden="true">shuffle</span>RANDOM
           </button>
         </div>
-        <div class="map-picker-sub" id="randomMapHint">Winding maze · route splits · tunnel segments</div>
+        <div class="map-picker-sub" id="randomMapHint">Narrow corridors · slot islands in the void · 24+ build sites</div>
         <button type="button" class="start-btn md-btn md-btn-filled md-ripple" id="startBtn"><span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>PLAY</button>
       </div>
 
@@ -92,9 +100,8 @@
       </div>
     </div>
 
-    <div class="bar-hint hidden" id="barHint" aria-live="polite"></div>
-
     <div class="tower-bar" id="towerBar">
+      <div class="tower-bar-scroll">
       <div class="tower-bar-row tower-bar-build">
       <button type="button" class="action-btn codex-btn md-ripple" id="codexBtn" title="Tower & enemy guide">
         <span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
@@ -111,8 +118,9 @@
       <button type="button" class="tower-btn frost-tower md-ripple" data-type="frost">
         <span>FROST</span><span class="tower-cost">85</span>
       </button>
-      </div>
-      <div class="tower-bar-row tower-bar-build tower-bar-build-2">
+      <button type="button" class="tower-btn flak-tower md-ripple" data-type="flak">
+        <span>FLAK</span><span class="tower-cost">75</span>
+      </button>
       <button type="button" class="tower-btn tesla-tower md-ripple" data-type="tesla">
         <span>TESLA</span><span class="tower-cost">115</span>
       </button>
@@ -122,13 +130,43 @@
       <button type="button" class="tower-btn mortar-tower md-ripple" data-type="mortar">
         <span>MORTAR</span><span class="tower-cost">130</span>
       </button>
+      <button type="button" class="tower-btn lance-tower md-ripple" data-type="lance">
+        <span>LANCE</span><span class="tower-cost">155</span>
+      </button>
+      <button type="button" class="tower-btn reactor-tower md-ripple" data-type="reactor">
+        <span>REACT</span><span class="tower-cost">110</span>
+      </button>
+      <button type="button" class="tower-btn crypt-tower md-ripple" data-type="crypt">
+        <span>CRYPT</span><span class="tower-cost">145</span>
+      </button>
+      </div>
       </div>
       <div class="tower-bar-row tower-bar-actions">
       <button type="button" class="action-btn speed-btn md-ripple" id="speedBtn" title="Toggle game speed (1× / 2× / 4× / 6×)">1×</button>
+      <button type="button" class="action-btn arsenal-btn md-ripple" id="arsenalBtn" title="ARSENAL — buy between waves">
+        <span class="material-symbols-outlined" aria-hidden="true">local_mall</span>ARSENAL
+      </button>
       <button type="button" class="action-btn md-ripple" id="waveBtn">WAVE ▶</button>
       <button type="button" class="action-btn overcharge-btn md-ripple" id="overchargeBtn" title="All towers fire ~70% faster for 5s · once per wave">
         <span class="material-symbols-outlined" aria-hidden="true">bolt</span>BOOST
       </button>
+      </div>
+    </div>
+
+    <div class="arsenal-overlay hidden" id="arsenalOverlay">
+      <div class="arsenal-panel" id="arsenalPanel">
+        <div class="arsenal-header">
+          <div class="arsenal-header-text">
+            <span class="arsenal-title">ARSENAL</span>
+            <span class="arsenal-subtitle">Between waves only · purchases scale with wave</span>
+          </div>
+          <span class="arsenal-limit" id="arsenalBuyLimit">2 purchases left</span>
+          <span class="arsenal-gold" id="arsenalGold"></span>
+          <button type="button" class="arsenal-close md-btn md-btn-outlined md-ripple" id="arsenalCloseBtn" aria-label="Close">
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+          </button>
+        </div>
+        <div class="arsenal-body" id="arsenalBody"></div>
       </div>
     </div>
 
@@ -148,6 +186,7 @@
   </div>
 
 <script src="../../js/audio.js"></script>
+<script src="../../js/perf.js"></script>
 <script src="../../js/game.js"></script>
 <script src="../../js/economy-api.js"></script>
 <script src="../../js/neonsiege/constants.js"></script>
@@ -155,14 +194,18 @@
 <script src="../../js/neonsiege/mapgen.js"></script>
 <script src="../../js/neonsiege/maps.js"></script>
 <script src="../../js/neonsiege/path.js"></script>
+<script src="../../js/neonsiege/placement.js"></script>
 <script src="../../js/neonsiege/entities.js"></script>
 <script src="../../js/neonsiege/systems.js"></script>
 <script src="../../js/neonsiege/render.js"></script>
+<script src="../../js/neonsiege/icons.js"></script>
 <script src="../../js/neonsiege/codex.js"></script>
+<script src="../../js/neonsiege/arsenal-ui.js"></script>
 <script src="../../js/neonsiege/input.js"></script>
 <script src="../../js/neonsiege/game.js"></script>
 <script>
 const canvas = document.getElementById('c');
+NeonSiegeArsenalUI.populateArsenal(document.getElementById('arsenalBody'));
 const game = new NeonSiegeGame({
   canvas,
   ui: {
@@ -194,6 +237,9 @@ const game = new NeonSiegeGame({
     sellLabel: document.getElementById('sellLabel'),
     waveBtn: document.getElementById('waveBtn'),
     overchargeBtn: document.getElementById('overchargeBtn'),
+    arsenalBtn: document.getElementById('arsenalBtn'),
+    arsenalOverlay: document.getElementById('arsenalOverlay'),
+    arsenalPanel: document.getElementById('arsenalPanel'),
     barHint: document.getElementById('barHint'),
     codexOverlay: document.getElementById('codexOverlay'),
     codexBody: document.getElementById('codexBody'),
@@ -202,7 +248,7 @@ const game = new NeonSiegeGame({
 
 NeonSiegeCodex.populateCodex(document.getElementById('codexBody'));
 game.init();
-preloadSfx(['neonsiege.build', 'neonsiege.shoot', 'neonsiege.hit', 'neonsiege.wave', 'neonsiege.coreHit', 'neonsiege.upgrade']);
+preloadSfx(['neonsiege.build', 'neonsiege.shoot', 'neonsiege.hit', 'neonsiege.wave', 'neonsiege.coreHit', 'neonsiege.upgrade', 'neonsiege.strike']);
 initGameCommon(canvas, 400, 600, () => {
   game.resize();
   if (game.state === 'title') game.init();

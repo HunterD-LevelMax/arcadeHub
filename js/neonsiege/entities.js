@@ -12,6 +12,12 @@
     nextId = 1;
   }
 
+  let _techProvider = () => ({});
+
+  function setTechProvider(fn) {
+    _techProvider = fn || (() => ({}));
+  }
+
   class Tower {
     constructor(type, r, c) {
       this.id = uid();
@@ -24,18 +30,21 @@
       this.recoil = 0;
       this.aimAngle = 0;
       this.targetPriority = 'first';
+      this.lanceTargetId = null;
+      this.lanceRamp = 1;
     }
 
     get stats() {
-      return B.getTowerStats(this.type, this.tier);
+      return B.getTowerStats(this.type, this.tier, _techProvider());
     }
 
-    upgradeCost() {
-      return B.getUpgradeCost(this);
+    upgradeCost(wave) {
+      return B.getUpgradeCost(this, wave);
     }
 
-    sellValue() {
-      return Math.floor(this.totalSpent * 0.5);
+    sellValue(salvageBonus) {
+      const base = 0.5 + (salvageBonus || 0);
+      return Math.floor(this.totalSpent * base);
     }
   }
 
@@ -63,6 +72,7 @@
       this.spawnIndex = spawnIndex;
       this.slowTimer = 0;
       this.slowFactor = 1;
+      this.stunTimer = 0;
       this.trailPhase = Math.random() * Math.PI * 2;
       this.bossPhases = 0;
       this.inTunnel = false;
@@ -79,6 +89,10 @@
     }
 
     move(dt, pathFinder, enemies) {
+      if (this.stunTimer > 0) {
+        this.stunTimer -= dt;
+        return false;
+      }
       if (this.slowTimer > 0) {
         this.slowTimer -= dt;
         if (this.slowTimer <= 0) this.slowFactor = 1;
@@ -286,5 +300,6 @@
     laneOffsetForIndex,
     resetIds,
     uid,
+    setTechProvider,
   };
 })();

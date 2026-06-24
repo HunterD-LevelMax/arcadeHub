@@ -5,7 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#050510">
   <title>ARCADE HUB</title>
-  <link rel="manifest" href="manifest.webmanifest">
+  <script>
+    if (location.protocol !== 'file:') {
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = 'manifest.webmanifest';
+      document.head.appendChild(link);
+    }
+  </script>
   <link rel="icon" href="icon.png" type="image/png">
   <link rel="apple-touch-icon" href="icon.png">
   <link rel="stylesheet" href="style/main.css">
@@ -71,7 +78,7 @@
           <div class="preview-icon material-symbols-outlined" aria-hidden="true">diamond</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_01 / 11</div>
+          <div class="card-number">GAME_01 / 12</div>
           <div class="card-title">PRISM CASCADE</div>
           <div class="card-desc">Drag and swap glowing gems, chain matches into cascading combos, race the clock.</div>
           <div class="card-footer">
@@ -87,8 +94,8 @@
         </div>
       </a>
 
-      <!-- Frogger -->
-      <a class="game-card md-card md-ripple" data-game-id="frogger" data-rarity="rare" href="#" style="--card-accent: #39ff14; --preview-bg: #021200;">
+      <!-- NEON SIEGE -->
+      <a class="game-card md-card md-ripple" data-game-id="neonsiege" data-rarity="rare" href="#" style="--card-accent: #ffcc00; --preview-bg: #120f00;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -96,18 +103,18 @@
           <div class="preview-corner tr"></div>
           <div class="preview-corner bl"></div>
           <div class="preview-corner br"></div>
-          <div class="preview-badge">CLASSIC</div>
-          <canvas id="froggerCanvas"></canvas>
-          <div class="preview-icon material-symbols-outlined" aria-hidden="true">smart_toy</div>
+          <div class="preview-badge">STRATEGY</div>
+          <canvas id="neonsiegeCanvas"></canvas>
+          <div class="preview-icon material-symbols-outlined" aria-hidden="true">castle</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_02 / 11</div>
-          <div class="card-title">CROSSY FROG</div>
-          <div class="card-desc">Help the frog cross the road and river. Avoid cars, jump on logs and get to safety.</div>
+          <div class="card-number">GAME_02 / 12</div>
+          <div class="card-title">NEON SIEGE</div>
+          <div class="card-desc">Build geometric towers, stop neon waves, defend the core. Two maps, combos, and overcharge.</div>
           <div class="card-footer">
             <div class="card-tags">
-              <span class="tag">ARCADE</span>
-              <span class="tag">CLASSIC</span>
+              <span class="tag">TOWER DEFENSE</span>
+              <span class="tag">WAVES</span>
             </div>
             <div class="play-btn md-btn md-btn-filled md-ripple">
               <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
@@ -131,7 +138,7 @@
           <div class="preview-icon material-symbols-outlined" aria-hidden="true">grid_view</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_03 / 11</div>
+          <div class="card-number">GAME_03 / 12</div>
           <div class="card-title">SPACE BLOCKS</div>
           <div class="card-desc">Classic block puzzle game. Rotate and place falling tetrominos, clear lines and get highest score.</div>
           <div class="card-footer">
@@ -161,7 +168,7 @@
           <div class="preview-icon material-symbols-outlined" aria-hidden="true">auto_awesome</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_04 / 11</div>
+          <div class="card-number">GAME_04 / 12</div>
           <div class="card-title">SNAKE</div>
           <div class="card-desc">Classic snake game. Eat food, grow longer, don't hit yourself or the walls.</div>
           <div class="card-footer">
@@ -191,7 +198,7 @@
           <div class="preview-icon material-symbols-outlined" aria-hidden="true">rocket_launch</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_05 / 11</div>
+          <div class="card-number">GAME_05 / 12</div>
           <div class="card-title">ASTEROIDS</div>
           <div class="card-desc">Destroy asteroids, dodge debris. Survive in open space as long as you can.</div>
           <div class="card-footer">
@@ -221,7 +228,7 @@
           <div class="preview-icon material-symbols-outlined" style="animation-delay: -1.5s;" aria-hidden="true">flight</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_06 / 11</div>
+          <div class="card-number">GAME_06 / 12</div>
           <div class="card-title">FLY HARD</div>
           <div class="card-desc">One tap and the bird flies. Dodge pipes, collect points, beat your high score.</div>
           <div class="card-footer">
@@ -251,7 +258,7 @@
           <div class="preview-icon material-symbols-outlined" style="animation-delay: -0.8s;" aria-hidden="true">north</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_07 / 11</div>
+          <div class="card-number">GAME_07 / 12</div>
           <div class="card-title">SPACE HOPPER</div>
           <div class="card-desc">Jump higher on platforms. Moving, breaking, spring loaded - don't let yourself fall.</div>
           <div class="card-footer">
@@ -279,7 +286,7 @@
           <div class="preview-icon material-symbols-outlined" aria-hidden="true">smart_toy</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_08 / 11</div>
+          <div class="card-number">GAME_08 / 12</div>
           <div class="card-title">SPACE ALIENS</div>
           <div class="card-desc">Defend Earth from alien waves. Shoot aliens, use bombs, survive as long as possible.</div>
           <div class="card-footer">
@@ -309,7 +316,7 @@
           <div class="preview-icon material-symbols-outlined" aria-hidden="true">grid_4x4</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_09 / 11</div>
+          <div class="card-number">GAME_09 / 12</div>
           <div class="card-title">NEON 2048</div>
           <div class="card-desc">Slide tiles, merge matching numbers, and chase the legendary 2048 tile.</div>
           <div class="card-footer">
@@ -339,7 +346,7 @@
           <div class="preview-icon material-symbols-outlined" aria-hidden="true">apartment</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_10 / 11</div>
+          <div class="card-number">GAME_10 / 12</div>
           <div class="card-title">STACK TOWER</div>
           <div class="card-desc">Tap to drop blocks, align perfectly, and build the tallest neon tower you can.</div>
           <div class="card-footer">
@@ -369,7 +376,7 @@
           <div class="preview-icon material-symbols-outlined" aria-hidden="true">speed</div>
         </div>
         <div class="card-body">
-          <div class="card-number">GAME_11 / 11</div>
+          <div class="card-number">GAME_11 / 12</div>
           <div class="card-title">THRUST RUNNER</div>
           <div class="card-desc">Hold to thrust, release to fall. Weave through the tunnel, dodge obstacles, collect crystals.</div>
           <div class="card-footer">
@@ -385,8 +392,8 @@
         </div>
       </a>
 
-      <!-- NEON SIEGE -->
-      <a class="game-card md-card md-ripple" data-game-id="neonsiege" data-rarity="rare" href="#" style="--card-accent: #ffcc00; --preview-bg: #120f00;">
+      <!-- Frogger -->
+      <a class="game-card md-card md-ripple" data-game-id="frogger" data-rarity="rare" href="#" style="--card-accent: #39ff14; --preview-bg: #021200;">
         <div class="card-accent-bar"></div>
         <div class="card-glow"></div>
         <div class="card-preview">
@@ -394,18 +401,18 @@
           <div class="preview-corner tr"></div>
           <div class="preview-corner bl"></div>
           <div class="preview-corner br"></div>
-          <div class="preview-badge">STRATEGY</div>
-          <canvas id="neonsiegeCanvas"></canvas>
-          <div class="preview-icon material-symbols-outlined" aria-hidden="true">castle</div>
+          <div class="preview-badge">CLASSIC</div>
+          <canvas id="froggerCanvas"></canvas>
+          <div class="preview-icon material-symbols-outlined" aria-hidden="true">smart_toy</div>
         </div>
         <div class="card-body">
           <div class="card-number">GAME_12 / 12</div>
-          <div class="card-title">NEON SIEGE</div>
-          <div class="card-desc">Build geometric towers, stop neon waves, defend the core. Two maps, combos, and overcharge.</div>
+          <div class="card-title">CROSSY FROG</div>
+          <div class="card-desc">Help the frog cross the road and river. Avoid cars, jump on logs and get to safety.</div>
           <div class="card-footer">
             <div class="card-tags">
-              <span class="tag">TOWER DEFENSE</span>
-              <span class="tag">WAVES</span>
+              <span class="tag">ARCADE</span>
+              <span class="tag">CLASSIC</span>
             </div>
             <div class="play-btn md-btn md-btn-filled md-ripple">
               <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>
@@ -453,11 +460,13 @@
     </div>
   </div>
 
+  <script src="js/perf.js"></script>
   <script src="js/haptics.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/router.js"></script>
   <script src="js/economy-api.js"></script>
   <script src="js/economy.js"></script>
+  <script src="js/hub-previews.js"></script>
   <script src="js/main.js"></script>
 
 </body>

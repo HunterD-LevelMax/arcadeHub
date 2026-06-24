@@ -270,6 +270,10 @@ body::after {
   50% { opacity: 1; transform: scale(1.5); }
 }
 
+body.game-active .stars .star {
+  animation-play-state: paused;
+}
+
 .container {
   position: relative;
   z-index: 1;
@@ -586,6 +590,8 @@ body::after {
   text-decoration: none;
   display: block;
   overflow: hidden;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
 
 }
 

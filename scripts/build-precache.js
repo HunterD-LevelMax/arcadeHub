@@ -4,10 +4,15 @@ const path = require("path");
 const ROOT = path.join(__dirname, "..");
 const SKIP = new Set([".git", "node_modules", "scripts", ".cursor"]);
 const EXTRA = ["index.html", "privacy.html", "manifest.webmanifest", "icon.png", "sw.js"];
+const BGM_FILES = ["music_1.mp3", "music_2.mp3", "music_3.mp3"];
+
+function shouldSkipDir(name) {
+  return name.endsWith("_files") || name.includes("Принципы") || name === "tower_gamedesign";
+}
 
 function walk(dir, out) {
   for (const name of fs.readdirSync(dir)) {
-    if (SKIP.has(name)) continue;
+    if (SKIP.has(name) || shouldSkipDir(name)) continue;
     const full = path.join(dir, name);
     const rel = path.relative(ROOT, full).replace(/\\/g, "/");
     if (fs.statSync(full).isDirectory()) walk(full, out);
@@ -15,8 +20,43 @@ function walk(dir, out) {
   }
 }
 
+function walkGames(out) {
+  const gamesDir = path.join(ROOT, "games");
+  if (!fs.existsSync(gamesDir)) return;
+
+  for (const gameId of fs.readdirSync(gamesDir)) {
+    if (SKIP.has(gameId) || shouldSkipDir(gameId)) continue;
+    const gameDir = path.join(gamesDir, gameId);
+    if (!fs.statSync(gameDir).isDirectory()) continue;
+
+    const indexHtml = path.join(gameDir, "index.html");
+    if (fs.existsSync(indexHtml)) {
+      out.add(`./games/${gameId}/index.html`);
+    }
+
+    const audioDir = path.join(gameDir, "audio");
+    if (fs.existsSync(audioDir)) walk(audioDir, out);
+  }
+}
+
+function walkAudio(out) {
+  const uiDir = path.join(ROOT, "audio", "sfx", "ui");
+  if (fs.existsSync(uiDir)) walk(uiDir, out);
+
+  const bgmDir = path.join(ROOT, "audio", "bgm");
+  if (!fs.existsSync(bgmDir)) return;
+  for (const file of BGM_FILES) {
+    const full = path.join(bgmDir, file);
+    if (fs.existsSync(full)) {
+      out.add("./audio/bgm/" + file);
+    }
+  }
+}
+
 const files = new Set(EXTRA.map((f) => "./" + f));
-for (const dir of ["games", "js", "style", "audio", "fonts"]) {
+walkGames(files);
+walkAudio(files);
+for (const dir of ["js", "style", "fonts"]) {
   const abs = path.join(ROOT, dir);
   if (fs.existsSync(abs)) walk(abs, files);
 }

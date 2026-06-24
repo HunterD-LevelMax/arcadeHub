@@ -23,6 +23,7 @@
     "stacktower.streak": "ui.success",
     "neonsiege.gameover": "ui.error",
     "neonsiege.victory": "ui.success",
+    "neonsiege.strike": "ui.hit",
   };
 
   const HAPTIC_SFX = {

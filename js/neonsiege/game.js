@@ -53,13 +53,23 @@
       this.waveSystem = new Sys.WaveSystem();
       this.economy = new Sys.EconomySystem();
       this.combat = new Sys.CombatSystem();
+      this.arsenal = new Sys.ArsenalSystem();
       this.renderer = new Render.NeonSiegeRenderer(this.canvas);
+
+      Ent.setTechProvider(() => this.arsenal.getTechMods());
 
       this.mapGrid = [];
       this.pathFinder = null;
       this.metrics = Path.computeGridMetrics(C.BASE_W, C.BASE_H);
       this.barHintTimer = null;
       this._lastGold = B.START_GOLD;
+      this._slotTierCache = null;
+      this._slotTierCacheKey = '';
+      this._lastHintCell = '';
+      this._hudScore = -1;
+      this._hudGold = -1;
+      this._hudWave = '';
+      this._hudHp = -1;
       this.gameSpeed = 1;
 
       new window.NeonSiegeInput.InputController(this);
@@ -87,7 +97,29 @@
         }
       );
       this.pathFinder.setMetrics(this.metrics);
+      this._invalidateSlotTiers();
       this._updateMapTitle();
+      this._updateRandomMapHint();
+    }
+
+    _updateRandomMapHint() {
+      const hint = document.getElementById('randomMapHint');
+      if (!hint || !Maps.isRandomIndex(this.mapIndex) || !this.currentMap) return;
+      const theme = this.currentMap.themeLabel || this.currentMap.templateId || 'MAZE';
+      const routes = this.currentMap.routeCount || 1;
+      const reward = this.currentMap.rewardMod ? Math.round((this.currentMap.rewardMod - 1) * 100) : 0;
+      let text = theme.toUpperCase() + ' · ' + routes + ' route' + (routes > 1 ? 's' : '');
+      const slots = this.currentMap.slotCount;
+      if (slots) text += ' · ' + slots + ' slots';
+      text += ' · narrow corridors & slot islands';
+      if (reward > 0) text += ' · +' + reward + '% gold';
+      if (this.currentMap.hpMod && this.currentMap.hpMod < 1) {
+        text += ' · easier';
+      } else if (this.currentMap.hpMod && this.currentMap.hpMod > 1.08) {
+        text += ' · harder';
+      }
+      hint.textContent = text;
+      hint.classList.add('visible');
     }
 
     _updateMapTitle() {
@@ -104,6 +136,7 @@
       Ent.resetIds();
       this.loadMap();
       this.economy.reset();
+      this.arsenal.reset();
       this.wave = 0;
       this.baseHp = B.BASE_HP_MAX;
       this.endless = false;
@@ -136,7 +169,14 @@
       this.killStreak = 0;
       this.killStreakTimer = 0;
       this._lastGold = B.START_GOLD;
+      this._hudScore = -1;
+      this._hudGold = -1;
+      this._hudWave = '';
+      this._hudHp = -1;
       this.gameSpeed = 1;
+      this._slotTierCache = null;
+      this._slotTierCacheKey = '';
+      this._lastHintCell = '';
       this.hideBarHint();
       this.nextWaveModifier = this.waveSystem.rollModifier(2);
       this._refreshNextWaveQueue();
@@ -165,11 +205,25 @@
         }
       }
       this._lastGold = goldNow;
-      this.ui.score.textContent = this.score;
-      this.ui.gold.textContent = goldNow;
-      this.ui.wave.textContent = this.wave + (this.endless ? '+' : '');
-      this.ui.hp.textContent = this.baseHp;
-      this.ui.hpDisplay.classList.toggle('hp-low', this.baseHp <= 5);
+
+      if (this.score !== this._hudScore) {
+        this._hudScore = this.score;
+        this.ui.score.textContent = this.score;
+      }
+      if (goldNow !== this._hudGold) {
+        this._hudGold = goldNow;
+        this.ui.gold.textContent = goldNow;
+      }
+      const waveText = this.wave + (this.endless ? '+' : '');
+      if (waveText !== this._hudWave) {
+        this._hudWave = waveText;
+        this.ui.wave.textContent = waveText;
+      }
+      if (this.baseHp !== this._hudHp) {
+        this._hudHp = this.baseHp;
+        this.ui.hp.textContent = this.baseHp;
+        this.ui.hpDisplay.classList.toggle('hp-low', this.baseHp <= 5);
+      }
       this._updateComboGlow();
       this.updateStatusBar();
     }
@@ -184,9 +238,7 @@
       let mult = this.currentMap && this.currentMap.rewardMod ? this.currentMap.rewardMod : 1;
       const mod = B.getModifierDef(this.currentWaveModifier);
       if (mod && mod.rewardMult) mult *= mod.rewardMult;
-      if (this.endless && this.wave > 18) {
-        mult *= 1 + Math.min(0.4, (this.wave - 18) * 0.028);
-      }
+      mult *= B.endlessRewardMult(this.wave, this.endless);
       return mult;
     }
 
@@ -229,7 +281,8 @@
         event.classList.remove('hidden');
       } else if (this.waveIntermissionActive) {
         const sec = Math.max(1, Math.ceil(this.waveIntermissionMs / 1000));
-        event.textContent = 'NEXT ' + sec + 's';
+        const bonus = this._earlyStartBonus();
+        event.textContent = bonus > 0 ? 'NEXT ' + sec + 's · +' + bonus + 'g' : 'NEXT ' + sec + 's';
         event.className = 'status-line status-event status-intermission';
         event.classList.remove('hidden');
       } else if (this.waveActive || this.waveSpawning) {
@@ -258,6 +311,29 @@
       this.ui.overchargeBtn.classList.toggle('active-charge', this.overchargeTimer > 0);
     }
 
+    _earlyStartBonus() {
+      if (!this.waveIntermissionActive || this.waveIntermissionMs <= 0) return 0;
+      return Math.floor(this.waveIntermissionMs / 1000) * C.EARLY_START_GOLD_PER_SEC;
+    }
+
+    _invalidateSlotTiers() {
+      this._slotTierCache = null;
+      this._slotTierCacheKey = '';
+    }
+
+    _getSlotTiers() {
+      if (!this.selectedTowerType || !this.pathFinder) return {};
+      const stats = B.getTowerStats(this.selectedTowerType, 0, this.arsenal.getTechMods());
+      const key = this.selectedTowerType + ':' + stats.range.toFixed(2) + ':' + this.towers.length;
+      if (this._slotTierCacheKey === key && this._slotTierCache) return this._slotTierCache;
+      const occupied = new Set(this.towers.map((t) => t.r + ',' + t.c));
+      this._slotTierCache = window.NeonSiegePlacement.computeSlotTiers(
+        this.pathFinder, this.mapGrid, stats.range, occupied, this.towers
+      );
+      this._slotTierCacheKey = key;
+      return this._slotTierCache;
+    }
+
     _refreshNextWaveQueue() {
       const nextWave = this.wave + 1;
       const modKey = nextWave <= 1 ? null : this.nextWaveModifier;
@@ -278,7 +354,10 @@
       const parts = this.waveSystem.preview(this.nextWaveQueue);
       const modName = modKey ? B.getModifierDef(modKey).name : '';
       const summary = parts.map((p) => p.name.slice(0, 3) + '×' + p.count).join(' ');
-      el.textContent = 'W' + nextWave + (modName ? ' ' + modName : '') + ' ' + summary;
+      const tips = this.waveSystem.getWaveCounterTips(this.nextWaveQueue, modKey);
+      let text = 'W' + nextWave + (modName ? ' ' + modName : '') + ' ' + summary;
+      if (tips) text += ' · TIP ' + tips;
+      el.textContent = text;
       el.classList.remove('hidden');
     }
 
@@ -300,18 +379,24 @@
     }
 
     updateTowerBar() {
+      const nextWave = this.wave + 1;
       document.querySelectorAll('.tower-btn').forEach((btn) => {
         const type = btn.dataset.type;
-        const cost = B.TOWER_TYPES[type].cost;
+        const def = B.TOWER_TYPES[type];
+        const cost = def.cost;
+        const unlocked = B.isTowerUnlocked(type, nextWave);
         const afford = this.economy.canAfford(cost);
         btn.querySelector('.tower-cost').textContent = cost;
         btn.classList.toggle('selected', this.selectedTowerType === type);
-        btn.classList.toggle('disabled', !afford);
-        if (!afford) {
+        btn.classList.toggle('disabled', !afford || !unlocked);
+        btn.classList.toggle('locked', !unlocked);
+        if (!unlocked) {
+          btn.title = 'Unlocks wave ' + (B.TOWER_UNLOCK[type] || 1);
+        } else if (!afford) {
           const need = cost - Math.floor(this.economy.gold);
           btn.title = 'Need ' + need + ' more gold';
         } else {
-          btn.title = B.TOWER_TYPES[type].name + ' — ' + cost + 'g';
+          btn.title = def.name + ' — ' + cost + 'g';
         }
       });
       const busy = this.waveActive || this.waveSpawning;
@@ -321,8 +406,11 @@
         this.ui.waveBtn.title = 'Wave in progress';
       } else if (this.waveIntermissionActive) {
         const sec = Math.max(1, Math.ceil(this.waveIntermissionMs / 1000));
-        this.ui.waveBtn.textContent = '▶ NOW (' + sec + 's)';
-        this.ui.waveBtn.title = 'Start next wave now (' + sec + 's on timer)';
+        const bonus = this._earlyStartBonus();
+        this.ui.waveBtn.textContent = bonus > 0 ? '▶ NOW (+' + bonus + 'g)' : '▶ NOW (' + sec + 's)';
+        this.ui.waveBtn.title = bonus > 0
+          ? 'Start now for +' + bonus + 'g bonus (' + sec + 's left on timer)'
+          : 'Start next wave now (' + sec + 's on timer)';
       } else {
         this.ui.waveBtn.textContent = 'WAVE ▶';
         this.ui.waveBtn.title = 'Start the next wave';
@@ -335,8 +423,151 @@
       } else if (!this.waveActive) {
         this.ui.overchargeBtn.title = 'BOOST — only during an active wave';
       } else {
-        this.ui.overchargeBtn.title = 'All towers fire ~70% faster for 5s · once per wave';
+        this.ui.overchargeBtn.title = 'All towers fire ~70% faster for ' +
+          Math.round((C.OVERCHARGE_MS + this.arsenal.getOverchargeBonusMs()) / 1000) +
+          's · once per wave';
       }
+      this._updateArsenalBar();
+      this._updateStrikeCharges();
+    }
+
+    _updateStrikeCharges() {
+      const el = document.getElementById('strikeCharges');
+      if (!el) return;
+      const total = this.arsenal.totalStrikeCharges();
+      if (total <= 0) {
+        el.classList.add('hidden');
+        el.innerHTML = '';
+        return;
+      }
+      el.classList.remove('hidden');
+      const parts = [];
+      Object.keys(B.ARSENAL_STRIKES).forEach((id) => {
+        const n = this.arsenal.strikeCharges[id] || 0;
+        if (n > 0) parts.push('<span class="strike-chip" data-strike="' + id + '">' +
+          B.ARSENAL_STRIKES[id].name + '×' + n + '</span>');
+      });
+      el.innerHTML = parts.join('');
+      el.querySelectorAll('.strike-chip').forEach((chip) => {
+        chip.classList.toggle('armed', this.arsenal.armedStrike === chip.dataset.strike);
+      });
+    }
+
+    _updateArsenalBar() {
+      const btn = this.ui.arsenalBtn;
+      const overlay = this.ui.arsenalOverlay;
+      const panel = this.ui.arsenalPanel;
+      if (!btn) return;
+      const canOpen = this.waveIntermissionActive && this.state === 'playing';
+      btn.classList.toggle('action-off', !canOpen);
+      const buyLimit = B.getArsenalBuyLimit(this.wave);
+      btn.title = canOpen
+        ? 'Open ARSENAL — buy strikes & tech (' + (buyLimit - this.arsenal.intermissionBuys) + ' left)'
+        : 'ARSENAL — available between waves';
+      if (overlay && !canOpen) overlay.classList.add('hidden');
+      if (!panel || (overlay && overlay.classList.contains('hidden'))) return;
+
+      const buysLeft = buyLimit - this.arsenal.intermissionBuys;
+      const limitEl = document.getElementById('arsenalBuyLimit');
+      if (limitEl) limitEl.textContent = buysLeft + ' purchase' + (buysLeft === 1 ? '' : 's') + ' left';
+      const goldEl = document.getElementById('arsenalGold');
+      if (goldEl) goldEl.textContent = Math.floor(this.economy.gold) + 'g';
+
+      panel.querySelectorAll('[data-strike-buy]').forEach((el) => {
+        const id = el.dataset.strikeBuy;
+        const def = B.ARSENAL_STRIKES[id];
+        const cost = B.getStrikeCost(id, this.wave);
+        const afford = this.economy.canAfford(cost);
+        const blocked = buysLeft <= 0;
+        el.classList.toggle('disabled', !afford || blocked);
+        el.querySelector('.arsenal-cost').textContent = cost + 'g';
+        const ownedEl = el.querySelector('.arsenal-owned');
+        const owned = this.arsenal.strikeCharges[id] || 0;
+        if (ownedEl) ownedEl.textContent = owned > 0 ? 'Owned ×' + owned : '';
+      });
+
+      panel.querySelectorAll('[data-tech-buy]').forEach((el) => {
+        const id = el.dataset.techBuy;
+        const def = B.ARSENAL_TECH[id];
+        const stacks = this.arsenal.getTechStacks(id);
+        const techMax = B.getTechMaxStacks(id, this.wave);
+        const maxed = stacks >= techMax;
+        const techCost = B.getTechCost(id, stacks, this.wave);
+        const cost = maxed ? 'MAX' : techCost + 'g';
+        const afford = maxed || this.economy.canAfford(techCost);
+        const blocked = buysLeft <= 0;
+        el.classList.toggle('disabled', !afford || blocked || maxed);
+        el.classList.toggle('maxed', maxed);
+        el.querySelector('.arsenal-cost').textContent = cost;
+        const stackEl = el.querySelector('.arsenal-stacks');
+        if (stackEl) stackEl.textContent = stacks > 0 ? '×' + stacks + '/' + techMax : '0/' + techMax;
+      });
+    }
+
+    toggleArsenal() {
+      if (!this.ui.arsenalOverlay) return;
+      if (!this.waveIntermissionActive || this.state !== 'playing') {
+        this.showBarHint('ARSENAL opens between waves');
+        return;
+      }
+      this.ui.arsenalOverlay.classList.toggle('hidden');
+      this._updateArsenalBar();
+    }
+
+    buyArsenalStrike(id) {
+      if (!this.waveIntermissionActive) return;
+      if (this.arsenal.buyStrike(id, this.economy, this.wave)) {
+        if (typeof hapticSuccess === 'function') hapticSuccess();
+        if (typeof playSfx === 'function') playSfx('neonsiege.upgrade', { volume: 0.4 });
+      } else if (typeof hapticError === 'function') hapticError();
+      this._updateArsenalBar();
+      this._updateStrikeCharges();
+      this.updateHud();
+    }
+
+    buyArsenalTech(id) {
+      if (!this.waveIntermissionActive) return;
+      if (this.arsenal.buyTech(id, this.economy, this.wave)) {
+        if (typeof hapticSuccess === 'function') hapticSuccess();
+        if (typeof playSfx === 'function') playSfx('neonsiege.upgrade', { volume: 0.4 });
+      } else if (typeof hapticError === 'function') hapticError();
+      this._updateArsenalBar();
+      this.updateHud();
+    }
+
+    armStrike(id) {
+      if (!this.arsenal.strikeCharges[id]) return;
+      if (this.arsenal.armedStrike === id) {
+        this.arsenal.disarmStrike();
+      } else {
+        this.arsenal.armStrike(id);
+        this.selectedTowerType = null;
+        this.hideTowerPanel();
+      }
+      this._updateStrikeCharges();
+      this.updateTowerBar();
+    }
+
+    fireArmedStrike(worldX, worldY) {
+      const id = this.arsenal.armedStrike;
+      if (!id || !this.waveActive) return false;
+      if (!this.arsenal.consumeStrike(id)) return false;
+      const fx = this.arsenal.applyStrike(id, worldX, worldY, this);
+      if (fx) {
+        if (fx.shake) this.shake = Math.max(this.shake, fx.shake);
+        if (fx.flash) this.screenFlash = new Ent.ScreenFlash(fx.flash.color, fx.flash.strength, fx.flash.duration);
+        (fx.rings || []).forEach((r) => {
+          this.fxRings.push(new Ent.RingFx(r.x, r.y, r.color, r.radius, r.duration));
+        });
+        (fx.particles || []).forEach((p) => {
+          this.particles.push(new Ent.Particle(p.x, p.y, p.color, p.n));
+        });
+      }
+      if (typeof hapticHeavy === 'function') hapticHeavy();
+      if (typeof playSfx === 'function') playSfx('neonsiege.strike', { volume: 0.5 });
+      this._updateStrikeCharges();
+      this.updateHud();
+      return true;
     }
 
     hideTowerPanel() {
@@ -348,7 +579,7 @@
       const radial = this.ui.towerRadial;
       if (!radial || !tower) return;
       const pos = this.pathFinder.cellCenter(tower.r, tower.c);
-      const half = Math.max(54, (radial.offsetWidth || 108) / 2);
+      const half = Math.max(72, (radial.offsetWidth || 144) / 2);
       const x = Math.max(half, Math.min(this.canvas.width - half, pos.x));
       const y = Math.max(half, Math.min(this.canvas.height - half, pos.y));
       radial.style.left = (x / this.canvas.width) * 100 + '%';
@@ -360,7 +591,7 @@
       this.selectedTowerType = null;
       this.updateTowerBar();
       const def = B.TOWER_TYPES[tower.type];
-      const upCost = tower.upgradeCost();
+      const upCost = tower.upgradeCost(this.wave);
       const radial = this.ui.towerRadial;
       if (!radial) return;
 
@@ -373,9 +604,17 @@
         this.ui.targetBtn.title = 'Target: ' + priorityLabel + ' — tap to cycle';
       }
       this.ui.upgradeLabel.textContent = upCost ? String(upCost) : 'MAX';
-      this.ui.sellLabel.textContent = String(tower.sellValue());
-      this.ui.upgradeBtn.title = upCost ? 'Upgrade for ' + upCost + 'g' : 'Max tier';
-      this.ui.sellBtn.title = 'Sell for ' + tower.sellValue() + 'g';
+      this.ui.sellLabel.textContent = String(tower.sellValue(this.arsenal.getSellBonus()));
+      if (upCost) {
+        this.ui.upgradeBtn.title = 'Upgrade for ' + upCost + 'g';
+      } else if (this.wave < B.LATE_UPGRADE_WAVE && tower.tier >= B.MAX_TOWER_TIER) {
+        this.ui.upgradeBtn.title = 'T' + (B.LATE_MAX_TOWER_TIER + 1) + ' unlocks at wave ' + B.LATE_UPGRADE_WAVE;
+      } else if (this.wave < B.MEGA_UPGRADE_WAVE && tower.tier >= B.LATE_MAX_TOWER_TIER) {
+        this.ui.upgradeBtn.title = 'T' + (B.MEGA_MAX_TOWER_TIER + 1) + ' unlocks at wave ' + B.MEGA_UPGRADE_WAVE;
+      } else {
+        this.ui.upgradeBtn.title = 'Max tier';
+      }
+      this.ui.sellBtn.title = 'Sell for ' + tower.sellValue(this.arsenal.getSellBonus()) + 'g';
       this.ui.upgradeBtn.disabled = !upCost || !this.economy.canAfford(upCost);
       this.ui.upgradeBtn.classList.toggle('radial-maxed', !upCost);
       this.positionTowerRadial(tower);
@@ -390,9 +629,9 @@
       let text = 'DMG ' + Math.round(stats.damage) +
         ' · RNG ' + stats.range.toFixed(1) +
         ' · DPS ' + dps.toFixed(1);
-      const upCost = tower.upgradeCost();
+      const upCost = tower.upgradeCost(this.wave);
       if (upCost) {
-        const next = B.getTowerStats(tower.type, tower.tier + 1);
+        const next = B.getTowerStats(tower.type, tower.tier + 1, this.arsenal.getTechMods());
         const nextDps = next.damage / next.fireRate;
         text += '\n↑ DMG ' + Math.round(next.damage) +
           ' · RNG ' + next.range.toFixed(1) +
@@ -426,6 +665,11 @@
     tryPlaceTower(r, c, type) {
       if (this.mapGrid[r][c] !== C.CELL_SLOT) { if (typeof hapticError === 'function') hapticError(); return; }
       if (this.towers.some((t) => t.r === r && t.c === c)) { if (typeof hapticError === 'function') hapticError(); return; }
+      if (!B.isTowerUnlocked(type, this.wave + 1)) {
+        this.showBarHint('Unlocks wave ' + (B.TOWER_UNLOCK[type] || 1));
+        if (typeof hapticError === 'function') hapticError();
+        return;
+      }
       const cost = B.TOWER_TYPES[type].cost;
       if (!this.economy.spend(cost)) {
         const need = cost - Math.floor(this.economy.gold);
@@ -440,6 +684,7 @@
       this.particles.push(new Ent.Particle(pos.x, pos.y, B.TOWER_TYPES[type].color, 8));
       this.fxRings.push(new Ent.RingFx(pos.x, pos.y, B.TOWER_TYPES[type].color, this.metrics.cellSize * 0.55, 0.45));
       this.selectedTowerType = null;
+      this._invalidateSlotTiers();
       this.updateTowerBar();
       this.updateHud();
     }
@@ -447,7 +692,7 @@
     upgradeTower() {
       const tower = this.selectedTower;
       if (!tower) return;
-      const cost = tower.upgradeCost();
+      const cost = tower.upgradeCost(this.wave);
       if (!cost || !this.economy.spend(cost)) { if (typeof hapticError === 'function') hapticError(); return; }
       tower.totalSpent += cost;
       tower.tier++;
@@ -462,30 +707,44 @@
     sellTower() {
       const tower = this.selectedTower;
       if (!tower) return;
-      this.economy.addGold(tower.sellValue());
+      this.economy.addGold(tower.sellValue(this.arsenal.getSellBonus()));
       this.towers = this.towers.filter((t) => t.id !== tower.id);
+      this._invalidateSlotTiers();
       if (typeof hapticTick === 'function') hapticTick();
       this.hideTowerPanel();
       this.updateHud();
       this.updateTowerBar();
     }
 
-    startWave() {
+    startWave(opts) {
+      opts = opts || {};
       if (this.state !== 'playing' || this.waveActive || this.waveSpawning) return;
+      let earlyBonus = 0;
+      if (opts.manual && this.waveIntermissionActive && this.waveIntermissionMs > 0) {
+        earlyBonus = this._earlyStartBonus();
+      }
       this.waveIntermissionActive = false;
       this.waveIntermissionMs = 0;
       this.wave++;
       this.waveActive = true;
+      if (this.selectedTower) this.selectTower(this.selectedTower);
       this.waveSpawning = true;
       this.currentWaveModifier = this.wave > 1 ? this.nextWaveModifier : null;
       this.nextWaveModifier = this.waveSystem.rollModifier(this.wave + 1);
       this._refreshNextWaveQueue();
       this.overchargeUsed = false;
+      this.arsenal.disarmStrike();
       this.spawnQueue = this.waveSystem.buildQueue(
         this.wave, this.currentMap, this.endless, this.currentWaveModifier
       );
       this.spawnTimer = 0.3;
       this.spawnIndex = 0;
+      if (earlyBonus > 0) {
+        this.economy.addGold(earlyBonus);
+        const cx = this.metrics.offsetX + (C.GRID_COLS * this.metrics.cellSize) / 2;
+        const cy = this.metrics.offsetY + (C.GRID_ROWS * this.metrics.cellSize) / 2;
+        this.floatingTexts.push(new Ent.FloatingText(cx, cy, '+' + earlyBonus + 'g', '#ffcc00', true));
+      }
       if (typeof hapticMedium === 'function') hapticMedium();
       if (typeof playSfx === 'function') playSfx('neonsiege.wave', { volume: 0.6 });
       this.updateTowerBar();
@@ -495,7 +754,7 @@
 
     activateOvercharge() {
       if (this.state !== 'playing' || this.overchargeUsed || !this.waveActive) return;
-      this.overchargeTimer = C.OVERCHARGE_MS;
+      this.overchargeTimer = C.OVERCHARGE_MS + this.arsenal.getOverchargeBonusMs();
       this.overchargeUsed = true;
       this.towers.forEach((tower) => {
         const pos = this.pathFinder.cellCenter(tower.r, tower.c);
@@ -523,7 +782,7 @@
         routeId,
         speedMult: this._modifierSpeedMult() * B.speedScale(this.wave, this.endless, C.MAX_WAVES),
       });
-      if (!elite && typeKey !== 'boss' && this.wave >= 7 && Math.random() < B.ELITE_SPAWN_CHANCE) {
+      if (!elite && typeKey !== 'boss' && this.wave >= 7 && Math.random() < B.eliteSpawnChance(this.wave)) {
         enemy.makeElite();
       }
       this.enemies.push(enemy);
@@ -623,10 +882,11 @@
         enemy.x, enemy.y, color, this.metrics.cellSize * (enemy.elite ? 0.55 : 0.4), 0.3
       ));
       this._registerKillStreak(enemy.x, enemy.y);
+      this._triggerCryptNova(enemy.x, enemy.y);
       if (typeof hapticTick === 'function') hapticTick();
       if (typeof playSfx === 'function') playSfx('neonsiege.hit', { volume: 0.3 });
       if (enemy.split) {
-        const hpMult = this.currentMap.hpMod * 0.35;
+        const hpMult = this.currentMap.hpMod * B.SPLIT_MINI_HP_RATIO;
         for (let i = 0; i < 2; i++) {
           const child = new Ent.Enemy('drone', hpMult, this.pathFinder, enemy.laneOffset + (i ? 0.08 : -0.08), this.spawnIndex++, {
             routeId: enemy.routeId,
@@ -640,6 +900,31 @@
         }
       }
       this.updateHud();
+    }
+
+    _triggerCryptNova(x, y) {
+      const cs = this.metrics.cellSize;
+      for (const tower of this.towers) {
+        if (tower.type !== 'crypt') continue;
+        const stats = tower.stats;
+        const pos = this.pathFinder.cellCenter(tower.r, tower.c);
+        const dx = x - pos.x;
+        const dy = y - pos.y;
+        const rangePx = stats.range * cs;
+        if (dx * dx + dy * dy > rangePx * rangePx) continue;
+        const novaDmg = stats.damage * (stats.deathNova || 0.4);
+        const aoePx = (stats.deathAoe || 1) * cs;
+        const rangeSq = aoePx * aoePx;
+        for (const other of [...this.enemies]) {
+          const ex = other.x - x;
+          const ey = other.y - y;
+          if (ex * ex + ey * ey <= rangeSq) {
+            this._onEnemyHit(other, novaDmg, null, false);
+          }
+        }
+        this.fxRings.push(new Ent.RingFx(x, y, B.TOWER_TYPES.crypt.color, aoePx * 0.85, 0.3));
+        break;
+      }
     }
 
     _enemyReachedCore(enemy) {
@@ -682,9 +967,10 @@
         this.waveIntermissionMs -= dt;
         if (this.waveIntermissionMs <= 0) {
           this.waveIntermissionActive = false;
-          this.startWave();
+          this.startWave({ manual: false });
         } else {
           this.updateTowerBar();
+          this.updateStatusBar();
         }
       }
 
@@ -743,6 +1029,9 @@
 
       this._checkWaveComplete();
       this.updateHud();
+      if (this.canvas) {
+        this.canvas.classList.toggle('strike-armed', !!this.arsenal.armedStrike);
+      }
     }
 
     _checkWaveComplete() {
@@ -751,6 +1040,9 @@
       this.waveActive = false;
       const bonus = this.economy.waveClearBonus(this.wave);
       this.score += bonus.score;
+      if (bonus.gold) {
+        this.economy.addGold(bonus.gold);
+      }
       const goal = this.pathFinder.waypointPixels[this.pathFinder.waypointPixels.length - 1];
       const pathPts = this.pathFinder.waypointPixels;
       for (let i = 0; i < pathPts.length; i += 3) {
@@ -759,7 +1051,7 @@
       }
       if (goal) {
         this.fxRings.push(new Ent.RingFx(goal.x, goal.y, '#ffcc00', this.metrics.cellSize * 1.6, 0.7));
-        this.floatingTexts.push(new Ent.FloatingText(goal.x, goal.y - 28, 'WAVE CLEAR', '#ffcc00'));
+        this.floatingTexts.push(new Ent.FloatingText(goal.x, goal.y - 28, 'WAVE CLEAR +' + bonus.gold + 'g', '#ffcc00'));
       }
       this.screenFlash = new Ent.ScreenFlash('#ffcc00', 0.28, 0.4);
       if (typeof hapticSuccess === 'function') hapticSuccess();
@@ -776,6 +1068,10 @@
     _beginWaveIntermission() {
       this.waveIntermissionActive = true;
       this.waveIntermissionMs = C.WAVE_INTERMISSION_MS;
+      this.arsenal.resetIntermissionBuys();
+      this.arsenal.disarmStrike();
+      if (this.ui.arsenalOverlay) this.ui.arsenalOverlay.classList.add('hidden');
+      if (this.selectedTower) this.selectTower(this.selectedTower);
       this.updateTowerBar();
       this.updateStatusBar();
     }
@@ -857,12 +1153,14 @@
     }
 
     draw() {
+      const towerOccupancy = new Set(this.towers.map((t) => t.r + ',' + t.c));
       this.renderer.draw({
         state: this.state,
         metrics: this.metrics,
         mapGrid: this.mapGrid,
         pathFinder: this.pathFinder,
         towers: this.towers,
+        towerOccupancy,
         enemies: this.enemies,
         projectiles: this.projectiles,
         particles: this.particles,
@@ -886,6 +1184,8 @@
         mapGoal: this.currentMap ? this.currentMap.goal : null,
         mapId: this.currentMap ? this.currentMap.id : null,
         junctions: this.currentMap ? (this.currentMap.junctions || []) : [],
+        armedStrike: this.arsenal.armedStrike,
+        slotTiers: this._getSlotTiers(),
       });
     }
   }
