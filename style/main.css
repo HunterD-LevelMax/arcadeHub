@@ -684,6 +684,34 @@ body.game-active .stars .star {
   color: rgba(255, 255, 255, 0.5);
 }
 
+.card-lock-featured {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #ffcc00;
+  padding: 2px 8px;
+  border-radius: var(--md-sys-shape-corner-full);
+  border: 1px solid rgba(255, 204, 0, 0.45);
+  background: rgba(255, 204, 0, 0.12);
+}
+
+.card-lock-featured.hidden {
+  display: none;
+}
+
+.next-unlock-featured {
+  border-color: rgba(255, 204, 0, 0.45);
+  color: rgba(255, 204, 0, 0.9);
+}
+
+.tag-featured {
+  color: #ffcc00;
+  border-color: rgba(255, 204, 0, 0.45);
+  background: rgba(255, 204, 0, 0.1);
+}
+
 .card-lock-cost-wrap {
   display: inline-flex;
   align-items: center;

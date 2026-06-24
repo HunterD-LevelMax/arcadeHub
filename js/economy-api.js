@@ -14,35 +14,39 @@
 
   const NEW_BEST_BONUS = 5;
 
-  const DAILY_BONUS = 10;
+  const DAILY_BONUS = 12;
 
-  const FIRST_GAME_BONUS = 3;
+  const FIRST_GAME_BONUS = 5;
 
-  const SESSION_BASE = 2;
+  const SESSION_BASE = 3;
 
   const MIN_SCORE_FOR_BONUS = 5;
 
-  const MIN_ROUND_MS = 15000;
+  const MIN_ROUND_MS = 12000;
 
-  const REWARD_COOLDOWN_MS = 15000;
+  const REWARD_COOLDOWN_MS = 12000;
 
 
 
-  const RARITY_COST = { common: 60, rare: 100, epic: 140 };
+  const RARITY_COST = { common: 75, rare: 125, epic: 170 };
 
   const RARITY_LABEL = { common: "COMMON", rare: "RARE", epic: "EPIC" };
+
+  const FEATURED_GAME_ID = "neonsiege";
+
+  const FEATURED_UNLOCK_COST = 75;
 
 
 
   const GAME_REWARD_CONFIG = {
 
-    snake: { divisor: 50, cap: 15 },
+    snake: { divisor: 45, cap: 16 },
 
-    flappy: { divisor: 5, cap: 20 },
+    flappy: { divisor: 4, cap: 22 },
 
-    tetris: { divisor: 500, cap: 20 },
+    tetris: { divisor: 450, cap: 22 },
 
-    doodle: { divisor: 200, cap: 20 },
+    doodle: { divisor: 180, cap: 22 },
 
     game2048: { divisor: 300, cap: 20 },
 
@@ -54,7 +58,7 @@
 
     frogger: { divisor: 100, cap: 20 },
 
-    prismcascade: { divisor: 400, cap: 25 },
+    prismcascade: { divisor: 350, cap: 22 },
 
     thrustrunner: { divisor: 500, cap: 25 },
 
@@ -200,6 +204,16 @@
 
 
 
+  function getGameUnlockCost(gameId, rarity) {
+
+    if (gameId === FEATURED_GAME_ID) return FEATURED_UNLOCK_COST;
+
+    return getGameCostFromRarity(rarity);
+
+  }
+
+
+
   function calculateScoreReward(gameId, score) {
 
     const cfg = GAME_REWARD_CONFIG[gameId] || { divisor: 200, cap: 20 };
@@ -338,7 +352,7 @@
 
         if (reward?.reason === "too_short") {
 
-          hintEl.textContent = "Play at least 15 seconds to earn coins";
+          hintEl.textContent = "Play at least 12 seconds to earn coins";
 
           hintEl.classList.remove("hidden");
 
@@ -494,6 +508,10 @@
 
     RARITY_LABEL,
 
+    FEATURED_GAME_ID,
+
+    FEATURED_UNLOCK_COST,
+
     logEvent,
 
     loadPlayerState,
@@ -501,6 +519,8 @@
     savePlayerState,
 
     getGameCostFromRarity,
+
+    getGameUnlockCost,
 
     awardSessionReward,
 

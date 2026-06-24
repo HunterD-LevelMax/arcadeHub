@@ -2,6 +2,8 @@
   const {
     EXIT_REWARD_KEY,
     FIRST_LAUNCH_REWARD,
+    FEATURED_GAME_ID,
+    FEATURED_UNLOCK_COST,
     RARITY_LABEL,
     logEvent,
     loadPlayerState,
@@ -9,8 +11,9 @@
   } = window.ArcadeEconomy;
 
   function getGameCost(card) {
+    const gameId = card.dataset.gameId;
     const rarity = card.dataset.rarity || "common";
-    return window.ArcadeEconomy.getGameCostFromRarity(rarity);
+    return window.ArcadeEconomy.getGameUnlockCost(gameId, rarity);
   }
 
   function animateCoins() {
@@ -81,6 +84,7 @@
             <span class="material-symbols-outlined card-lock-icon" aria-hidden="true">lock</span>
           </span>
           <span class="card-lock-rarity"></span>
+          <span class="card-lock-featured hidden">FEATURED</span>
           <span class="card-lock-cost-wrap">
             <span class="material-symbols-outlined" aria-hidden="true">paid</span>
             <span class="card-lock-cost"></span>
@@ -120,8 +124,13 @@
         const overlay = ensureLockOverlay(card);
         overlay.classList.remove("hidden");
         const rarityEl = overlay.querySelector(".card-lock-rarity");
+        const featuredEl = overlay.querySelector(".card-lock-featured");
         const costEl = overlay.querySelector(".card-lock-cost");
-        if (rarityEl) rarityEl.textContent = RARITY_LABEL[rarity] || RARITY_LABEL.common;
+        const isFeatured = gameId === FEATURED_GAME_ID;
+        if (rarityEl) {
+          rarityEl.textContent = isFeatured ? "INTRO OFFER" : (RARITY_LABEL[rarity] || RARITY_LABEL.common);
+        }
+        if (featuredEl) featuredEl.classList.toggle("hidden", !isFeatured);
         if (costEl) costEl.textContent = `${cost} COINS`;
       } else {
         const overlay = card.querySelector(".card-lock-overlay");
@@ -139,12 +148,18 @@
       const gameId = card.dataset.gameId;
       if (state.unlockedGames.includes(gameId)) return;
       locked.push({
+        gameId,
         title: card.querySelector(".card-title")?.textContent?.trim() || gameId,
         cost: getGameCost(card),
-        rarity: card.dataset.rarity || "common"
+        rarity: card.dataset.rarity || "common",
+        featured: gameId === FEATURED_GAME_ID
       });
     });
     if (locked.length === 0) return null;
+
+    const featured = locked.find((game) => game.featured);
+    if (featured) return featured;
+
     locked.sort((a, b) => a.cost - b.cost);
     const affordable = locked.find((game) => game.cost <= state.coins);
     return affordable || locked[0];
@@ -161,9 +176,11 @@
       return;
     }
 
-    const rarity = RARITY_LABEL[next.rarity] || RARITY_LABEL.common;
+    const rarity = next.featured
+      ? "FEATURED"
+      : (RARITY_LABEL[next.rarity] || RARITY_LABEL.common);
     const coinsNeeded = Math.max(0, next.cost - state.coins);
-    el.className = "next-unlock";
+    el.className = "next-unlock" + (next.featured ? " next-unlock-featured" : "");
 
     if (coinsNeeded === 0) {
       el.innerHTML = `Next unlock: <strong>${next.title}</strong> · ${next.cost} coins · ${rarity}`;
@@ -231,7 +248,10 @@
     logEvent("first_launch_reward", { reward: FIRST_LAUNCH_REWARD, coins: playerState.coins });
     setTimeout(() => {
       hapticSuccess();
-      showInfoModal("Welcome Bonus", "You launched Arcade Hub for the first time and received 50 coins.");
+      showInfoModal(
+        "Welcome Bonus",
+        `You received ${FIRST_LAUNCH_REWARD} coins. Four games are free — play them to earn more. Your first goal: unlock NEON SIEGE for ${FEATURED_UNLOCK_COST} coins.`
+      );
     }, 200);
   }
 
@@ -279,9 +299,12 @@
           return;
         }
 
+        const rarityLabel = gameId === FEATURED_GAME_ID
+          ? "FEATURED INTRO"
+          : (RARITY_LABEL[card.dataset.rarity] || RARITY_LABEL.common);
         const confirmUnlock = await showConfirmModal(
           "Unlock game",
-          `Unlock ${card.querySelector(".card-title")?.textContent?.trim() || "this game"} for ${unlockCost} coins?\nRarity: ${RARITY_LABEL[card.dataset.rarity] || RARITY_LABEL.common}`
+          `Unlock ${card.querySelector(".card-title")?.textContent?.trim() || "this game"} for ${unlockCost} coins?\nRarity: ${rarityLabel}`
         );
         if (!confirmUnlock) return;
 
