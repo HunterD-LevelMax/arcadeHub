@@ -43,7 +43,7 @@
     }
 
     static get REF_MS() {
-      return 1000 / 60;
+      return 1000 / 30;
     }
 
     dtScale(dtMs) {

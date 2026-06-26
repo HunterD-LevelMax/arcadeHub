@@ -956,7 +956,8 @@
       window.addEventListener('load', scan, { once: true });
 
       let scrollTimer = 0;
-      window.addEventListener(
+      const scrollRoot = document.getElementById('hubRoot') || window;
+      scrollRoot.addEventListener(
         'scroll',
         () => {
           if (scrollTimer) return;

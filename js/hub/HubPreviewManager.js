@@ -1,10 +1,11 @@
 /**
- * Hub card canvas previews — display-synced RAF loop, lazy init on visibility.
+ * Hub card canvas previews — fixed 30 FPS, constant timestep (scroll-safe).
  */
 (function () {
   'use strict';
 
-  const DEFAULT_DT = 1000 / 60;
+  const PREVIEW_FPS = 30;
+  const PREVIEW_DT_MS = 1000 / PREVIEW_FPS;
 
   class HubPreviewManager {
     constructor() {
@@ -12,15 +13,10 @@
       this._paused = false;
       this._rafId = 0;
       this._loopActive = false;
-      this._lastNow = 0;
-      this._frameCount = 0;
+      this._lastFrameAt = 0;
       this._observer = null;
 
       window.addEventListener('arcade-hub-visible', () => this.resumeAll());
-    }
-
-    _frameSkip() {
-      return (window.ArcadePerf && ArcadePerf.hubFrameSkip) || 1;
     }
 
     _shouldRun(entry) {
@@ -34,7 +30,7 @@
     _ensureLoop() {
       if (this._loopActive) return;
       this._loopActive = true;
-      this._lastNow = 0;
+      this._lastFrameAt = 0;
       this._rafId = requestAnimationFrame((t) => this._loop(t));
     }
 
@@ -58,22 +54,16 @@
     _loop(now) {
       if (!this._loopActive) return;
 
-      const dtMs = this._lastNow ? now - this._lastNow : DEFAULT_DT;
-      this._lastNow = now;
+      if (!this._lastFrameAt) this._lastFrameAt = now;
+      const elapsed = now - this._lastFrameAt;
 
-      const skip = this._frameSkip();
-      if (skip > 1) {
-        this._frameCount = (this._frameCount + 1) % skip;
-        if (this._frameCount !== 0) {
-          if (this._paused || this._hasActiveEntries()) this._scheduleNext();
-          else this._loopActive = false;
-          return;
-        }
-      }
+      if (elapsed >= PREVIEW_DT_MS) {
+        this._lastFrameAt = now;
 
-      if (!this._paused && this._hasActiveEntries()) {
-        for (const entry of this._entries) {
-          this._renderEntry(entry, dtMs);
+        if (!this._paused && this._hasActiveEntries()) {
+          for (const entry of this._entries) {
+            this._renderEntry(entry, PREVIEW_DT_MS);
+          }
         }
       }
 
@@ -107,7 +97,7 @@
         if (typeof entry.instance.resize === 'function') {
           entry.instance.resize();
         }
-        this._renderEntry(entry, DEFAULT_DT);
+        this._renderEntry(entry, PREVIEW_DT_MS);
         this._ensureLoop();
       }
     }
@@ -125,7 +115,7 @@
           entry.instance.resize();
         }
         if (entry.visible && !this._paused) {
-          this._renderEntry(entry, DEFAULT_DT);
+          this._renderEntry(entry, PREVIEW_DT_MS);
           this._ensureLoop();
         }
       };
@@ -220,7 +210,7 @@
       this.scanVisible();
       for (const entry of this._entries) {
         if (entry.visible && entry.initialized) {
-          this._renderEntry(entry, DEFAULT_DT);
+          this._renderEntry(entry, PREVIEW_DT_MS);
         }
       }
       this._ensureLoop();

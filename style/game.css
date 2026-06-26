@@ -1,5 +1,6 @@
 @import url('fonts.css');
 @import url('compat.css');
+@import url('scrollbars.css');
 
 :root {
   --neon-cyan: #00f5ff;

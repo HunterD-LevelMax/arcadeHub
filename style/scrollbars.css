@@ -1,0 +1,85 @@
+/**
+ * Neon arcade scrollbars — accent via --arcade-sb-accent
+ * (inherits --game-accent / --md-btn-accent / --neon-cyan per page).
+ */
+:root {
+  --arcade-sb-accent: var(--game-accent, var(--md-btn-accent, var(--neon-cyan, #00f5ff)));
+  --arcade-sb-size: 8px;
+  --arcade-sb-track: rgba(255, 255, 255, 0.04);
+  --arcade-sb-thumb-border: rgba(8, 8, 20, 0.95);
+  --arcade-sb-thumb-top: color-mix(in srgb, var(--arcade-sb-accent) 65%, transparent);
+  --arcade-sb-thumb-bottom: color-mix(in srgb, var(--arcade-sb-accent) 40%, transparent);
+  --arcade-sb-thumb-hover-top: color-mix(in srgb, var(--arcade-sb-accent) 85%, white 12%);
+  --arcade-sb-thumb-hover-bottom: color-mix(in srgb, var(--arcade-sb-accent) 60%, transparent);
+  --arcade-sb-thumb-active-top: color-mix(in srgb, var(--arcade-sb-accent) 95%, white 8%);
+  --arcade-sb-thumb-active-bottom: color-mix(in srgb, var(--arcade-sb-accent) 75%, transparent);
+  --arcade-sb-track-border: color-mix(in srgb, var(--arcade-sb-accent) 12%, transparent);
+  --arcade-sb-glow: color-mix(in srgb, var(--arcade-sb-accent) 22%, transparent);
+  --arcade-sb-glow-hover: color-mix(in srgb, var(--arcade-sb-accent) 40%, transparent);
+  --arcade-sb-fg: color-mix(in srgb, var(--arcade-sb-accent) 50%, transparent);
+}
+
+html,
+.arcade-scrollbar,
+.codex-body,
+.arsenal-body,
+.level-grid {
+  scrollbar-width: thin;
+  scrollbar-color: var(--arcade-sb-fg) var(--arcade-sb-track);
+}
+
+html::-webkit-scrollbar,
+.arcade-scrollbar::-webkit-scrollbar,
+.codex-body::-webkit-scrollbar,
+.arsenal-body::-webkit-scrollbar,
+.level-grid::-webkit-scrollbar {
+  width: var(--arcade-sb-size);
+  height: var(--arcade-sb-size);
+}
+
+html::-webkit-scrollbar-track,
+.arcade-scrollbar::-webkit-scrollbar-track,
+.codex-body::-webkit-scrollbar-track,
+.arsenal-body::-webkit-scrollbar-track,
+.level-grid::-webkit-scrollbar-track {
+  margin: 6px 0;
+  background: var(--arcade-sb-track);
+  border-radius: 999px;
+  border: 1px solid var(--arcade-sb-track-border);
+}
+
+html::-webkit-scrollbar-thumb,
+.arcade-scrollbar::-webkit-scrollbar-thumb,
+.codex-body::-webkit-scrollbar-thumb,
+.arsenal-body::-webkit-scrollbar-thumb,
+.level-grid::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid var(--arcade-sb-thumb-border);
+  background: linear-gradient(180deg, var(--arcade-sb-thumb-top), var(--arcade-sb-thumb-bottom));
+  box-shadow: 0 0 10px var(--arcade-sb-glow);
+}
+
+html::-webkit-scrollbar-thumb:hover,
+.arcade-scrollbar::-webkit-scrollbar-thumb:hover,
+.codex-body::-webkit-scrollbar-thumb:hover,
+.arsenal-body::-webkit-scrollbar-thumb:hover,
+.level-grid::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--arcade-sb-thumb-hover-top), var(--arcade-sb-thumb-hover-bottom));
+  box-shadow: 0 0 14px var(--arcade-sb-glow-hover);
+}
+
+html::-webkit-scrollbar-thumb:active,
+.arcade-scrollbar::-webkit-scrollbar-thumb:active,
+.codex-body::-webkit-scrollbar-thumb:active,
+.arsenal-body::-webkit-scrollbar-thumb:active,
+.level-grid::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, var(--arcade-sb-thumb-active-top), var(--arcade-sb-thumb-active-bottom));
+}
+
+html::-webkit-scrollbar-corner,
+.arcade-scrollbar::-webkit-scrollbar-corner,
+.codex-body::-webkit-scrollbar-corner,
+.arsenal-body::-webkit-scrollbar-corner,
+.level-grid::-webkit-scrollbar-corner {
+  background: transparent;
+}

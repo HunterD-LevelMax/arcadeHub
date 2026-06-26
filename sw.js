@@ -128,6 +128,7 @@ const PRECACHE_URLS = [
   "./style/game2048.css",
   "./style/hub/cards.css",
   "./style/hub/stars.css",
+  "./style/scrollbars.css",
   "./style/main.css",
   "./style/neonsiege.css",
   "./style/prismcascade.css",

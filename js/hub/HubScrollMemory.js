@@ -23,6 +23,10 @@
       }
     }
 
+    static scrollRoot() {
+      return document.getElementById('hubRoot');
+    }
+
     static restore() {
       if (window.ArcadeRouter && typeof ArcadeRouter.restoreHubScroll === 'function') {
         ArcadeRouter.restoreHubScroll();
@@ -34,7 +38,11 @@
       const y = Number(raw);
       if (!Number.isFinite(y) || y <= 0) return;
 
-      const apply = () => window.scrollTo(0, y);
+      const root = HubScrollMemory.scrollRoot();
+      const apply = () => {
+        if (root) root.scrollTop = y;
+        else window.scrollTo(0, y);
+      };
       apply();
       requestAnimationFrame(apply);
       window.addEventListener('load', apply, { once: true });

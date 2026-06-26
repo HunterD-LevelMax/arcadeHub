@@ -1,5 +1,6 @@
 @import url('fonts.css');
 @import url('compat.css');
+@import url('scrollbars.css');
 
 :root {
   --neon-cyan: #00f5ff;
@@ -40,6 +41,8 @@
   --md-motion-easing: cubic-bezier(0.2, 0, 0, 1);
   --md-motion-duration-short: 200ms;
   --md-motion-duration-medium: 300ms;
+
+  --arcade-sb-accent: var(--neon-cyan);
 }
 
 /* Material Symbols — base rules in fonts.css */
@@ -246,9 +249,14 @@ body {
   background-color: var(--dark-bg);
   color: #fff;
   font-family: 'Share Tech Mono', monospace;
-  min-height: 100vh;
-  overflow-x: hidden;
+  height: 100%;
+  overflow: hidden;
   position: relative;
+}
+
+html {
+  height: 100%;
+  overflow: hidden;
 }
 
 body.modal-open {
@@ -317,9 +325,15 @@ body.game-active .stars .star {
 }
 
 #hubRoot {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 .container {
@@ -328,7 +342,6 @@ body.game-active .stars .star {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
   max-width: 1100px;
   margin: 0 auto;
   width: 100%;
@@ -991,7 +1004,7 @@ body.game-active .stars .star {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  margin-top: 48px;
+  margin-top: 32px;
   margin-bottom: 16px;
   padding: 10px 18px;
   border-radius: var(--md-sys-shape-corner-large);

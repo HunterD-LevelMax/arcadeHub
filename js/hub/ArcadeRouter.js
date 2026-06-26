@@ -38,10 +38,9 @@
     }
 
     saveHubScroll() {
-      sessionStorage.setItem(
-        this.SCROLL_KEY,
-        String(window.scrollY || window.pageYOffset || 0)
-      );
+      const root = this.hubRoot || document.getElementById('hubRoot');
+      const y = root ? root.scrollTop : (window.scrollY || window.pageYOffset || 0);
+      sessionStorage.setItem(this.SCROLL_KEY, String(y));
     }
 
     restoreHubScroll() {
@@ -49,7 +48,11 @@
       if (raw === null) return;
       const y = Number(raw);
       if (!Number.isFinite(y) || y <= 0) return;
-      const apply = () => window.scrollTo(0, y);
+      const root = this.hubRoot || document.getElementById('hubRoot');
+      const apply = () => {
+        if (root) root.scrollTop = y;
+        else window.scrollTo(0, y);
+      };
       apply();
       requestAnimationFrame(apply);
       setTimeout(apply, 50);
