@@ -224,23 +224,7 @@
 
       const goal = state.pathFinder.waypointPixels[state.pathFinder.waypointPixels.length - 1];
       if (goal) {
-        const flash = state.coreFlash > 0 ? 1 + state.coreFlash * 2 : 1;
-        const critical = state.baseHp <= 5;
-        const pulse = critical ? 1 + Math.sin(this.frame * 0.14) * 0.25 : 1;
-        applyShadow(ctx, '#ff3344', (16 + (critical ? 10 : 0)) * flash * pulse);
-        ctx.fillStyle = `rgba(255, 51, 68, ${0.3 + (state.coreFlash || 0) * 0.35})`;
-        ctx.strokeStyle = '#ff3344';
-        ctx.lineWidth = critical ? 3 : 2;
-        ctx.beginPath();
-        ctx.arc(goal.x, goal.y, cs * (0.38 + (critical ? 0.06 * pulse : 0)), 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#ff3344';
-        ctx.font = `bold ${Math.max(8, cs * 0.22)}px Orbitron`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('CORE', goal.x, goal.y);
+        this._drawCoreIcon(goal.x, goal.y, cs, state);
       }
 
       if (junctionSet.size > 0) {
@@ -369,15 +353,219 @@
       ctx.globalAlpha = 1;
     }
 
+    _drawCoreIcon(x, y, cs, state) {
+      const ctx = this.ctx;
+      const flash = state.coreFlash > 0 ? 1 + state.coreFlash * 2 : 1;
+      const critical = state.baseHp <= 5;
+      const pulse = critical ? 1 + Math.sin(this.frame * 0.14) * 0.25 : 1;
+      const spin = this.frame * 0.04;
+      const outerR = cs * (0.4 + (critical ? 0.05 * pulse : 0)) * flash;
+      const midR = outerR * 0.72;
+      const coreR = outerR * 0.28;
+
+      ctx.save();
+      ctx.translate(x, y);
+
+      applyShadow(ctx, '#ff3344', (18 + (critical ? 12 : 0)) * flash * pulse);
+      ctx.strokeStyle = `rgba(255, 51, 68, ${0.35 + (state.coreFlash || 0) * 0.3})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, outerR + cs * 0.06, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = `rgba(255, 51, 68, ${0.22 + (state.coreFlash || 0) * 0.28})`;
+      ctx.strokeStyle = '#ff3344';
+      ctx.lineWidth = critical ? 2.5 : 2;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = spin + (Math.PI / 3) * i - Math.PI / 2;
+        const px = Math.cos(a) * midR;
+        const py = Math.sin(a) * midR;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.rotate(-spin * 1.6);
+      ctx.strokeStyle = 'rgba(255, 120, 130, 0.85)';
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 8; i++) {
+        const a = (Math.PI / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * midR * 0.55, Math.sin(a) * midR * 0.55);
+        ctx.lineTo(Math.cos(a) * midR * 0.92, Math.sin(a) * midR * 0.92);
+        ctx.stroke();
+      }
+
+      ctx.shadowBlur = 0;
+      applyShadow(ctx, '#ffffff', 8 * flash);
+      ctx.fillStyle = critical ? '#fff' : '#ffe0e4';
+      ctx.beginPath();
+      ctx.arc(0, 0, coreR * pulse, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ff3344';
+      ctx.beginPath();
+      ctx.arc(0, 0, coreR * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    _parseHexColor(hex) {
+      let h = String(hex || '#ffffff').replace('#', '');
+      if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+      const n = parseInt(h.slice(0, 6), 16);
+      if (Number.isNaN(n)) return { r: 255, g: 255, b: 255 };
+      return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    }
+
+    _brightenHex(hex, amount) {
+      const { r, g, b } = this._parseHexColor(hex);
+      const mix = (c) => Math.round(Math.min(255, c + (255 - c) * amount));
+      return 'rgb(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ')';
+    }
+
+    _hexAlpha(hex, alpha) {
+      const { r, g, b } = this._parseHexColor(hex);
+      return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+    }
+
+    _towerTierStyle(tier) {
+      const t = Math.max(0, tier | 0);
+      return {
+        brighten: Math.min(0.06 + t * 0.028, 0.36),
+        glowExtra: Math.min(t, 10) * 1.5,
+        rings: t >= 1 ? 1 + Math.min(Math.floor(t / 3), 3) : 0,
+        orbits: t >= 2 ? 1 + Math.min(Math.floor((t - 1) / 4), 2) : 0,
+        core: t >= 1,
+        coreScale: 0.11 + Math.min(t, 10) * 0.016,
+        innerShape: t >= 3,
+        spikes: t >= 4,
+        halo: t >= 6,
+        crown: t >= 8,
+      };
+    }
+
+    _drawTowerTierDecor(ctx, tower, def, pos, r, cs, style) {
+      const color = this._brightenHex(def.color, style.brighten);
+      const reduced = perfReduced();
+
+      if (style.innerShape) {
+        if (def.shape === 'square') {
+          const ir = r * 0.42;
+          ctx.strokeStyle = this._hexAlpha(color, 0.55);
+          ctx.lineWidth = 1;
+          ctx.strokeRect(pos.x - ir, pos.y - ir, ir * 2, ir * 2);
+        } else if (def.shape === 'diamond') {
+          const ir = r * 0.5;
+          ctx.strokeStyle = this._hexAlpha(color, 0.5);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(pos.x, pos.y - ir);
+          ctx.lineTo(pos.x + ir, pos.y);
+          ctx.lineTo(pos.x, pos.y + ir);
+          ctx.lineTo(pos.x - ir, pos.y);
+          ctx.closePath();
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = this._hexAlpha(color, 0.22);
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, r * 0.52, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      if (style.rings > 0) {
+        for (let i = 0; i < style.rings; i++) {
+          const rr = r + cs * (0.035 + i * 0.048);
+          ctx.strokeStyle = this._hexAlpha(def.color, 0.18 + i * 0.1);
+          ctx.lineWidth = i === style.rings - 1 ? 1.5 : 1;
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, rr, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      if (style.core) {
+        applyShadow(ctx, def.glow, 3 + style.glowExtra * 0.25);
+        ctx.fillStyle = style.brighten > 0.22 ? '#ffffff' : this._hexAlpha('#ffffff', 0.82);
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, Math.max(1.5, r * style.coreScale), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      if (style.orbits > 0) {
+        const orbitR = r + cs * 0.11;
+        const dotR = Math.max(1.5, cs * 0.034);
+        for (let i = 0; i < style.orbits; i++) {
+          const phase = reduced
+            ? (i * Math.PI * 2) / style.orbits
+            : this.frame * (0.028 + i * 0.012) + (i * Math.PI * 2) / style.orbits + tower.id * 0.4;
+          const ox = pos.x + Math.cos(phase) * orbitR;
+          const oy = pos.y + Math.sin(phase) * orbitR;
+          ctx.fillStyle = color;
+          applyShadow(ctx, def.glow, 5);
+          ctx.beginPath();
+          ctx.arc(ox, oy, dotR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      }
+
+      if (style.spikes) {
+        ctx.strokeStyle = this._hexAlpha(color, 0.9);
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 4; i++) {
+          const a = (Math.PI / 2) * i + Math.PI / 4;
+          const inner = r + 1;
+          const outer = r + cs * 0.13;
+          ctx.beginPath();
+          ctx.moveTo(pos.x + Math.cos(a) * inner, pos.y + Math.sin(a) * inner);
+          ctx.lineTo(pos.x + Math.cos(a) * outer, pos.y + Math.sin(a) * outer);
+          ctx.stroke();
+        }
+      }
+
+      if (style.halo) {
+        const pulse = reduced ? 0.86 : 0.74 + Math.sin(this.frame * 0.07 + tower.id) * 0.1;
+        ctx.strokeStyle = this._hexAlpha(def.glow, 0.28);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, (r + cs * 0.09) * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (style.crown) {
+        ctx.strokeStyle = this._hexAlpha('#ffffff', 0.75);
+        ctx.lineWidth = 1.2;
+        for (let i = 0; i < 8; i++) {
+          const a = (Math.PI / 4) * i - Math.PI / 2;
+          const inner = r + cs * 0.11;
+          const outer = r + cs * 0.2;
+          ctx.beginPath();
+          ctx.moveTo(pos.x + Math.cos(a) * inner, pos.y + Math.sin(a) * inner);
+          ctx.lineTo(pos.x + Math.cos(a) * outer, pos.y + Math.sin(a) * outer);
+          ctx.stroke();
+        }
+      }
+    }
+
     _drawTower(tower, state) {
       const def = B.TOWER_TYPES[tower.type];
       const pos = state.pathFinder.cellCenter(tower.r, tower.c);
       const cs = state.metrics.cellSize;
-      const tierBoost = 1 + tower.tier * 0.12;
       const recoilScale = tower.recoil > 0 ? 1 - (tower.recoil / 0.08) * 0.08 : 1;
-      const r = cs * 0.3 * tierBoost * recoilScale;
+      const r = B.towerBodyRadius(cs, tower.tier);
       const ctx = this.ctx;
       const boosted = state.overchargeTimer > 0;
+      const tierStyle = this._towerTierStyle(tower.tier);
+      const bodyColor = this._brightenHex(def.color, tierStyle.brighten * 0.55);
+      const bodyGlow = this._brightenHex(def.glow, tierStyle.brighten * 0.45);
 
       ctx.save();
       ctx.translate(pos.x, pos.y);
@@ -389,18 +577,18 @@
         ctx.strokeStyle = 'rgba(57, 255, 20, 0.45)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(pos.x, pos.y, r + 8, 0, Math.PI * 2);
+        ctx.arc(pos.x, pos.y, r + 4, 0, Math.PI * 2);
         ctx.stroke();
       }
 
-      applyShadow(ctx, def.glow, 10 + tower.tier * 4);
-      ctx.fillStyle = def.color;
-      ctx.strokeStyle = def.color;
+      applyShadow(ctx, bodyGlow, 6 + tierStyle.glowExtra);
+      ctx.fillStyle = bodyColor;
+      ctx.strokeStyle = bodyColor;
 
       if (def.shape === 'square') {
         ctx.fillRect(pos.x - r, pos.y - r, r * 2, r * 2);
       } else if (def.shape === 'hex') {
-        this._hex(pos.x, pos.y, r, def.color);
+        this._hex(pos.x, pos.y, r, bodyColor);
       } else if (def.shape === 'diamond') {
         ctx.beginPath();
         ctx.moveTo(pos.x, pos.y - r);
@@ -423,7 +611,7 @@
           ctx.arc(pos.x, pos.y, rr, 0, Math.PI * 2);
           ctx.stroke();
         }
-        ctx.fillStyle = def.color;
+        ctx.fillStyle = bodyColor;
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, r * 0.35, 0, Math.PI * 2);
         ctx.fill();
@@ -485,26 +673,22 @@
       }
       ctx.shadowBlur = 0;
 
-      if (tower.tier >= 2) {
-        ctx.strokeStyle = def.color + '88';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(pos.x, pos.y, r + 6 + tower.tier, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      this._drawTowerTierDecor(ctx, tower, def, pos, r, cs, tierStyle);
 
       if (tower === state.selectedTower) {
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(pos.x, pos.y, r + 4, 0, Math.PI * 2);
+        ctx.arc(pos.x, pos.y, r + 3, 0, Math.PI * 2);
         ctx.stroke();
         const stats = tower.stats;
-        ctx.strokeStyle = def.color + '66';
+        ctx.strokeStyle = def.color + '55';
         ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, stats.range * cs, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.setLineDash([]);
       }
       ctx.restore();
     }
@@ -695,8 +879,9 @@
     _drawProjectiles(state) {
       const ctx = this.ctx;
       const reduced = perfReduced();
+      const drawTrails = !reduced && state.gameSpeed <= 1 && state.projectiles.length <= 24;
       state.projectiles.forEach((p) => {
-        if (!reduced && p.trail && p.trail.length > 1) {
+        if (drawTrails && p.trail && p.trail.length > 1) {
           p.trail.forEach((pt, i) => {
             ctx.globalAlpha = (i + 1) / p.trail.length * 0.45;
             ctx.fillStyle = p.color;

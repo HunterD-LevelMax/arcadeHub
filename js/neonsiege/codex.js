@@ -78,7 +78,7 @@
           </div>
           <div class="codex-card" style="--card-color:#39ff14">
             <div class="codex-card-title">RANDOM THEMES</div>
-            <div class="codex-card-desc">Narrow corridors with dark void between lanes. Tower slot islands in pockets — 24+ build sites. MAZE (split routes), FORTRESS (compact spiral), CORRIDOR (long path, +gold), RIFT (up to 3 routes), CHAOS (extra island slots).</div>
+            <div class="codex-card-desc">Arena-style maps: path rings wrap void pockets with tower islands inside. Mobs take branches — cover chokepoints with towers. 28–32 build sites. MAZE/CHAOS (ring arenas + forks), FORTRESS (spiral), CORRIDOR (long path), RIFT (3 routes).</div>
           </div>
         </div>
       </div>

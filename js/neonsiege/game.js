@@ -71,8 +71,55 @@
       this._hudWave = '';
       this._hudHp = -1;
       this.gameSpeed = 1;
+      this.towerStatsOpen = false;
 
       new window.NeonSiegeInput.InputController(this);
+      this._refreshBestDisplay();
+    }
+
+    _loadBest() {
+      this.best = typeof getHighScore === 'function' ? getHighScore(C.GAME_ID) : 0;
+      return this.best;
+    }
+
+    _saveBestIfNeeded() {
+      const isNew = this.score > this.best;
+      if (isNew) {
+        this.best = this.score;
+        if (typeof setHighScore === 'function') setHighScore(C.GAME_ID, this.best);
+      }
+      return isNew;
+    }
+
+    _refreshBestDisplay(opts) {
+      opts = opts || {};
+      const best = this._loadBest();
+
+      if (this.ui.startBestScore) {
+        this.ui.startBestScore.textContent = best > 0
+          ? 'RECORD: ' + best.toLocaleString()
+          : 'NO RECORD YET';
+        this.ui.startBestScore.classList.toggle('overlay-best-empty', best <= 0);
+        this.ui.startBestScore.classList.remove('overlay-best-new');
+      }
+
+      if (this.ui.bestScore) {
+        const isNew = !!opts.isNewGameover;
+        this.ui.bestScore.textContent = isNew
+          ? 'NEW RECORD: ' + best.toLocaleString()
+          : 'RECORD: ' + best.toLocaleString();
+        this.ui.bestScore.classList.toggle('overlay-best-new', isNew);
+        this.ui.bestScore.classList.toggle('overlay-best-empty', best <= 0 && !isNew);
+      }
+
+      if (this.ui.victoryBestScore) {
+        const isNew = !!opts.isNewVictory;
+        this.ui.victoryBestScore.textContent = isNew
+          ? 'NEW RECORD: ' + best.toLocaleString()
+          : 'RECORD: ' + best.toLocaleString();
+        this.ui.victoryBestScore.classList.toggle('overlay-best-new', isNew);
+        this.ui.victoryBestScore.classList.toggle('overlay-best-empty', best <= 0 && !isNew);
+      }
     }
 
     resize() {
@@ -111,7 +158,7 @@
       let text = theme.toUpperCase() + ' · ' + routes + ' route' + (routes > 1 ? 's' : '');
       const slots = this.currentMap.slotCount;
       if (slots) text += ' · ' + slots + ' slots';
-      text += ' · narrow corridors & slot islands';
+      text += ' · arena loops & tower islands · 28–32 sites';
       if (reward > 0) text += ' · +' + reward + '% gold';
       if (this.currentMap.hpMod && this.currentMap.hpMod < 1) {
         text += ' · easier';
@@ -191,6 +238,7 @@
         this.ui.speedBtn.classList.remove('speed-active');
         this.ui.speedBtn.title = 'Toggle game speed (1× / 2× / 4× / 6×)';
       }
+      this._refreshBestDisplay();
     }
 
     updateHud() {
@@ -572,21 +620,77 @@
 
     hideTowerPanel() {
       this.selectedTower = null;
+      this._setTowerStatsOpen(false);
       if (this.ui.towerRadial) this.ui.towerRadial.classList.add('hidden');
+    }
+
+    _setTowerStatsOpen(open) {
+      this.towerStatsOpen = !!open;
+      const popup = this.ui.towerPanelStatsPopup;
+      const btn = this.ui.towerStatsBtn;
+      if (popup) popup.classList.toggle('hidden', !open);
+      if (btn) {
+        btn.classList.toggle('tower-panel-active', open);
+        btn.title = open ? 'Hide stats' : 'Tower stats';
+      }
+      if (this.selectedTower) {
+        this.positionTowerRadial(this.selectedTower);
+        requestAnimationFrame(() => this.positionTowerRadial(this.selectedTower));
+      }
+    }
+
+    toggleTowerStats() {
+      if (!this.selectedTower) return;
+      this._setTowerStatsOpen(!this.towerStatsOpen);
+      if (typeof hapticTick === 'function') hapticTick();
+    }
+
+    _formatTowerStatLines(stats) {
+      const lines = [
+        'DMG ' + Math.round(stats.damage),
+        'RNG ' + stats.range.toFixed(1),
+        'SPD ' + stats.fireRate.toFixed(2) + 's',
+        'DPS ' + Math.round(stats.damage / stats.fireRate),
+      ];
+      if (stats.aoe) lines.push('AOE ' + stats.aoe.toFixed(1));
+      if (stats.pierce) lines.push('PRC ' + stats.pierce);
+      if (stats.chains) lines.push('CHN ' + stats.chains);
+      return lines;
     }
 
     positionTowerRadial(tower) {
       const radial = this.ui.towerRadial;
       if (!radial || !tower) return;
       const pos = this.pathFinder.cellCenter(tower.r, tower.c);
-      const half = Math.max(72, (radial.offsetWidth || 144) / 2);
-      const x = Math.max(half, Math.min(this.canvas.width - half, pos.x));
-      const y = Math.max(half, Math.min(this.canvas.height - half, pos.y));
+      const panel = radial.querySelector('.tower-panel') || radial;
+      const halfW = Math.max(100, (panel.offsetWidth || 200) / 2);
+      const panelH = panel.offsetHeight || 88;
+      const gap = 8;
+      const margin = 6;
+      const need = panelH + gap;
+
+      const x = Math.max(halfW, Math.min(this.canvas.width - halfW, pos.x));
+      const y = pos.y;
+      const spaceAbove = y - margin;
+      const spaceBelow = this.canvas.height - y - margin;
+
+      let below = false;
+      if (spaceAbove >= need) {
+        below = false;
+      } else if (spaceBelow >= need) {
+        below = true;
+      } else {
+        below = spaceBelow > spaceAbove;
+      }
+
+      radial.classList.toggle('tower-radial-below', below);
       radial.style.left = (x / this.canvas.width) * 100 + '%';
       radial.style.top = (y / this.canvas.height) * 100 + '%';
     }
 
     selectTower(tower) {
+      const keepStatsOpen = this.towerStatsOpen &&
+        this.selectedTower && this.selectedTower.id === tower.id;
       this.selectedTower = tower;
       this.selectedTowerType = null;
       this.updateTowerBar();
@@ -596,13 +700,9 @@
       if (!radial) return;
 
       radial.style.setProperty('--tower-color', def.color);
-      this.ui.towerPanelInfo.textContent = def.name.slice(0, 3) + (tower.tier + 1);
+      this.ui.towerPanelInfo.textContent = def.name + ' L' + (tower.tier + 1);
       this._updateTowerRadialStats(tower);
-      const priorityLabel = B.TARGET_PRIORITY_LABELS[tower.targetPriority] || 'FIRST';
-      if (this.ui.targetLabel) this.ui.targetLabel.textContent = priorityLabel;
-      if (this.ui.targetBtn) {
-        this.ui.targetBtn.title = 'Target: ' + priorityLabel + ' — tap to cycle';
-      }
+      this._setTowerStatsOpen(keepStatsOpen);
       this.ui.upgradeLabel.textContent = upCost ? String(upCost) : 'MAX';
       this.ui.sellLabel.textContent = String(tower.sellValue(this.arsenal.getSellBonus()));
       if (upCost) {
@@ -616,38 +716,25 @@
       }
       this.ui.sellBtn.title = 'Sell for ' + tower.sellValue(this.arsenal.getSellBonus()) + 'g';
       this.ui.upgradeBtn.disabled = !upCost || !this.economy.canAfford(upCost);
-      this.ui.upgradeBtn.classList.toggle('radial-maxed', !upCost);
+      this.ui.upgradeBtn.classList.toggle('tower-panel-maxed', !upCost);
       this.positionTowerRadial(tower);
       radial.classList.remove('hidden');
+      requestAnimationFrame(() => this.positionTowerRadial(tower));
     }
 
     _updateTowerRadialStats(tower) {
       const el = this.ui.towerPanelStats;
       if (!el) return;
       const stats = tower.stats;
-      const dps = stats.damage / stats.fireRate;
-      let text = 'DMG ' + Math.round(stats.damage) +
-        ' · RNG ' + stats.range.toFixed(1) +
-        ' · DPS ' + dps.toFixed(1);
+      const lines = this._formatTowerStatLines(stats);
       const upCost = tower.upgradeCost(this.wave);
       if (upCost) {
         const next = B.getTowerStats(tower.type, tower.tier + 1, this.arsenal.getTechMods());
-        const nextDps = next.damage / next.fireRate;
-        text += '\n↑ DMG ' + Math.round(next.damage) +
-          ' · RNG ' + next.range.toFixed(1) +
-          ' · DPS ' + nextDps.toFixed(1);
+        lines.push('—');
+        lines.push('NEXT ↑');
+        lines.push.apply(lines, this._formatTowerStatLines(next));
       }
-      el.textContent = text;
-    }
-
-    cycleTowerTarget() {
-      const tower = this.selectedTower;
-      if (!tower) return;
-      const list = B.TARGET_PRIORITIES;
-      const idx = list.indexOf(tower.targetPriority);
-      tower.targetPriority = list[(idx + 1) % list.length];
-      this.selectTower(tower);
-      if (typeof hapticTick === 'function') hapticTick();
+      el.textContent = lines.join('\n');
     }
 
     toggleGameSpeed() {
@@ -775,9 +862,10 @@
     _spawnEnemy(entry) {
       const typeKey = typeof entry === 'string' ? entry : entry.type;
       const elite = entry && entry.elite;
-      const lane = Ent.laneOffsetForIndex(this.spawnIndex++);
-      const routeId = this.pathFinder.pickRoute(this.spawnIndex, this.wave);
-      const enemy = new Ent.Enemy(typeKey, this._hpMult(), this.pathFinder, lane, this.spawnIndex, {
+      const spawnIdx = this.spawnIndex++;
+      const lane = 0;
+      const routeId = this.pathFinder.pickRoute(spawnIdx, this.wave);
+      const enemy = new Ent.Enemy(typeKey, this._hpMult(), this.pathFinder, lane, spawnIdx, {
         elite,
         routeId,
         speedMult: this._modifierSpeedMult() * B.speedScale(this.wave, this.endless, C.MAX_WAVES),
@@ -835,12 +923,12 @@
         for (let i = 0; i < B.BOSS_ESCORT_COUNT; i++) {
           const child = new Ent.Enemy(
             'drone', this.currentMap.hpMod * 0.45, this.pathFinder,
-            boss.laneOffset + (i ? 0.1 : -0.1), this.spawnIndex++,
+            0, this.spawnIndex++,
             { speedMult: this._modifierSpeedMult(), routeId: boss.routeId }
           );
           child.pathIndex = boss.pathIndex;
           child.segT = Math.max(0, boss.segT - 0.08 * (i + 1));
-          const pos = this.pathFinder.forRoute(child.routeId).positionAt(child.pathIndex, child.segT, child.laneOffset);
+          const pos = this.pathFinder.forRoute(child.routeId).positionAt(child.pathIndex, child.segT, 0);
           child.x = pos.x;
           child.y = pos.y;
           this.enemies.push(child);
@@ -888,12 +976,12 @@
       if (enemy.split) {
         const hpMult = this.currentMap.hpMod * B.SPLIT_MINI_HP_RATIO;
         for (let i = 0; i < 2; i++) {
-          const child = new Ent.Enemy('drone', hpMult, this.pathFinder, enemy.laneOffset + (i ? 0.08 : -0.08), this.spawnIndex++, {
+          const child = new Ent.Enemy('drone', hpMult, this.pathFinder, 0, this.spawnIndex++, {
             routeId: enemy.routeId,
           });
           child.pathIndex = enemy.pathIndex;
-          child.segT = enemy.segT;
-          const pos = this.pathFinder.forRoute(child.routeId).positionAt(child.pathIndex, child.segT, child.laneOffset);
+          child.segT = Math.max(0, enemy.segT - 0.07 * (i + 1));
+          const pos = this.pathFinder.forRoute(child.routeId).positionAt(child.pathIndex, child.segT, 0);
           child.x = pos.x;
           child.y = pos.y;
           this.enemies.push(child);
@@ -1095,11 +1183,9 @@
       this.victoryShown = true;
       this.state = 'victory';
       this.score += 500;
-      if (this.score > this.best) {
-        this.best = this.score;
-        if (typeof setHighScore === 'function') setHighScore(C.GAME_ID, this.best);
-      }
-      this.ui.victoryScore.textContent = this.score;
+      const isNew = this._saveBestIfNeeded();
+      this.ui.victoryScore.textContent = this.score.toLocaleString();
+      this._refreshBestDisplay({ isNewVictory: isNew });
       if (typeof awardAndShowCoins === 'function') {
         const reward = awardAndShowCoins(C.GAME_ID, this.score);
         if (reward && window.ArcadeEconomy && window.ArcadeEconomy.renderCoinRewardUI) {
@@ -1141,12 +1227,9 @@
       this.state = 'dead';
       if (typeof hapticHeavy === 'function') hapticHeavy();
       if (typeof playSfx === 'function') playSfx('neonsiege.gameover', { volume: 0.6 });
-      if (this.score > this.best) {
-        this.best = this.score;
-        if (typeof setHighScore === 'function') setHighScore(C.GAME_ID, this.best);
-      }
-      this.ui.finalScore.textContent = this.score;
-      this.ui.bestScore.textContent = 'BEST: ' + this.best;
+      const isNew = this._saveBestIfNeeded();
+      this.ui.finalScore.textContent = this.score.toLocaleString();
+      this._refreshBestDisplay({ isNewGameover: isNew });
       this.ui.gameoverSub.textContent = 'CORE DESTROYED';
       if (typeof awardAndShowCoins === 'function') awardAndShowCoins(C.GAME_ID, this.score);
       this.ui.gameoverOverlay.classList.remove('hidden');
@@ -1179,6 +1262,7 @@
         fxRings: this.fxRings,
         chainFx: this.chainFx,
         screenFlash: this.screenFlash,
+        gameSpeed: this.gameSpeed,
         currentWaveModifier: this.currentWaveModifier,
         baseHp: this.baseHp,
         mapGoal: this.currentMap ? this.currentMap.goal : null,

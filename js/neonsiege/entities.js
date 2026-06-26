@@ -284,8 +284,7 @@
   }
 
   function laneOffsetForIndex(index) {
-    const lane = index % C.LANE_COUNT;
-    return (lane - Math.floor(C.LANE_COUNT / 2)) * C.LANE_SPREAD;
+    return 0;
   }
 
   window.NeonSiegeEntities = {

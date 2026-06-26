@@ -1,0 +1,22 @@
+/* CSS-only starfield for low-tier devices (no DOM star elements). */
+.stars.stars--css {
+  background:
+    radial-gradient(1px 1px at 10% 20%, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1px 1px at 30% 65%, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1.5px 1.5px at 55% 15%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 70% 80%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 85% 40%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 45% 90%, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1.5px 1.5px at 92% 12%, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1px 1px at 18% 48%, rgba(255, 255, 255, 0.25), transparent);
+  animation: stars-css-drift 120s linear infinite;
+}
+
+@keyframes stars-css-drift {
+  from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
+  to { background-position: 200px 400px, -150px 300px, 100px 500px, -200px 250px, 180px 350px, -100px 450px, 250px 200px, -180px 380px; }
+}
+
+body.game-active .stars.stars--css {
+  animation-play-state: paused;
+}

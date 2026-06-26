@@ -3,7 +3,7 @@ const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
 const SKIP = new Set([".git", "node_modules", "scripts", ".cursor"]);
-const EXTRA = ["index.html", "privacy.html", "manifest.webmanifest", "icon.png", "sw.js"];
+const EXTRA = ["index.html", "privacy.html", "manifest.webmanifest", "icon_round.png", "sw.js"];
 const BGM_FILES = ["music_1.mp3", "music_2.mp3", "music_3.mp3"];
 
 function shouldSkipDir(name) {

@@ -366,12 +366,21 @@
       boss:     { name: 'BOSS',   hp: 680, speed: 24,  reward: 68, score: 150, color: '#ff3344', shape: 'boss',     size: 0.52, desc: 'Massive diamond hull. Appears every 5th wave.', wave: 5 },
     },
 
+    towerVisualScale(tier) {
+      const boost = 1 + tier * 0.035;
+      return Math.min(boost, 1.25);
+    },
+
+    towerBodyRadius(cellSize, tier) {
+      return cellSize * 0.25 * this.towerVisualScale(tier);
+    },
+
     getTowerStats(type, tier, techMods) {
       const base = this.TOWER_TYPES[type];
       techMods = techMods || {};
       let dmgMult = 1 + tier * 0.4 + Math.max(0, tier - 1) * 0.14;
       if (tier >= 2) dmgMult *= 1.1;
-      let rangeMult = 1 + tier * 0.14 + (tier >= 3 ? 0.1 : 0);
+      let rangeMult = 1 + tier * 0.07 + (tier >= 5 ? 0.05 : 0);
       let rateDiv = 1 + tier * 0.11 + (tier >= 2 ? 0.07 : 0);
       if (tier >= 2) rateDiv *= 1.05;
       if (techMods.damageMult) dmgMult *= techMods.damageMult;

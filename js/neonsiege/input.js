@@ -100,9 +100,8 @@
       }
       g.ui.upgradeBtn.addEventListener('click', () => g.upgradeTower());
       g.ui.sellBtn.addEventListener('click', () => g.sellTower());
-      if (g.ui.targetBtn) g.ui.targetBtn.addEventListener('click', () => g.cycleTowerTarget());
+      if (g.ui.towerStatsBtn) g.ui.towerStatsBtn.addEventListener('click', () => g.toggleTowerStats());
       if (g.ui.speedBtn) g.ui.speedBtn.addEventListener('click', () => g.toggleGameSpeed());
-      document.getElementById('closePanelBtn').addEventListener('click', () => g.hideTowerPanel());
 
       const codexBtn = document.getElementById('codexBtn');
       const codexClose = document.getElementById('codexCloseBtn');

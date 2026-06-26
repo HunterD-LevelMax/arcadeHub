@@ -1,0 +1,72 @@
+/* Hub game card accent colors */
+.game-card[data-game-id="prismcascade"] {
+  --card-accent: #aa00ff;
+  --preview-bg: #150022;
+}
+
+.game-card[data-game-id="neonsiege"] {
+  --card-accent: #ffcc00;
+  --preview-bg: #120f00;
+}
+
+.game-card[data-game-id="tetris"] {
+  --card-accent: #00f5ff;
+  --preview-bg: #03071e;
+}
+
+.game-card[data-game-id="snake"] {
+  --card-accent: #39ff14;
+  --preview-bg: #021200;
+}
+
+.game-card[data-game-id="asteroids"] {
+  --card-accent: #00f5ff;
+  --preview-bg: #03071e;
+}
+
+.game-card[data-game-id="flappy"] {
+  --card-accent: #ff00ff;
+  --preview-bg: #0f0318;
+}
+
+.game-card[data-game-id="doodle"] {
+  --card-accent: #39ff14;
+  --preview-bg: #021200;
+}
+
+.game-card[data-game-id="spaceinvaders"] {
+  --card-accent: #39ff14;
+  --preview-bg: #021200;
+}
+
+.game-card[data-game-id="game2048"] {
+  --card-accent: #ff8800;
+  --preview-bg: #1a1008;
+}
+
+.game-card[data-game-id="stacktower"] {
+  --card-accent: #ffff00;
+  --preview-bg: #1a1808;
+}
+
+.game-card[data-game-id="thrustrunner"] {
+  --card-accent: #ff6600;
+  --preview-bg: #1a0d00;
+}
+
+.game-card[data-game-id="frogger"] {
+  --card-accent: #39ff14;
+  --preview-bg: #021200;
+}
+
+.card-preview canvas {
+  contain: paint;
+}
+
+.game-card:hover {
+  will-change: transform;
+}
+
+.game-card:not(:hover) {
+  will-change: auto;
+}

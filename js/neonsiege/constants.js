@@ -18,7 +18,7 @@
     EARLY_START_GOLD_PER_SEC: 3,
     MIN_STAGGER_DIST: 0.45,
     STAGGER_SLOW: 0.4,
-    LANE_SPREAD: 0.12,
+    LANE_SPREAD: 0,
     LANE_COUNT: 5,
     KEYS: {
       TOWERS: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7'],

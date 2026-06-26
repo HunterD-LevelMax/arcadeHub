@@ -39,29 +39,34 @@
       </div>
 
       <div class="tower-radial hidden" id="towerRadial">
-        <div class="radial-ring" aria-hidden="true"></div>
-        <div class="radial-hub" id="towerPanelInfo">PULSE T1</div>
-        <div class="radial-stats" id="towerPanelStats"></div>
-        <button type="button" class="radial-btn radial-target md-ripple" id="targetBtn" title="Cycle target priority">
-          <span class="material-symbols-outlined radial-icon" aria-hidden="true">tune</span>
-          <span class="radial-label" id="targetLabel">FIRST</span>
-        </button>
-        <button type="button" class="radial-btn radial-upgrade md-ripple" id="upgradeBtn" title="Upgrade">
-          <span class="material-symbols-outlined radial-icon" aria-hidden="true">upgrade</span>
-          <span class="radial-label" id="upgradeLabel">UP</span>
-        </button>
-        <button type="button" class="radial-btn radial-sell md-ripple" id="sellBtn" title="Sell">
-          <span class="material-symbols-outlined radial-icon" aria-hidden="true">paid</span>
-          <span class="radial-label" id="sellLabel">0</span>
-        </button>
-        <button type="button" class="radial-btn radial-close md-ripple" id="closePanelBtn" title="Close">
-          <span class="material-symbols-outlined radial-icon" aria-hidden="true">close</span>
-        </button>
+        <div class="tower-panel">
+          <div class="tower-panel-head">
+            <span class="tower-panel-name" id="towerPanelInfo">PULSE L1</span>
+          </div>
+          <div class="tower-panel-stats-popup hidden" id="towerPanelStatsPopup">
+            <div class="tower-panel-stats" id="towerPanelStats"></div>
+          </div>
+          <div class="tower-panel-actions">
+            <button type="button" class="tower-panel-btn tower-panel-info md-ripple" id="towerStatsBtn" title="Tower stats">
+              <span class="material-symbols-outlined" aria-hidden="true">analytics</span>
+              <span class="tower-panel-btn-label">INFO</span>
+            </button>
+            <button type="button" class="tower-panel-btn tower-panel-upgrade md-ripple" id="upgradeBtn" title="Upgrade">
+              <span class="material-symbols-outlined" aria-hidden="true">upgrade</span>
+              <span class="tower-panel-btn-label" id="upgradeLabel">UP</span>
+            </button>
+            <button type="button" class="tower-panel-btn tower-panel-sell md-ripple" id="sellBtn" title="Sell">
+              <span class="material-symbols-outlined" aria-hidden="true">paid</span>
+              <span class="tower-panel-btn-label" id="sellLabel">0</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="overlay" id="startOverlay">
         <div class="overlay-title">NEON SIEGE</div>
         <div class="overlay-sub">PLACE TOWERS ALONG THE PATH<br>DEFEND THE CORE · SURVIVE 15 WAVES</div>
+        <div class="overlay-best" id="startBestScore">RECORD: 0</div>
         <div class="map-picker">
           <button type="button" class="map-btn md-chip md-ripple selected" id="mapBtn0" data-map="0">NEON GRID</button>
           <button type="button" class="map-btn md-chip md-ripple" id="mapBtn1" data-map="1">SPIRAL CORE</button>
@@ -69,7 +74,7 @@
             <span class="material-symbols-outlined" aria-hidden="true">shuffle</span>RANDOM
           </button>
         </div>
-        <div class="map-picker-sub" id="randomMapHint">Narrow corridors · slot islands in the void · 24+ build sites</div>
+        <div class="map-picker-sub" id="randomMapHint">Arena loops · tower islands inside path rings · 28–32 sites</div>
         <button type="button" class="start-btn md-btn md-btn-filled md-ripple" id="startBtn"><span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>PLAY</button>
       </div>
 
@@ -77,6 +82,7 @@
         <div class="overlay-title" style="color: #39ff14;">CORE SECURED</div>
         <div class="overlay-sub">ALL 15 WAVES CLEARED · ENDLESS MODE UNLOCKED</div>
         <div class="overlay-score" id="victoryScore">0</div>
+        <div class="overlay-best" id="victoryBestScore">RECORD: 0</div>
         <div class="overlay-coins hidden" id="victoryCoinBlock">
           <div class="overlay-coins-earned" id="victoryCoinEarned">+0 COINS</div>
           <div class="overlay-coins-total" id="victoryCoinTotal">TOTAL: 0</div>
@@ -90,7 +96,7 @@
         <div class="overlay-title" style="color: #ff3344;">GAME OVER</div>
         <div class="overlay-sub" id="gameoverSub">CORE DESTROYED</div>
         <div class="overlay-score" id="finalScore">0</div>
-        <div class="overlay-best" id="bestScore">BEST: 0</div>
+        <div class="overlay-best" id="bestScore">RECORD: 0</div>
         <div class="overlay-coins hidden" id="coinRewardBlock">
           <div class="overlay-coins-earned" id="coinRewardEarned">+0 COINS</div>
           <div class="overlay-coins-total" id="coinRewardTotal">TOTAL: 0</div>
@@ -101,55 +107,57 @@
     </div>
 
     <div class="tower-bar" id="towerBar">
-      <div class="tower-bar-scroll">
-      <div class="tower-bar-row tower-bar-build">
-      <button type="button" class="action-btn codex-btn md-ripple" id="codexBtn" title="Tower & enemy guide">
-        <span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
-      </button>
-      <button type="button" class="tower-btn pulse-tower md-ripple" data-type="pulse">
-        <span>PULSE</span><span class="tower-cost">60</span>
-      </button>
-      <button type="button" class="tower-btn nova-tower md-ripple" data-type="nova">
-        <span>NOVA</span><span class="tower-cost">100</span>
-      </button>
-      <button type="button" class="tower-btn prism-tower md-ripple" data-type="prism">
-        <span>PRISM</span><span class="tower-cost">125</span>
-      </button>
-      <button type="button" class="tower-btn frost-tower md-ripple" data-type="frost">
-        <span>FROST</span><span class="tower-cost">85</span>
-      </button>
-      <button type="button" class="tower-btn flak-tower md-ripple" data-type="flak">
-        <span>FLAK</span><span class="tower-cost">75</span>
-      </button>
-      <button type="button" class="tower-btn tesla-tower md-ripple" data-type="tesla">
-        <span>TESLA</span><span class="tower-cost">115</span>
-      </button>
-      <button type="button" class="tower-btn rail-tower md-ripple" data-type="rail">
-        <span>RAIL</span><span class="tower-cost">140</span>
-      </button>
-      <button type="button" class="tower-btn mortar-tower md-ripple" data-type="mortar">
-        <span>MORTAR</span><span class="tower-cost">130</span>
-      </button>
-      <button type="button" class="tower-btn lance-tower md-ripple" data-type="lance">
-        <span>LANCE</span><span class="tower-cost">155</span>
-      </button>
-      <button type="button" class="tower-btn reactor-tower md-ripple" data-type="reactor">
-        <span>REACT</span><span class="tower-cost">110</span>
-      </button>
-      <button type="button" class="tower-btn crypt-tower md-ripple" data-type="crypt">
-        <span>CRYPT</span><span class="tower-cost">145</span>
-      </button>
-      </div>
+      <div class="tower-bar-build">
+        <button type="button" class="action-btn speed-btn codex-btn md-ripple" id="codexBtn" title="Tower & enemy guide">
+          <span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
+        </button>
+        <div class="tower-bar-scroll">
+          <div class="tower-bar-row">
+            <button type="button" class="tower-btn pulse-tower md-ripple" data-type="pulse">
+              <span>PULSE</span><span class="tower-cost">60</span>
+            </button>
+            <button type="button" class="tower-btn nova-tower md-ripple" data-type="nova">
+              <span>NOVA</span><span class="tower-cost">100</span>
+            </button>
+            <button type="button" class="tower-btn prism-tower md-ripple" data-type="prism">
+              <span>PRISM</span><span class="tower-cost">125</span>
+            </button>
+            <button type="button" class="tower-btn frost-tower md-ripple" data-type="frost">
+              <span>FROST</span><span class="tower-cost">85</span>
+            </button>
+            <button type="button" class="tower-btn flak-tower md-ripple" data-type="flak">
+              <span>FLAK</span><span class="tower-cost">75</span>
+            </button>
+            <button type="button" class="tower-btn tesla-tower md-ripple" data-type="tesla">
+              <span>TESLA</span><span class="tower-cost">115</span>
+            </button>
+            <button type="button" class="tower-btn rail-tower md-ripple" data-type="rail">
+              <span>RAIL</span><span class="tower-cost">140</span>
+            </button>
+            <button type="button" class="tower-btn mortar-tower md-ripple" data-type="mortar">
+              <span>MORTAR</span><span class="tower-cost">130</span>
+            </button>
+            <button type="button" class="tower-btn lance-tower md-ripple" data-type="lance">
+              <span>LANCE</span><span class="tower-cost">155</span>
+            </button>
+            <button type="button" class="tower-btn reactor-tower md-ripple" data-type="reactor">
+              <span>REACT</span><span class="tower-cost">110</span>
+            </button>
+            <button type="button" class="tower-btn crypt-tower md-ripple" data-type="crypt">
+              <span>CRYPT</span><span class="tower-cost">145</span>
+            </button>
+          </div>
+        </div>
       </div>
       <div class="tower-bar-row tower-bar-actions">
-      <button type="button" class="action-btn speed-btn md-ripple" id="speedBtn" title="Toggle game speed (1× / 2× / 4× / 6×)">1×</button>
-      <button type="button" class="action-btn arsenal-btn md-ripple" id="arsenalBtn" title="ARSENAL — buy between waves">
-        <span class="material-symbols-outlined" aria-hidden="true">local_mall</span>ARSENAL
-      </button>
-      <button type="button" class="action-btn md-ripple" id="waveBtn">WAVE ▶</button>
-      <button type="button" class="action-btn overcharge-btn md-ripple" id="overchargeBtn" title="All towers fire ~70% faster for 5s · once per wave">
-        <span class="material-symbols-outlined" aria-hidden="true">bolt</span>BOOST
-      </button>
+        <button type="button" class="action-btn speed-btn md-ripple" id="speedBtn" title="Toggle game speed (1× / 2× / 4× / 6×)">1×</button>
+        <button type="button" class="action-btn arsenal-btn md-ripple" id="arsenalBtn" title="ARSENAL — buy between waves">
+          <span class="material-symbols-outlined" aria-hidden="true">local_mall</span>ARSENAL
+        </button>
+        <button type="button" class="action-btn md-ripple" id="waveBtn">WAVE ▶</button>
+        <button type="button" class="action-btn overcharge-btn md-ripple" id="overchargeBtn" title="All towers fire ~70% faster for 5s · once per wave">
+          <span class="material-symbols-outlined" aria-hidden="true">bolt</span>BOOST
+        </button>
       </div>
     </div>
 
@@ -220,6 +228,8 @@ const game = new NeonSiegeGame({
     statusBar: document.getElementById('statusBar'),
     finalScore: document.getElementById('finalScore'),
     bestScore: document.getElementById('bestScore'),
+    startBestScore: document.getElementById('startBestScore'),
+    victoryBestScore: document.getElementById('victoryBestScore'),
     victoryScore: document.getElementById('victoryScore'),
     gameoverSub: document.getElementById('gameoverSub'),
     startOverlay: document.getElementById('startOverlay'),
@@ -228,8 +238,8 @@ const game = new NeonSiegeGame({
     towerRadial: document.getElementById('towerRadial'),
     towerPanelInfo: document.getElementById('towerPanelInfo'),
     towerPanelStats: document.getElementById('towerPanelStats'),
-    targetBtn: document.getElementById('targetBtn'),
-    targetLabel: document.getElementById('targetLabel'),
+    towerPanelStatsPopup: document.getElementById('towerPanelStatsPopup'),
+    towerStatsBtn: document.getElementById('towerStatsBtn'),
     speedBtn: document.getElementById('speedBtn'),
     upgradeBtn: document.getElementById('upgradeBtn'),
     upgradeLabel: document.getElementById('upgradeLabel'),

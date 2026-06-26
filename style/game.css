@@ -29,6 +29,17 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
 html, body {
   width: 100%;
   height: 100%;
@@ -96,7 +107,7 @@ body::after {
   text-decoration: none;
   cursor: pointer;
   transition: box-shadow var(--md-motion-duration-short) var(--md-motion-easing),
-    transform var(--md-motion-duration-short) var(--md-motion-easing),
+    transform 100ms var(--md-motion-easing),
     background var(--md-motion-duration-short) var(--md-motion-easing);
 }
 
@@ -121,9 +132,36 @@ body::after {
   border: 1px solid color-mix(in srgb, var(--md-btn-accent) 55%, transparent);
 }
 
-.md-btn-outlined:hover {
+.md-btn-outlined:hover:not(:disabled) {
   background: color-mix(in srgb, var(--md-btn-accent) 12%, transparent);
   box-shadow: 0 0 16px color-mix(in srgb, var(--md-btn-accent) 35%, transparent);
+}
+
+.md-btn-outlined:active:not(:disabled) {
+  transform: scale(0.90) translateY(1px);
+  background: color-mix(in srgb, var(--md-btn-accent) 16%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--md-btn-accent) 25%, transparent);
+}
+
+.md-btn-filled:active:not(:disabled) {
+  transform: scale(0.92) translateY(1px);
+  box-shadow: var(--md-sys-elevation-1);
+}
+
+.md-btn-tonal:hover:not(:disabled) {
+  box-shadow: 0 0 14px color-mix(in srgb, var(--md-btn-accent) 30%, transparent);
+}
+
+.md-btn-tonal:active:not(:disabled) {
+  transform: scale(0.90) translateY(1px);
+}
+
+.md-btn-text:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--md-btn-accent) 8%, transparent);
+}
+
+.md-btn-text:active:not(:disabled) {
+  transform: scale(0.90) translateY(1px);
 }
 
 .md-btn-tonal {
@@ -142,29 +180,12 @@ body::after {
 
 .md-ripple {
   position: relative;
-  overflow: hidden;
-  isolation: isolate;
 }
 
+.md-ripple::before,
 .md-ripple::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--md-state-pressed);
-  opacity: 0;
-  transition: opacity var(--md-motion-duration-short) var(--md-motion-easing);
-  pointer-events: none;
-  border-radius: inherit;
-}
-
-.md-ripple:hover::after {
-  opacity: 1;
-  background: var(--md-state-hover);
-}
-
-.md-ripple:active::after {
-  opacity: 1;
-  background: var(--md-state-pressed);
+  display: none !important;
+  content: none !important;
 }
 
 .md-chip {
@@ -181,6 +202,19 @@ body::after {
   background: color-mix(in srgb, var(--md-btn-accent) 8%, transparent);
   color: var(--md-btn-accent);
   white-space: nowrap;
+  cursor: pointer;
+  transition: box-shadow var(--md-motion-duration-short) var(--md-motion-easing),
+    transform var(--md-motion-duration-short) var(--md-motion-easing),
+    background var(--md-motion-duration-short) var(--md-motion-easing);
+}
+
+.md-chip:hover:not(:disabled):not(.selected) {
+  background: color-mix(in srgb, var(--md-btn-accent) 12%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--md-btn-accent) 25%, transparent);
+}
+
+.md-chip:active:not(:disabled) {
+  transform: scale(0.90) translateY(1px);
 }
 
 .md-surface {
@@ -439,6 +473,12 @@ canvas {
 
 .ability-btn:hover:not(.depleted) {
   box-shadow: var(--md-sys-elevation-1), 0 0 14px color-mix(in srgb, var(--md-btn-accent) 35%, transparent);
+  transform: scale(1.02);
+}
+
+.ability-btn:active:not(.depleted):not(:disabled) {
+  transform: scale(0.90) translateY(2px);
+  box-shadow: var(--md-sys-elevation-1);
 }
 
 .ability-btn.armed {
@@ -464,7 +504,14 @@ canvas {
   opacity: 0.85;
 }
 
+.md-btn:focus,
+.md-chip:focus,
+.ability-btn:focus {
+  outline: none;
+}
+
 .md-btn:focus-visible,
+.md-chip:focus-visible,
 .ability-btn:focus-visible {
   outline: 2px solid var(--md-btn-accent);
   outline-offset: 2px;

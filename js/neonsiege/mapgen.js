@@ -6,12 +6,14 @@
   const LAST_ROW = ROWS - 1;
   const LAST_COL = COLS - 1;
   const DIRS = [[0, 1], [0, -1], [1, 0], [-1, 0]];
-  const MIN_PATH_LEN = 38;
-  const MAX_PATH_LEN = 62;
-  const MAX_PATH_CELLS = 58;
-  const MIN_SLOTS = 24;
-  const MAX_SLOTS = 36;
-  const MAX_TOTAL_SLOTS = 64;
+  const MIN_PATH_LEN = 42;
+  const MAX_PATH_LEN = 58;
+  const MAX_PATH_CELLS = 65;
+  const TARGET_SLOTS_MIN = 28;
+  const TARGET_SLOTS_MAX = 32;
+  const MAX_TOTAL_SLOTS = 34;
+  const MAX_VOID_RATIO = 0.58;
+  const POCKET_MAX_SIZE = 14;
   const MIN_TURNS = 12;
   const MIN_ROUTES = 2;
   const TUNNEL_MIN = 3;
@@ -220,15 +222,15 @@
   }
 
   function generateCompactSpiral() {
-    const left = 3;
-    const right = LAST_COL - 3;
+    const left = 2;
+    const right = LAST_COL - 2;
     for (let attempt = 0; attempt < 25; attempt++) {
       let startCol = left + Math.floor(Math.random() * (right - left + 1));
       let c = startCol;
       const path = [[0, c]];
       let goingRight = true;
-      const minRowSpan = 2;
-      const maxRowSpan = 3;
+      const minRowSpan = 3;
+      const maxRowSpan = 5;
 
       for (let r = 1; r <= LAST_ROW; r++) {
         if (path[path.length - 1][0] !== r) path.push([r, c]);
@@ -251,12 +253,188 @@
         }
       }
       const finalPath = dedupePath(path);
-      if (finalPath.length < 35 || finalPath.length > 58) continue;
+      if (finalPath.length < 35 || finalPath.length > MAX_PATH_CELLS) continue;
       if (finalPath[0][0] !== 0 || finalPath[finalPath.length - 1][0] !== LAST_ROW) continue;
       if (countTurns(finalPath) < 8) continue;
       return finalPath;
     }
     return null;
+  }
+
+  function voidRatio(grid) {
+    const stats = countCells(grid);
+    const used = stats.path + stats.tunnels + stats.slots;
+    return (ROWS * COLS - used) / (ROWS * COLS);
+  }
+
+  function isPocketEnclosed(grid, cells) {
+    const cellSet = new Set(cells.map(([cr, cc]) => key(cr, cc)));
+    for (const [cr, cc] of cells) {
+      for (const [dr, dc] of DIRS) {
+        const nr = cr + dr;
+        const nc = cc + dc;
+        if (!inBounds(nr, nc)) return false;
+        const nk = key(nr, nc);
+        if (cellSet.has(nk)) continue;
+        const cell = grid[nr][nc];
+        if (cell === C.CELL_VOID) return false;
+        if (cell !== C.CELL_PATH && cell !== C.CELL_TUNNEL && cell !== C.CELL_SLOT) return false;
+      }
+    }
+    return true;
+  }
+
+  function enumerateVoidPockets(grid) {
+    const visited = new Set();
+    const pockets = [];
+
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const k = key(r, c);
+        if (grid[r][c] !== C.CELL_VOID || visited.has(k)) continue;
+
+        const cells = [];
+        const queue = [[r, c]];
+        visited.add(k);
+        let touchesPath = false;
+
+        while (queue.length) {
+          const [cr, cc] = queue.shift();
+          cells.push([cr, cc]);
+          for (const [dr, dc] of DIRS) {
+            const nr = cr + dr;
+            const nc = cc + dc;
+            if (!inBounds(nr, nc)) continue;
+            const cell = grid[nr][nc];
+            if (cell === C.CELL_PATH || cell === C.CELL_TUNNEL) touchesPath = true;
+            const nk = key(nr, nc);
+            if (cell === C.CELL_VOID && !visited.has(nk)) {
+              visited.add(nk);
+              queue.push([nr, nc]);
+            }
+          }
+        }
+
+        if (cells.length > POCKET_MAX_SIZE) continue;
+        const isEnclosed = isPocketEnclosed(grid, cells);
+        pockets.push({
+          cells,
+          size: cells.length,
+          touchesPath,
+          isEnclosed,
+        });
+      }
+    }
+    return pockets;
+  }
+
+  function countEnclosedPockets(grid) {
+    return enumerateVoidPockets(grid).filter((p) => p.isEnclosed).length;
+  }
+
+  function pocketSlotTarget(size, isEnclosed) {
+    if (size <= 2) return 0;
+    if (isEnclosed) {
+      if (size <= 4) return 2;
+      return Math.min(size - 1, Math.max(2, Math.ceil(size * 0.55)));
+    }
+    if (size <= 5) return 1 + Math.floor(Math.random() * 2);
+    if (size <= 10) return 2 + Math.floor(Math.random() * 2);
+    return Math.min(5, 3 + Math.floor(Math.random() * 3));
+  }
+
+  function placePocketIslandSlots(grid, routes, budget) {
+    const pathSet = new Set();
+    routes.forEach((route) => {
+      route.forEach(([r, c]) => pathSet.add(key(r, c)));
+    });
+
+    const pockets = enumerateVoidPockets(grid).filter((p) => p.touchesPath && p.size >= 3);
+    pockets.sort((a, b) => {
+      if (a.isEnclosed !== b.isEnclosed) return a.isEnclosed ? -1 : 1;
+      if (b.size !== a.size) return b.size - a.size;
+      const maxA = Math.max(...a.cells.map((cell) => distCellToPathSet(cell, pathSet)));
+      const maxB = Math.max(...b.cells.map((cell) => distCellToPathSet(cell, pathSet)));
+      return maxB - maxA;
+    });
+
+    let placed = 0;
+    for (const pocket of pockets) {
+      if (placed >= budget) break;
+      const want = pocketSlotTarget(pocket.size, pocket.isEnclosed);
+      const slotsToPlace = Math.min(want, budget - placed, pocket.cells.length);
+      if (slotsToPlace <= 0) continue;
+
+      const sorted = pocket.cells.slice().sort(
+        (a, b) => distCellToPathSet(b, pathSet) - distCellToPathSet(a, pathSet)
+      );
+      let n = 0;
+      for (const [cr, cc] of sorted) {
+        if (n >= slotsToPlace) break;
+        if (grid[cr][cc] !== C.CELL_VOID) continue;
+        grid[cr][cc] = C.CELL_SLOT;
+        placed++;
+        n++;
+      }
+    }
+    return placed;
+  }
+
+  function enforceSlotBudget(grid, routes, minSlots, maxSlots) {
+    let stats = countCells(grid);
+    if (stats.slots <= maxSlots) return stats.slots;
+
+    const pathSet = new Set();
+    routes.forEach((route) => {
+      route.forEach(([r, c]) => pathSet.add(key(r, c)));
+    });
+
+    const candidates = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (grid[r][c] !== C.CELL_SLOT) continue;
+        candidates.push({
+          r,
+          c,
+          dist: distCellToPathSet([r, c], pathSet),
+        });
+      }
+    }
+    candidates.sort((a, b) => a.dist - b.dist);
+
+    let toRemove = stats.slots - maxSlots;
+    for (const slot of candidates) {
+      if (toRemove <= 0) break;
+      if (grid[slot.r][slot.c] !== C.CELL_SLOT) continue;
+      grid[slot.r][slot.c] = C.CELL_VOID;
+      toRemove--;
+    }
+    return countCells(grid).slots;
+  }
+
+  function topUpEnclosedSlots(grid, routes, need) {
+    if (need <= 0) return 0;
+    const pathSet = new Set();
+    routes.forEach((route) => {
+      route.forEach(([r, c]) => pathSet.add(key(r, c)));
+    });
+    const pockets = enumerateVoidPockets(grid)
+      .filter((p) => p.isEnclosed)
+      .sort((a, b) => b.size - a.size);
+    let placed = 0;
+    for (const pocket of pockets) {
+      if (placed >= need) break;
+      const sorted = pocket.cells.slice().sort(
+        (a, b) => distCellToPathSet(b, pathSet) - distCellToPathSet(a, pathSet)
+      );
+      for (const [cr, cc] of sorted) {
+        if (placed >= need) break;
+        if (grid[cr][cc] !== C.CELL_VOID) continue;
+        grid[cr][cc] = C.CELL_SLOT;
+        placed++;
+      }
+    }
+    return placed;
   }
 
   function generateLongCorridor() {
@@ -268,55 +446,6 @@
       return pathCells;
     }
     return null;
-  }
-
-  function placeIslandSlots(grid, count) {
-    let placed = 0;
-    const attempts = count * 12;
-    for (let i = 0; i < attempts && placed < count; i++) {
-      const r = 2 + Math.floor(Math.random() * (ROWS - 4));
-      const c = 1 + Math.floor(Math.random() * (COLS - 2));
-      if (grid[r][c] !== C.CELL_VOID) continue;
-      let nearPath = false;
-      for (const [dr, dc] of DIRS) {
-        const nr = r + dr;
-        const nc = c + dc;
-        if (!inBounds(nr, nc)) continue;
-        const cell = grid[nr][nc];
-        if (cell === C.CELL_PATH || cell === C.CELL_TUNNEL) nearPath = true;
-      }
-      if (!nearPath) continue;
-
-      const clusterDirs = DIRS.filter(([dr, dc]) => {
-        const nr = r + dr;
-        const nc = c + dc;
-        return inBounds(nr, nc) && grid[nr][nc] === C.CELL_VOID;
-      });
-
-      if (placed < count - 1 && clusterDirs.length && Math.random() < 0.35) {
-        const [dr, dc] = clusterDirs[Math.floor(Math.random() * clusterDirs.length)];
-        const nr = r + dr;
-        const nc = c + dc;
-        let mateNearPath = false;
-        for (const [dr2, dc2] of DIRS) {
-          const ar = nr + dr2;
-          const ac = nc + dc2;
-          if (!inBounds(ar, ac)) continue;
-          const cell = grid[ar][ac];
-          if (cell === C.CELL_PATH || cell === C.CELL_TUNNEL) mateNearPath = true;
-        }
-        if (mateNearPath) {
-          grid[r][c] = C.CELL_SLOT;
-          grid[nr][nc] = C.CELL_SLOT;
-          placed += 2;
-          continue;
-        }
-      }
-
-      grid[r][c] = C.CELL_SLOT;
-      placed++;
-    }
-    return placed;
   }
 
   function distCellToPathSet(cell, pathSet) {
@@ -331,9 +460,8 @@
 
   function placeSlotPlatforms(grid, routes, opts) {
     opts = opts || {};
-    const targetCount = opts.platformSlots != null
-      ? opts.platformSlots
-      : 8 + Math.floor(Math.random() * 7);
+    const targetCount = opts.platformSlots != null ? opts.platformSlots : 4;
+    const maxPerPocket = opts.maxPerPocket != null ? opts.maxPerPocket : 1;
 
     const pathSet = new Set();
     routes.forEach((route) => {
@@ -371,7 +499,7 @@
           }
         }
 
-        if (pocket.length < 2 || pocket.length > 10) continue;
+        if (pocket.length < 2 || pocket.length > POCKET_MAX_SIZE) continue;
         if (!pathNeighborKeys.size) continue;
 
         pockets.push({ cells: pocket });
@@ -387,7 +515,7 @@
     let placed = 0;
     for (const pocket of pockets) {
       if (placed >= targetCount) break;
-      const slotsToPlace = Math.min(3, pocket.cells.length, targetCount - placed);
+      const slotsToPlace = Math.min(maxPerPocket, pocket.cells.length, targetCount - placed);
       const sorted = pocket.cells.slice().sort(
         (a, b) => distCellToPathSet(b, pathSet) - distCellToPathSet(a, pathSet)
       );
@@ -417,11 +545,105 @@
     };
   }
 
-  function generateSerpentinePath() {
-    const left = 2;
-    const right = LAST_COL - 2;
+  function linkPaths(a, b) {
+    if (!a.length) return b.slice();
+    const bridge = cellsAlongSegment(a[a.length - 1], b[0]);
+    return concatPaths([a, bridge.slice(1), b]);
+  }
 
-    for (let attempt = 0; attempt < 25; attempt++) {
+  function chamberPath(innerR, innerC, innerH, innerW) {
+    const top = innerR - 1;
+    const left = innerC - 1;
+    const bottom = innerR + innerH;
+    const right = innerC + innerW;
+    if (!inBounds(top, left) || !inBounds(bottom, right)) return null;
+    if (bottom - top < 2 || right - left < 2) return null;
+
+    const cells = [];
+    for (let c = left; c <= right; c++) cells.push([top, c]);
+    for (let r = top + 1; r <= bottom; r++) cells.push([r, right]);
+    for (let c = right - 1; c >= left; c--) cells.push([bottom, c]);
+    for (let r = bottom - 1; r > top; r--) cells.push([r, left]);
+    return cells;
+  }
+
+  function partitionRowBands(count) {
+    const start = 1;
+    const end = LAST_ROW - 1;
+    const bands = [];
+    let row = start;
+    for (let i = 0; i < count; i++) {
+      const remaining = count - i;
+      const rowsLeft = end - row + 1;
+      const minNeed = remaining * 3;
+      if (rowsLeft < minNeed) return null;
+      const height = Math.min(rowsLeft - (remaining - 1) * 3, Math.max(3, Math.floor(rowsLeft / remaining)));
+      bands.push({ start: row, end: row + height - 1 });
+      row += height;
+    }
+    if (row <= end) bands[bands.length - 1].end = end;
+    return bands;
+  }
+
+  function generateArenaPath() {
+    for (let attempt = 0; attempt < 45; attempt++) {
+      const spawnC = 1 + Math.floor(Math.random() * (COLS - 2));
+      const goalC = 1 + Math.floor(Math.random() * (COLS - 2));
+      const chamberCount = 2 + Math.floor(Math.random() * 2);
+      const bands = partitionRowBands(chamberCount);
+      if (!bands) continue;
+
+      let path = [[0, spawnC]];
+      let prevExit = spawnC;
+
+      for (let i = 0; i < chamberCount; i++) {
+        const band = bands[i];
+        const bandH = band.end - band.start + 1;
+        const innerH = Math.min(2 + Math.floor(Math.random() * 2), bandH - 2);
+        const innerW = 3 + Math.floor(Math.random() * 3);
+        const maxInnerC = COLS - innerW - 2;
+        if (maxInnerC < 1) continue;
+        const innerC = 1 + Math.floor(Math.random() * maxInnerC);
+        const innerR = band.start + 1;
+        if (innerR + innerH > band.end) continue;
+
+        const chamber = chamberPath(innerR, innerC, innerH, innerW);
+        if (!chamber) continue;
+
+        const entry = chamber[0];
+        if (i === 0) {
+          path = linkPaths(path, chamber);
+        } else {
+          const bridgeStart = path[path.length - 1];
+          const downRow = band.start;
+          const midC = Math.floor((prevExit + entry[1]) / 2);
+          const bridge = cellsAlongSegment(bridgeStart, [downRow, midC]);
+          const toEntry = cellsAlongSegment([downRow, midC], entry);
+          path = concatPaths([path, bridge.slice(1), toEntry.slice(1), chamber]);
+        }
+        prevExit = chamber[chamber.length - 1][1];
+      }
+
+      const last = path[path.length - 1];
+      const toGoal = cellsAlongSegment(last, [LAST_ROW, goalC]);
+      path = concatPaths([path, toGoal.slice(1)]);
+
+      const finalPath = dedupePath(path);
+      if (finalPath.length < MIN_PATH_LEN || finalPath.length > MAX_PATH_LEN) continue;
+      if (finalPath[0][0] !== 0 || finalPath[0][1] !== spawnC) continue;
+      const end = finalPath[finalPath.length - 1];
+      if (end[0] !== LAST_ROW || end[1] !== goalC) continue;
+      if (countTurns(finalPath) < 10) continue;
+      return finalPath;
+    }
+    return null;
+  }
+
+  function generateSerpentinePath() {
+    const left = 1;
+    const right = LAST_COL - 1;
+
+    for (let attempt = 0; attempt < 30; attempt++) {
       let startCol = left + Math.floor(Math.random() * (right - left + 1));
       let goalCol = left + Math.floor(Math.random() * (right - left + 1));
       const path = [[0, startCol]];
@@ -439,7 +661,7 @@
             path.push([r, c]);
           }
         } else {
-          const span = 2 + Math.floor(Math.random() * 3);
+          const span = 3 + Math.floor(Math.random() * 4);
           const dir = goingRight ? 1 : -1;
           for (let s = 0; s < span; s++) {
             const nc = c + dir;
@@ -458,6 +680,55 @@
       return finalPath;
     }
     return null;
+  }
+
+  function tryInjectULoop(path) {
+    const candidates = [];
+    for (let i = 0; i < path.length - 2; i++) {
+      const [r1, c1] = path[i];
+      const [r2, c2] = path[i + 1];
+      if (r1 !== r2) continue;
+      const span = Math.abs(c2 - c1);
+      if (span < 3 || span > 8) continue;
+      if (r1 < 2 || r1 > LAST_ROW - 4) continue;
+      candidates.push(i);
+    }
+    if (!candidates.length) return null;
+
+    const i = candidates[Math.floor(Math.random() * candidates.length)];
+    const [r, c1] = path[i];
+    const [, c2] = path[i + 1];
+    const depth = 2 + Math.floor(Math.random() * 2);
+    const step = Math.sign(c2 - c1);
+    const loop = [];
+
+    for (let d = 1; d <= depth; d++) loop.push([r + d, c1]);
+    const bottomR = r + depth;
+    for (let c = c1 + step; c !== c2 + step; c += step) loop.push([bottomR, c]);
+    for (let d = depth - 1; d >= 1; d--) loop.push([r + d, c2]);
+
+    const merged = concatPaths([path.slice(0, i + 1), loop, path.slice(i + 1)]);
+    if (merged.length > MAX_PATH_LEN) return null;
+    if (merged[0][0] !== 0 || merged[merged.length - 1][0] !== LAST_ROW) return null;
+    if (countTurns(merged) < MIN_TURNS) return null;
+    return merged;
+  }
+
+  function generateLoopingSerpentine() {
+    const arena = generateArenaPath();
+    if (arena) return arena;
+
+    let path = generateSerpentinePath();
+    if (!path) return null;
+
+    const loopCount = 1 + Math.floor(Math.random() * 2);
+    for (let n = 0; n < loopCount; n++) {
+      const next = tryInjectULoop(path);
+      if (next) path = next;
+    }
+
+    if (path.length < MIN_PATH_LEN || path.length > MAX_PATH_LEN) return null;
+    return path;
   }
 
   function generateWindyPath() {
@@ -724,7 +995,8 @@
     return routes;
   }
 
-  function placeChokepointSlots(grid, routes) {
+  function placeChokepointSlots(grid, routes, opts) {
+    opts = opts || {};
     const pathSet = new Set();
     routes.forEach((route) => {
       route.forEach(([r, c]) => pathSet.add(key(r, c)));
@@ -767,7 +1039,9 @@
     }
 
     candidates.sort((a, b) => b.score - a.score);
-    const target = MIN_SLOTS + Math.floor(Math.random() * (MAX_SLOTS - MIN_SLOTS + 1));
+    const target = opts.target != null
+      ? opts.target
+      : Math.max(0, TARGET_SLOTS_MAX - countCells(grid).slots);
     let placed = 0;
     for (const slot of candidates) {
       if (placed >= target) break;
@@ -827,8 +1101,13 @@
     if (countTurns(routes[0]) < minTurns) return false;
 
     const stats = countCells(grid);
-    if (stats.slots < MIN_SLOTS || stats.slots > MAX_TOTAL_SLOTS) return false;
+    if (stats.slots < TARGET_SLOTS_MIN || stats.slots > MAX_TOTAL_SLOTS) return false;
     if (stats.path + stats.tunnels > MAX_PATH_CELLS) return false;
+    if (voidRatio(grid) > MAX_VOID_RATIO) return false;
+
+    if (opts.minEnclosedPockets != null && countEnclosedPockets(grid) < opts.minEnclosedPockets) {
+      return false;
+    }
 
     const enumerated = enumerateRoutes(grid, spawn, goal, 6);
     if (enumerated.length < minRoutes) return false;
@@ -881,23 +1160,39 @@
     }
 
     const tunnelCells = allowTunnels ? markTunnelSegments(grid, routes, shorterRoute) : [];
-    let slotCount = placeChokepointSlots(grid, routes);
-    slotCount += placeSlotPlatforms(grid, routes, {
-      platformSlots: meta.platformSlots != null
-        ? meta.platformSlots
-        : 8 + Math.floor(Math.random() * 7),
-    });
-    const islandBonus = meta.islandBonus || 0;
-    slotCount += placeIslandSlots(grid, 6 + Math.floor(Math.random() * 5) + islandBonus);
-    if (meta.extraSlots) {
-      slotCount += placeChokepointSlots(grid, routes);
+
+    const targetTotal = TARGET_SLOTS_MIN +
+      Math.floor(Math.random() * (TARGET_SLOTS_MAX - TARGET_SLOTS_MIN + 1));
+    const pocketBudget = Math.max(18, targetTotal - 4);
+
+    let slotCount = placePocketIslandSlots(grid, routes, pocketBudget);
+
+    const remaining = Math.max(0, targetTotal - countCells(grid).slots);
+    if (remaining > 0) {
+      slotCount += placeChokepointSlots(grid, routes, { target: remaining });
     }
+
+    if (countCells(grid).slots < TARGET_SLOTS_MIN) {
+      slotCount += topUpEnclosedSlots(
+        grid, routes, TARGET_SLOTS_MIN - countCells(grid).slots
+      );
+    }
+
+    if (countCells(grid).slots < TARGET_SLOTS_MIN) {
+      slotCount += placeSlotPlatforms(grid, routes, {
+        platformSlots: TARGET_SLOTS_MIN - countCells(grid).slots,
+        maxPerPocket: 2,
+      });
+    }
+
+    enforceSlotBudget(grid, routes, TARGET_SLOTS_MIN, TARGET_SLOTS_MAX);
 
     const valOpts = {
       minRoutes: requireFork ? MIN_ROUTES : 1,
       minPathLen: meta.minPathLen,
       maxPathLen: meta.maxPathLen,
       minTurns: meta.minTurns,
+      minEnclosedPockets: meta.minEnclosedPockets,
     };
     if (!validateGenerated(grid, spawn, goal, routes, valOpts)) return null;
 
@@ -961,10 +1256,10 @@
           themeLabel: 'FORTRESS',
           label: 'FORTRESS',
           hpMod: 0.95,
-          extraSlots: true,
           minPathLen: 35,
-          maxPathLen: 60,
+          maxPathLen: 70,
           minTurns: 8,
+          minEnclosedPockets: 1,
         }));
         if (map) return map;
       }
@@ -993,7 +1288,8 @@
 
     if (themeId === 'rift') {
       for (let i = 0; i < 25; i++) {
-        let path = generateWindyPath();
+        let path = generateLoopingSerpentine();
+        if (!path) path = generateWindyPath();
         if (!path) path = generateSerpentinePath();
         if (!path) continue;
         const map = buildMazeMap(path, Object.assign({}, baseMeta, {
@@ -1010,14 +1306,14 @@
 
     if (themeId === 'chaos') {
       for (let i = 0; i < 25; i++) {
-        let path = generateWindyPath();
-        if (!path) path = generateSerpentinePath();
+        let path = generateLoopingSerpentine();
+        if (!path) path = generateWindyPath();
         if (!path) continue;
         const map = buildMazeMap(path, Object.assign({}, baseMeta, {
           themeLabel: 'CHAOS',
           label: 'CHAOS',
           hpMod: 1.1,
-          islandBonus: 4,
+          minEnclosedPockets: 2,
         }));
         if (map) return map;
       }
@@ -1025,7 +1321,8 @@
     }
 
     for (let i = 0; i < 20; i++) {
-      let path = generateSerpentinePath();
+      let path = generateLoopingSerpentine();
+      if (!path) path = generateSerpentinePath();
       if (!path) path = generateWindyPath();
       if (!path) continue;
       const map = buildMazeMap(path, Object.assign({}, baseMeta, {
@@ -1033,6 +1330,7 @@
         label: 'MAZE',
         hpMod: 1.05,
         countMod: 0,
+        minEnclosedPockets: 2,
       }));
       if (map) return map;
     }
@@ -1050,7 +1348,8 @@
     }
 
     for (let i = 0; i < 15; i++) {
-      let pathCells = generateSerpentinePath();
+      let pathCells = generateLoopingSerpentine();
+      if (!pathCells) pathCells = generateSerpentinePath();
       if (!pathCells) pathCells = generateWindyPath();
       const map = buildMazeMap(pathCells, {
         templateId: 'procedural',
@@ -1115,6 +1414,8 @@
     PATH_TEMPLATES,
     generateRandomMap,
     generateSerpentinePath,
+    generateArenaPath,
+    generateLoopingSerpentine,
     generateWindyPath,
     generateCompactSpiral,
     buildMazeMap,
@@ -1122,10 +1423,14 @@
     expandCorners,
     injectForkMerge,
     placeChokepointSlots,
-    placeIslandSlots,
+    placePocketIslandSlots,
     placeSlotPlatforms,
+    enumerateVoidPockets,
+    enforceSlotBudget,
     markTunnelSegments,
     enumerateRoutes,
     countTurns,
+    countEnclosedPockets,
+    voidRatio,
   };
 })();

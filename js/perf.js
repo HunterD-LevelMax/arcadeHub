@@ -36,8 +36,8 @@
     shadows: !low,
     reducedEffects: low,
     hubPreviewShadows: !low,
-    hubStarCount: low ? 40 : 120,
-    maxFps: 60,
+    hubStarCount: low ? 0 : (tier === 'medium' ? 60 : 120),
+    hubFrameSkip: low ? 2 : 1,
     applyShadow,
     clearShadow,
   };

@@ -48,7 +48,7 @@
       </div>
     </div>
 
-    <div class="footer">← → · A D · TOUCH OR DRAG TO STEER</div>
+    <div class="footer">← → · A D · TAP LEFT / RIGHT HALF TO STEER</div>
   </div>
 
 <script src="../../js/audio.js"></script>
@@ -107,10 +107,6 @@ const CONFIG = {
   BONUS_SCORE_MAX: 120,
   PLAYER_SPEED:  4.2,
   PLAYER_DAMPING:0.78,
-  POINTER_DEADZONE: 3,
-  POINTER_GAIN: 0.13,
-  POINTER_MAX_SPEED: 6.2,
-  POINTER_ACCEL: 0.55,
 };
 
 let gameState = {
@@ -151,46 +147,69 @@ function createPlayer() {
 function isLeftPressed()  { return KEYS.LEFT.some(k  => keys[k]); }
 function isRightPressed() { return KEYS.RIGHT.some(k => keys[k]); }
 
-const pointerInput = { active: false, canvasX: null, id: null };
+/** pointerId → 'left' | 'right' (half-screen zones) */
+const activePointers = new Map();
 
-function clientToCanvasX(clientX) {
+function clientToHalf(clientX) {
   const rect = canvas.getBoundingClientRect();
-  if (!rect.width) return W() / 2;
-  return (clientX - rect.left) * (W() / rect.width);
+  if (!rect.width) return 'left';
+  const x = clientX - rect.left;
+  return x < rect.width / 2 ? 'left' : 'right';
 }
 
-function setPointerTarget(e) {
+function registerPointer(e) {
   if (!gameState.running) return;
-  pointerInput.active = true;
-  pointerInput.id = e.pointerId;
-  pointerInput.canvasX = clientToCanvasX(e.clientX);
+  activePointers.set(e.pointerId, clientToHalf(e.clientX));
   if (canvas.setPointerCapture) {
     try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   }
 }
 
-function clearPointer(e) {
-  if (pointerInput.id != null && e && e.pointerId !== pointerInput.id) return;
-  pointerInput.active = false;
-  pointerInput.canvasX = null;
-  pointerInput.id = null;
+function updatePointer(e) {
+  if (!activePointers.has(e.pointerId)) return;
+  activePointers.set(e.pointerId, clientToHalf(e.clientX));
 }
 
-function applyPointerSteering(player, dt) {
-  if (!pointerInput.active || pointerInput.canvasX == null) return false;
-  const center = player.x + CONFIG.PLAYER_W / 2;
-  const diff = pointerInput.canvasX - center;
-  if (Math.abs(diff) <= CONFIG.POINTER_DEADZONE) {
-    player.vx *= Math.pow(CONFIG.PLAYER_DAMPING, dt * 1.35);
+function releasePointer(e) {
+  activePointers.delete(e.pointerId);
+}
+
+function clearTouchInput() {
+  activePointers.clear();
+}
+
+function isTouchLeft() {
+  for (const side of activePointers.values()) {
+    if (side === 'left') return true;
+  }
+  return false;
+}
+
+function isTouchRight() {
+  for (const side of activePointers.values()) {
+    if (side === 'right') return true;
+  }
+  return false;
+}
+
+function applyTouchSteering(player, dt) {
+  if (activePointers.size === 0) return false;
+
+  const left = isTouchLeft();
+  const right = isTouchRight();
+
+  if (left && !right) {
+    player.vx = -CONFIG.PLAYER_SPEED;
+    player.facing = -1;
     return true;
   }
-  const targetVx = Math.max(
-    -CONFIG.POINTER_MAX_SPEED,
-    Math.min(CONFIG.POINTER_MAX_SPEED, diff * CONFIG.POINTER_GAIN)
-  );
-  const blend = Math.min(1, CONFIG.POINTER_ACCEL * dt);
-  player.vx += (targetVx - player.vx) * blend;
-  player.facing = diff < 0 ? -1 : 1;
+  if (right && !left) {
+    player.vx = CONFIG.PLAYER_SPEED;
+    player.facing = 1;
+    return true;
+  }
+
+  player.vx *= Math.pow(CONFIG.PLAYER_DAMPING, dt);
   return true;
 }
 
@@ -273,7 +292,7 @@ function initPlatforms() {
 function startGame() {
   unlockAudio();
   init();
-  clearPointer();
+  clearTouchInput();
   beginCoinSession(gameState.best, 'doodle', () => gameState.score);
   ui.startOverlay.classList.add('hidden');
   ui.gameoverOverlay.classList.add('hidden');
@@ -292,21 +311,25 @@ window.addEventListener('keyup',   e => { keys[e.code] = false; });
 
 canvas.addEventListener('pointerdown', e => {
   if (e.cancelable) e.preventDefault();
-  setPointerTarget(e);
+  registerPointer(e);
 });
 
 canvas.addEventListener('pointermove', e => {
-  if (!pointerInput.active || e.pointerId !== pointerInput.id) return;
-  pointerInput.canvasX = clientToCanvasX(e.clientX);
+  if (!activePointers.has(e.pointerId)) return;
+  updatePointer(e);
   if (e.cancelable) e.preventDefault();
 });
 
 canvas.addEventListener('pointerup', e => {
-  clearPointer(e);
+  releasePointer(e);
 });
 
 canvas.addEventListener('pointercancel', e => {
-  clearPointer(e);
+  releasePointer(e);
+});
+
+canvas.addEventListener('pointerleave', e => {
+  if (activePointers.has(e.pointerId)) releasePointer(e);
 });
 
 let lastTap = 0;
@@ -322,7 +345,7 @@ canvas.addEventListener('touchend', e => {
 function updatePlayer(dt) {
   const { player } = gameState;
 
-  if (!applyPointerSteering(player, dt)) {
+  if (!applyTouchSteering(player, dt)) {
     if (isLeftPressed()) {
       player.vx = -CONFIG.PLAYER_SPEED;
       player.facing = -1;
@@ -490,7 +513,7 @@ function update(dt) {
 
 function endGame() {
   gameState.running = false;
-  clearPointer();
+  clearTouchInput();
   hapticHeavy();
   playSfx('doodle.gameover', { volume: 0.65 });
   const isNewBest = gameState.score > gameState.best;
