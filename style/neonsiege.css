@@ -667,11 +667,11 @@ canvas {
 
 .status-line {
   font-family: 'Orbitron', sans-serif;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.5px;
   text-align: right;
-  padding: 4px 8px;
+  padding: 5px 10px;
   border-radius: var(--md-sys-shape-corner-small);
   line-height: 1.3;
   white-space: nowrap;
@@ -977,8 +977,8 @@ canvas {
   }
 
   .status-line {
-    font-size: 12px;
-    padding: 6px 10px;
+    font-size: 14px;
+    padding: 6px 12px;
   }
 
   .status-wave {
@@ -994,8 +994,8 @@ canvas {
   }
 
   .strike-chip {
-    font-size: 12px;
-    padding: 5px 10px;
+    font-size: 14px;
+    padding: 6px 12px;
   }
 
   .tower-panel {
@@ -1178,8 +1178,8 @@ canvas {
 
 .strike-chip {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 10px;
-  padding: 4px 8px;
+  font-size: 12px;
+  padding: 5px 10px;
   border-radius: var(--md-sys-shape-corner-small);
   border: 1px solid rgba(255, 136, 0, 0.5);
   color: #ff8800;
@@ -1315,7 +1315,7 @@ canvas {
 
 .arsenal-section-title {
   font-family: 'Orbitron', sans-serif;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 2px;
   color: rgba(255, 204, 0, 0.9);
   margin-bottom: 4px;
@@ -1323,7 +1323,7 @@ canvas {
 
 .arsenal-section-hint {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.52);
 }
@@ -1338,9 +1338,9 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px 14px;
   text-align: left;
   cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--card-color) 50%, transparent);
@@ -1383,7 +1383,7 @@ canvas {
 
 .arsenal-card-name {
   font-family: 'Orbitron', sans-serif;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 1px;
   color: var(--card-color);
@@ -1393,13 +1393,13 @@ canvas {
 
 .arsenal-stacks {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   color: #39ff14;
 }
 
 .arsenal-cost {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--game-accent);
   margin-left: auto;
@@ -1408,8 +1408,8 @@ canvas {
 
 .arsenal-card-desc {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.5;
   color: rgba(255, 255, 255, 0.82);
   margin: 0;
 }
@@ -1424,14 +1424,14 @@ canvas {
 
 .arsenal-owned {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 10px;
+  font-size: 12px;
   color: #ff8800;
   font-weight: 700;
 }
 
 .arsenal-card-tag {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.3px;
   color: rgba(255, 255, 255, 0.42);
   margin-left: auto;
@@ -1494,12 +1494,12 @@ canvas {
   }
 
   .arsenal-section-title {
-    font-size: 14px;
+    font-size: 15px;
     margin-bottom: 6px;
   }
 
   .arsenal-section-hint {
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.5;
     max-width: 640px;
   }
@@ -1510,33 +1510,33 @@ canvas {
   }
 
   .arsenal-card {
-    padding: 14px 16px;
-    gap: 8px;
+    padding: 16px 18px;
+    gap: 10px;
   }
 
   .arsenal-card-name {
-    font-size: 15px;
+    font-size: 17px;
   }
 
   .arsenal-stacks {
-    font-size: 13px;
-  }
-
-  .arsenal-cost {
     font-size: 15px;
   }
 
+  .arsenal-cost {
+    font-size: 17px;
+  }
+
   .arsenal-card-desc {
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 16px;
+    line-height: 1.55;
   }
 
   .arsenal-owned {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .arsenal-card-tag {
-    font-size: 12px;
+    font-size: 13px;
   }
 }
 

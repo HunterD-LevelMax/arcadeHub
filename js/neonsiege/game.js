@@ -926,11 +926,15 @@
             0, this.spawnIndex++,
             { speedMult: this._modifierSpeedMult(), routeId: boss.routeId }
           );
-          child.pathIndex = boss.pathIndex;
-          child.segT = Math.max(0, boss.segT - 0.08 * (i + 1));
+          const back = this.pathFinder.forRoute(boss.routeId)
+            .offsetByCells(boss.pathIndex, boss.segT, -0.35 * (i + 1));
+          child.pathIndex = back.pathIndex;
+          child.segT = back.segT;
           const pos = this.pathFinder.forRoute(child.routeId).positionAt(child.pathIndex, child.segT, 0);
           child.x = pos.x;
           child.y = pos.y;
+          child._pathDistPx = this.pathFinder.forRoute(child.routeId)
+            .distanceAt(child.pathIndex, child.segT);
           this.enemies.push(child);
         }
         this.floatingTexts.push(new Ent.FloatingText(boss.x, boss.y - 40, 'ESCORT', '#ff6688', true));
@@ -979,11 +983,15 @@
           const child = new Ent.Enemy('drone', hpMult, this.pathFinder, 0, this.spawnIndex++, {
             routeId: enemy.routeId,
           });
-          child.pathIndex = enemy.pathIndex;
-          child.segT = Math.max(0, enemy.segT - 0.07 * (i + 1));
+          const back = this.pathFinder.forRoute(enemy.routeId)
+            .offsetByCells(enemy.pathIndex, enemy.segT, -0.3 * (i + 1));
+          child.pathIndex = back.pathIndex;
+          child.segT = back.segT;
           const pos = this.pathFinder.forRoute(child.routeId).positionAt(child.pathIndex, child.segT, 0);
           child.x = pos.x;
           child.y = pos.y;
+          child._pathDistPx = this.pathFinder.forRoute(child.routeId)
+            .distanceAt(child.pathIndex, child.segT);
           this.enemies.push(child);
         }
       }

@@ -80,12 +80,13 @@
       const pos = route.positionAt(0, 0, laneOffset);
       this.x = pos.x;
       this.y = pos.y;
+      this._pathDistPx = route.distanceAt(0, 0);
       const cell = pathFinder.cellAt(this.routeId, 0, 0);
       this.inTunnel = cell.type === C.CELL_TUNNEL;
     }
 
     get pathDistance() {
-      return this.pathIndex + this.segT;
+      return this._pathDistPx != null ? this._pathDistPx : this.pathIndex + this.segT;
     }
 
     move(dt, pathFinder, enemies) {
@@ -98,13 +99,18 @@
         if (this.slowTimer <= 0) this.slowFactor = 1;
       }
 
+      const route = pathFinder.forRoute(this.routeId);
+      const myDist = route.distanceAt(this.pathIndex, this.segT);
+      const minGapPx = C.MIN_STAGGER_DIST * pathFinder.metrics.cellSize;
+
       let speedMult = this.slowFactor;
-      const minDist = C.MIN_STAGGER_DIST;
       for (const other of enemies) {
         if (other.id === this.id) continue;
-        if (other.pathDistance <= this.pathDistance) continue;
-        const gap = other.pathDistance - this.pathDistance;
-        if (gap < minDist) {
+        if (other.routeId !== this.routeId) continue;
+        const otherDist = route.distanceAt(other.pathIndex, other.segT);
+        if (otherDist <= myDist) continue;
+        const gap = otherDist - myDist;
+        if (gap < minGapPx) {
           speedMult *= C.STAGGER_SLOW;
           break;
         }
@@ -112,7 +118,6 @@
 
       const sec = dt / 1000;
       let movePx = this.speed * speedMult * sec;
-      const route = pathFinder.forRoute(this.routeId);
       const segCount = route.segmentCount();
 
       while (movePx > 0 && this.pathIndex < segCount) {
@@ -135,6 +140,7 @@
       );
       this.x = pos.x;
       this.y = pos.y;
+      this._pathDistPx = route.distanceAt(this.pathIndex, this.segT);
       const cell = pathFinder.cellAt(this.routeId, this.pathIndex, this.segT);
       this.inTunnel = cell.type === C.CELL_TUNNEL;
       return this.pathIndex >= segCount;
@@ -149,8 +155,8 @@
       }
       this.hp -= remaining;
       if (slowOpts && slowOpts.slow) {
-        this.slowTimer = slowOpts.slowMs;
-        this.slowFactor = slowOpts.slow;
+        this.slowTimer = Math.max(this.slowTimer, slowOpts.slowMs);
+        this.slowFactor = Math.min(this.slowFactor, slowOpts.slow);
       }
       return this.hp <= 0;
     }

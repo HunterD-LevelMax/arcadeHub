@@ -7,6 +7,54 @@
       this.game = game;
       this.ctx = canvas.getContext("2d");
       this.gemGradCache = new Map();
+      this._slotCacheKey = '';
+      this._slotGradients = null;
+    }
+
+    invalidateCellSlots() {
+      this._slotCacheKey = '';
+      this._slotGradients = null;
+    }
+
+    ensureCellSlotGradients(ctx, m, constants, PERF_REDUCED) {
+      const inset = m.cellInset != null ? m.cellInset : 4;
+      const key =
+        m.offsetX + '|' + m.offsetY + '|' + m.cellSize + '|' + inset + '|' + (PERF_REDUCED ? 1 : 0);
+      if (this._slotCacheKey === key && this._slotGradients) return;
+
+      this._slotCacheKey = key;
+      this._slotGradients = [];
+
+      for (let r = 0; r < constants.GRID_SIZE; r++) {
+        for (let c = 0; c < constants.GRID_SIZE; c++) {
+          const x = m.offsetX + c * m.cellSize;
+          const y = m.offsetY + r * m.cellSize;
+          const w = m.cellSize - inset * 2;
+          const h = m.cellSize - inset * 2;
+          const even = (r + c) % 2 === 0;
+
+          const fill = ctx.createLinearGradient(x, y, x + m.cellSize, y + m.cellSize);
+          if (even) {
+            fill.addColorStop(0, "rgba(30, 16, 52, 0.92)");
+            fill.addColorStop(0.45, "rgba(16, 8, 34, 0.96)");
+            fill.addColorStop(1, "rgba(10, 4, 22, 0.96)");
+          } else {
+            fill.addColorStop(0, "rgba(40, 18, 64, 0.9)");
+            fill.addColorStop(0.4, "rgba(20, 10, 40, 0.95)");
+            fill.addColorStop(1, "rgba(12, 6, 28, 0.95)");
+          }
+
+          let gloss = null;
+          if (!PERF_REDUCED) {
+            gloss = ctx.createLinearGradient(x, y + inset, x, y + inset + h);
+            gloss.addColorStop(0, "rgba(255, 255, 255, 0.12)");
+            gloss.addColorStop(0.5, "rgba(255, 255, 255, 0.02)");
+            gloss.addColorStop(1, "rgba(255, 255, 255, 0)");
+          }
+
+          this._slotGradients.push({ x, y, inset, w, h, fill, gloss });
+        }
+      }
     }
 
     easeOutCubic(t) {
@@ -93,9 +141,9 @@
 
     drawGemShape(ctx, def, x, y, size, alpha, scale, now, r, c) {
       const PERF_SHADOWS = !window.ArcadePerf || window.ArcadePerf.shadows !== false;
+      const PERF_REDUCED = !!(window.ArcadePerf && window.ArcadePerf.reducedEffects);
       const a = alpha == null ? 1 : alpha;
       const s = size * (scale || 1);
-      const shimmer = 0.5 + 0.5 * Math.sin(now * 0.003 + r + c);
 
       ctx.save();
       ctx.globalAlpha = a;
@@ -109,56 +157,69 @@
       ctx.translate(x, y);
       if (PERF_SHADOWS) {
         ctx.shadowColor = def.color;
-        ctx.shadowBlur = 18;
+        ctx.shadowBlur = PERF_REDUCED ? 8 : 18;
       }
       ctx.beginPath();
       this.traceGemPath(ctx, def, 0, 0, s);
       ctx.fillStyle = this.getGemGradient(ctx, def, s, this.gemGradCache);
       ctx.fill();
 
-      ctx.save();
-      ctx.clip();
-      const sheen = ctx.createLinearGradient(-s * 0.45, -s * 0.45, s * 0.3, s * 0.35);
-      sheen.addColorStop(0, "rgba(255, 255, 255, 0.46)");
-      sheen.addColorStop(0.5, "rgba(255, 255, 255, 0.12)");
-      sheen.addColorStop(1, "rgba(255, 255, 255, 0)");
-      ctx.fillStyle = sheen;
-      ctx.beginPath();
-      this.traceGemPath(ctx, def, -s * 0.02, -s * 0.02, s * 0.74);
-      ctx.fill();
+      if (!PERF_REDUCED) {
+        const shimmer = 0.5 + 0.5 * Math.sin(now * 0.003 + r + c);
+        ctx.save();
+        ctx.clip();
+        const sheen = ctx.createLinearGradient(-s * 0.45, -s * 0.45, s * 0.3, s * 0.35);
+        sheen.addColorStop(0, "rgba(255, 255, 255, 0.46)");
+        sheen.addColorStop(0.5, "rgba(255, 255, 255, 0.12)");
+        sheen.addColorStop(1, "rgba(255, 255, 255, 0)");
+        ctx.fillStyle = sheen;
+        ctx.beginPath();
+        this.traceGemPath(ctx, def, -s * 0.02, -s * 0.02, s * 0.74);
+        ctx.fill();
 
-      const facetAlpha = 0.2 + shimmer * 0.2;
-      ctx.fillStyle = "rgba(255, 255, 255, " + facetAlpha.toFixed(3) + ")";
-      ctx.beginPath();
-      this.traceGemPath(ctx, def, s * 0.08, s * 0.06, s * 0.5);
-      ctx.fill();
-      ctx.restore();
+        const facetAlpha = 0.2 + shimmer * 0.2;
+        ctx.fillStyle = "rgba(255, 255, 255, " + facetAlpha.toFixed(3) + ")";
+        ctx.beginPath();
+        this.traceGemPath(ctx, def, s * 0.08, s * 0.06, s * 0.5);
+        ctx.fill();
+        ctx.restore();
+      }
       ctx.restore();
       ctx.shadowBlur = 0;
 
       ctx.strokeStyle = "rgba(0, 0, 0, 0.55)";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = PERF_REDUCED ? 2 : 3;
       ctx.beginPath();
       this.traceGemPath(ctx, def, x, y, s);
       ctx.stroke();
 
-      const rimHue = Math.round((now * 0.03 + (r + c) * 6) % 360);
-      ctx.strokeStyle = "hsla(" + rimHue + ", 100%, 75%, " + (0.48 + shimmer * 0.32).toFixed(3) + ")";
-      ctx.lineWidth = 2.4;
-      ctx.beginPath();
-      this.traceGemPath(ctx, def, x, y, s);
-      ctx.stroke();
+      if (!PERF_REDUCED) {
+        const shimmer = 0.5 + 0.5 * Math.sin(now * 0.003 + r + c);
+        const rimHue = Math.round((now * 0.03 + (r + c) * 6) % 360);
+        ctx.strokeStyle = "hsla(" + rimHue + ", 100%, 75%, " + (0.48 + shimmer * 0.32).toFixed(3) + ")";
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        this.traceGemPath(ctx, def, x, y, s);
+        ctx.stroke();
 
-      ctx.strokeStyle = def.rim;
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      this.traceGemPath(ctx, def, x, y, s * (0.94 + shimmer * 0.02));
-      ctx.stroke();
+        ctx.strokeStyle = def.rim;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        this.traceGemPath(ctx, def, x, y, s * (0.94 + shimmer * 0.02));
+        ctx.stroke();
 
-      ctx.fillStyle = "rgba(255, 255, 255, " + (0.24 + shimmer * 0.22).toFixed(3) + ")";
-      ctx.beginPath();
-      ctx.arc(x - s * 0.1, y - s * 0.14, s * 0.1, 0, Math.PI * 2);
-      ctx.fill();
+        ctx.fillStyle = "rgba(255, 255, 255, " + (0.24 + shimmer * 0.22).toFixed(3) + ")";
+        ctx.beginPath();
+        ctx.arc(x - s * 0.1, y - s * 0.14, s * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = def.rim;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        this.traceGemPath(ctx, def, x, y, s * 0.96);
+        ctx.stroke();
+      }
+
       ctx.restore();
     }
 
@@ -247,47 +308,30 @@
     }
 
     drawCellSlots(ctx, m, constants, PERF_REDUCED) {
-      for (let r = 0; r < constants.GRID_SIZE; r++) {
-        for (let c = 0; c < constants.GRID_SIZE; c++) {
-          const x = m.offsetX + c * m.cellSize;
-          const y = m.offsetY + r * m.cellSize;
-          const inset = 4;
-          const w = m.cellSize - inset * 2;
-          const h = m.cellSize - inset * 2;
+      this.ensureCellSlotGradients(ctx, m, constants, PERF_REDUCED);
+      const slots = this._slotGradients;
+      if (!slots) return;
 
-          const g = ctx.createLinearGradient(x, y, x + m.cellSize, y + m.cellSize);
-          if ((r + c) % 2 === 0) {
-            g.addColorStop(0, "rgba(30, 16, 52, 0.92)");
-            g.addColorStop(0.45, "rgba(16, 8, 34, 0.96)");
-            g.addColorStop(1, "rgba(10, 4, 22, 0.96)");
-          } else {
-            g.addColorStop(0, "rgba(40, 18, 64, 0.9)");
-            g.addColorStop(0.4, "rgba(20, 10, 40, 0.95)");
-            g.addColorStop(1, "rgba(12, 6, 28, 0.95)");
-          }
-          ctx.fillStyle = g;
-          roundRect(ctx, x + inset, y + inset, w, h, 7);
+      for (let i = 0; i < slots.length; i++) {
+        const slot = slots[i];
+        ctx.fillStyle = slot.fill;
+        roundRect(ctx, slot.x + slot.inset, slot.y + slot.inset, slot.w, slot.h, 7);
+        ctx.fill();
+
+        if (slot.gloss) {
+          ctx.fillStyle = slot.gloss;
+          roundRect(ctx, slot.x + slot.inset + 1, slot.y + slot.inset + 1, slot.w - 2, slot.h * 0.48, 6);
           ctx.fill();
 
-          if (!PERF_REDUCED) {
-            const gloss = ctx.createLinearGradient(x, y + inset, x, y + inset + h);
-            gloss.addColorStop(0, "rgba(255, 255, 255, 0.12)");
-            gloss.addColorStop(0.5, "rgba(255, 255, 255, 0.02)");
-            gloss.addColorStop(1, "rgba(255, 255, 255, 0)");
-            ctx.fillStyle = gloss;
-            roundRect(ctx, x + inset + 1, y + inset + 1, w - 2, h * 0.48, 6);
-            ctx.fill();
+          ctx.strokeStyle = "rgba(170, 0, 255, 0.22)";
+          ctx.lineWidth = 1;
+          roundRect(ctx, slot.x + slot.inset, slot.y + slot.inset, slot.w, slot.h, 7);
+          ctx.stroke();
 
-            ctx.strokeStyle = "rgba(170, 0, 255, 0.22)";
-            ctx.lineWidth = 1;
-            roundRect(ctx, x + inset, y + inset, w, h, 7);
-            ctx.stroke();
-
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
-            ctx.lineWidth = 1;
-            roundRect(ctx, x + inset + 1, y + inset + 1, w - 2, h - 2, 6);
-            ctx.stroke();
-          }
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+          ctx.lineWidth = 1;
+          roundRect(ctx, slot.x + slot.inset + 1, slot.y + slot.inset + 1, slot.w - 2, slot.h - 2, 6);
+          ctx.stroke();
         }
       }
     }
@@ -330,6 +374,7 @@
     }
 
     drawIce(ctx, x, y, size, alpha, hp) {
+      const PERF_SHADOWS = !window.ArcadePerf || window.ArcadePerf.shadows !== false;
       ctx.save();
       ctx.globalAlpha = (alpha == null ? 1 : alpha) * (hp >= 2 ? 0.62 : 0.42);
       const s = size;
@@ -345,8 +390,10 @@
       ctx.globalAlpha = (alpha == null ? 1 : alpha) * 0.9;
       ctx.strokeStyle = "#dffbff";
       ctx.lineWidth = 2;
-      ctx.shadowColor = "#bfefff";
-      ctx.shadowBlur = 10;
+      if (PERF_SHADOWS) {
+        ctx.shadowColor = "#bfefff";
+        ctx.shadowBlur = 10;
+      }
       roundRect(ctx, x - half, y - half, half * 2, half * 2, 6);
       ctx.stroke();
       ctx.shadowBlur = 0;
@@ -363,31 +410,36 @@
       const blockGrid = game.blockGrid;
       const specialGrid = game.specialGrid;
       const PERF_REDUCED = !!(window.ArcadePerf && window.ArcadePerf.reducedEffects);
+      const border = m.border != null ? m.border : 6;
+      const inset = m.cellInset != null ? m.cellInset : 4;
+      const gemRatio = m.gemSizeRatio != null ? m.gemSizeRatio : C.GEM_SIZE_RATIO;
 
       ctx.fillStyle = "rgba(10, 2, 18, 0.85)";
-      roundRect(ctx, m.offsetX - 6, m.offsetY - 6, m.size + 12, m.size + 12, 10);
+      roundRect(ctx, m.offsetX - border, m.offsetY - border, m.size + border * 2, m.size + border * 2, 10);
       ctx.fill();
 
       ctx.strokeStyle = "rgba(170, 0, 255, 0.45)";
       ctx.lineWidth = 2;
-      roundRect(ctx, m.offsetX - 6, m.offsetY - 6, m.size + 12, m.size + 12, 10);
+      roundRect(ctx, m.offsetX - border, m.offsetY - border, m.size + border * 2, m.size + border * 2, 10);
       ctx.stroke();
 
       this.drawCellSlots(ctx, m, C, PERF_REDUCED);
 
-      ctx.strokeStyle = "rgba(170, 0, 255, 0.12)";
-      ctx.lineWidth = 1;
-      for (let i = 0; i <= C.GRID_SIZE; i++) {
-        const x = m.offsetX + i * m.cellSize;
-        const y = m.offsetY + i * m.cellSize;
-        ctx.beginPath();
-        ctx.moveTo(x, m.offsetY);
-        ctx.lineTo(x, m.offsetY + m.size);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(m.offsetX, y);
-        ctx.lineTo(m.offsetX + m.size, y);
-        ctx.stroke();
+      if (!PERF_REDUCED) {
+        ctx.strokeStyle = "rgba(170, 0, 255, 0.12)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= C.GRID_SIZE; i++) {
+          const x = m.offsetX + i * m.cellSize;
+          const y = m.offsetY + i * m.cellSize;
+          ctx.beginPath();
+          ctx.moveTo(x, m.offsetY);
+          ctx.lineTo(x, m.offsetY + m.size);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(m.offsetX, y);
+          ctx.lineTo(m.offsetX + m.size, y);
+          ctx.stroke();
+        }
       }
 
       const anim = game.anim;
@@ -396,6 +448,15 @@
       const clearT = anim && anim.type === "clear" ? this.easeOutCubic(Math.min(1, (now - anim.start) / animDur)) : 0;
       const swapT = anim && anim.type === "swap" ? this.easeOutCubic(Math.min(1, (now - anim.start) / animDur)) : 0;
       const fallT = anim && anim.type === "fall" ? this.easeOutCubic(Math.min(1, (now - anim.start) / animDur)) : 0;
+
+      let fallMap = null;
+      if (anim && anim.type === "fall" && Array.isArray(anim.falls)) {
+        fallMap = new Map();
+        for (let fi = 0; fi < anim.falls.length; fi++) {
+          const f = anim.falls[fi];
+          fallMap.set(f.toR + "," + f.c, f);
+        }
+      }
 
       if (!Array.isArray(grid) || grid.length < C.GRID_SIZE) return;
 
@@ -408,10 +469,8 @@
             const blk = blockGrid && blockGrid[r] ? blockGrid[r][c] : null;
             if (blk && blk.type === "crate") {
               let drawRc = r;
-              if (anim && anim.type === "fall" && Array.isArray(anim.falls)) {
-                const fall = anim.falls.find(function (f) {
-                  return f.toR === r && f.c === c;
-                });
+              if (fallMap) {
+                const fall = fallMap.get(r + "," + c);
                 if (fall) {
                   const fromR = fall.fromR < 0 ? -1.2 : fall.fromR;
                   drawRc = fromR + (fall.toR - fromR) * fallT;
@@ -419,7 +478,7 @@
               }
               const cx = m.offsetX + c * m.cellSize + m.cellSize / 2;
               const cy = m.offsetY + drawRc * m.cellSize + m.cellSize / 2;
-              this.drawCrate(ctx, cx, cy, m.cellSize * C.GEM_SIZE_RATIO, blk.hp);
+              this.drawCrate(ctx, cx, cy, m.cellSize * gemRatio, blk.hp);
             }
             continue;
           }
@@ -454,10 +513,8 @@
             }
           }
 
-          if (anim && anim.type === "fall" && Array.isArray(anim.falls)) {
-            const fall = anim.falls.find(function (f) {
-              return f.toR === r && f.c === c;
-            });
+          if (fallMap) {
+            const fall = fallMap.get(r + "," + c);
             if (fall) {
               const fromR = fall.fromR < 0 ? -1.2 : fall.fromR;
               drawR = fromR + (fall.toR - fromR) * fallT;
@@ -479,7 +536,7 @@
           const pos = {
             x: m.offsetX + drawC * m.cellSize + m.cellSize / 2,
             y: m.offsetY + drawR * m.cellSize + m.cellSize / 2,
-            size: m.cellSize * C.GEM_SIZE_RATIO
+            size: m.cellSize * gemRatio
           };
 
           this.drawGemShape(ctx, C.GEM_DEFS[type], pos.x, pos.y, pos.size, alpha, scale, now, r, c);
@@ -498,13 +555,17 @@
             ctx.save();
             ctx.strokeStyle = "#ffffff";
             ctx.lineWidth = 2.5;
-            ctx.shadowColor = "#ffffff";
-            ctx.shadowBlur = 14;
+            if (!PERF_REDUCED) {
+              ctx.shadowColor = "#ffffff";
+              ctx.shadowBlur = 14;
+            }
             roundRect(ctx, pos.x - pos.size * 0.5, pos.y - pos.size * 0.5, pos.size, pos.size, 8);
             ctx.stroke();
             ctx.strokeStyle = C.GEM_DEFS[type].color;
-            ctx.shadowColor = C.GEM_DEFS[type].color;
-            ctx.shadowBlur = 18;
+            if (!PERF_REDUCED) {
+              ctx.shadowColor = C.GEM_DEFS[type].color;
+              ctx.shadowBlur = 18;
+            }
             roundRect(ctx, pos.x - pos.size * 0.44, pos.y - pos.size * 0.44, pos.size * 0.88, pos.size * 0.88, 7);
             ctx.stroke();
             ctx.restore();
@@ -517,12 +578,14 @@
         ctx.save();
         ctx.strokeStyle = "rgba(255, 255, 255, " + hintAlpha.toFixed(3) + ")";
         ctx.lineWidth = 3;
-        ctx.shadowColor = "#ffffff";
-        ctx.shadowBlur = 16;
+        if (!PERF_REDUCED) {
+          ctx.shadowColor = "#ffffff";
+          ctx.shadowBlur = 16;
+        }
         game.hintCells.forEach(function (hc) {
-          const x = m.offsetX + hc.c * m.cellSize + 4;
-          const y = m.offsetY + hc.r * m.cellSize + 4;
-          roundRect(ctx, x, y, m.cellSize - 8, m.cellSize - 8, 8);
+          const x = m.offsetX + hc.c * m.cellSize + inset;
+          const y = m.offsetY + hc.r * m.cellSize + inset;
+          roundRect(ctx, x, y, m.cellSize - inset * 2, m.cellSize - inset * 2, 8);
           ctx.stroke();
         });
         ctx.restore();
@@ -534,12 +597,15 @@
     }
 
     drawParticles(ctx, particles) {
+      const PERF_SHADOWS = !window.ArcadePerf || window.ArcadePerf.shadows !== false;
       particles.forEach(function (p) {
         ctx.save();
         ctx.globalAlpha = Math.max(0, p.life);
         ctx.fillStyle = p.color;
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 8;
+        if (PERF_SHADOWS) {
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 8;
+        }
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
@@ -548,14 +614,18 @@
     }
 
     drawFloatTexts(ctx, floatTexts) {
+      const PERF_SHADOWS = !window.ArcadePerf || window.ArcadePerf.shadows !== false;
+      const PERF_REDUCED = !!(window.ArcadePerf && window.ArcadePerf.reducedEffects);
       floatTexts.forEach(function (f) {
         ctx.save();
         ctx.globalAlpha = f.life;
-        ctx.font = "bold 22px 'Orbitron', sans-serif";
+        ctx.font = PERF_REDUCED ? "bold 18px 'Orbitron', sans-serif" : "bold 22px 'Orbitron', sans-serif";
         ctx.textAlign = "center";
         ctx.fillStyle = f.color;
-        ctx.shadowColor = f.color;
-        ctx.shadowBlur = 14;
+        if (PERF_SHADOWS) {
+          ctx.shadowColor = f.color;
+          ctx.shadowBlur = PERF_REDUCED ? 6 : 14;
+        }
         ctx.fillText(f.text, f.x, f.y);
         ctx.restore();
       });

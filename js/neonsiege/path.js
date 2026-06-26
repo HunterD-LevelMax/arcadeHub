@@ -25,12 +25,52 @@
     }
 
     segmentCount() {
-      return Math.max(0, this.waypoints.length - 1);
+      return Math.max(0, this.pathCellPixels.length - 1);
+    }
+
+    get pathCellPixels() {
+      const route = this._pf.routes[this.routeId];
+      return route.pathCellPixels && route.pathCellPixels.length
+        ? route.pathCellPixels
+        : route.waypointPixels;
+    }
+
+    distanceAt(pathIndex, segT) {
+      let dist = 0;
+      const px = this.pathCellPixels;
+      const idx = Math.min(pathIndex, Math.max(0, px.length - 2));
+      for (let i = 0; i < idx; i++) {
+        dist += this.segmentLength(i);
+      }
+      if (px.length >= 2 && idx >= 0) {
+        dist += Math.max(0, Math.min(1, segT)) * this.segmentLength(idx);
+      }
+      return dist;
+    }
+
+    positionFromDistance(dist) {
+      const n = this.segmentCount();
+      if (n <= 0) return { pathIndex: 0, segT: 0 };
+      let rem = Math.max(0, dist);
+      for (let i = 0; i < n; i++) {
+        const len = this.segmentLength(i);
+        if (rem <= len || i === n - 1) {
+          return { pathIndex: i, segT: len > 0 ? Math.min(1, rem / len) : 0 };
+        }
+        rem -= len;
+      }
+      return { pathIndex: n - 1, segT: 1 };
+    }
+
+    offsetByCells(pathIndex, segT, cellDelta) {
+      const cs = this._pf.metrics ? this._pf.metrics.cellSize : 1;
+      const dist = Math.max(0, this.distanceAt(pathIndex, segT) + cellDelta * cs);
+      return this.positionFromDistance(dist);
     }
 
     segmentNormal(index) {
-      const a = this.waypointPixels[index];
-      const b = this.waypointPixels[index + 1] || a;
+      const a = this.pathCellPixels[index];
+      const b = this.pathCellPixels[index + 1] || a;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const len = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -38,8 +78,8 @@
     }
 
     positionAt(pathIndex, segT, laneOffset) {
-      const a = this.waypointPixels[pathIndex];
-      const b = this.waypointPixels[pathIndex + 1] || a;
+      const a = this.pathCellPixels[pathIndex];
+      const b = this.pathCellPixels[pathIndex + 1] || a;
       const t = Math.max(0, Math.min(1, segT));
       const x = a.x + (b.x - a.x) * t;
       const y = a.y + (b.y - a.y) * t;
@@ -52,8 +92,8 @@
     }
 
     segmentLength(index) {
-      const a = this.waypointPixels[index];
-      const b = this.waypointPixels[index + 1];
+      const a = this.pathCellPixels[index];
+      const b = this.pathCellPixels[index + 1];
       if (!b) return 1;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
@@ -80,6 +120,7 @@
           cells: cells.slice(),
           waypoints: this._compress(cells),
           waypointPixels: [],
+          pathCellPixels: [],
         }));
       } else {
         const cells = this._bfsCells(this.spawn, this.goal);
@@ -90,6 +131,7 @@
           cells,
           waypoints: this._compress(cells),
           waypointPixels: [],
+          pathCellPixels: [],
         }];
       }
       if (!this.routes.length) {
@@ -174,6 +216,7 @@
       this.metrics = metrics;
       for (const route of this.routes) {
         route.waypointPixels = route.waypoints.map(([r, c]) => this.cellCenter(r, c));
+        route.pathCellPixels = route.cells.map(([r, c]) => this.cellCenter(r, c));
       }
       this.waypointPixels = this.routes[0].waypointPixels;
     }
@@ -228,17 +271,7 @@
     }
 
     pathDistanceToPixels(dist) {
-      const route = this.forRoute(0);
-      let rem = dist;
-      for (let i = 0; i < route.segmentCount(); i++) {
-        const len = route.segmentLength(i);
-        if (rem <= len) {
-          return { pathIndex: i, segT: rem / len };
-        }
-        rem -= len;
-      }
-      const last = route.segmentCount() - 1;
-      return { pathIndex: Math.max(0, last), segT: 1 };
+      return this.forRoute(0).positionFromDistance(dist);
     }
   }
 

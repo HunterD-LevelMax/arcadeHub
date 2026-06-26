@@ -695,7 +695,7 @@
 
     _drawEnemies(state) {
       const sorted = state.enemies.slice().sort(
-        (a, b) => (a.pathIndex + a.segT) - (b.pathIndex + b.segT)
+        (a, b) => a.pathDistance - b.pathDistance
       );
       sorted.forEach((e) => this._drawEnemy(e, state));
     }
@@ -915,12 +915,20 @@
 
     _drawFloatingTexts(state) {
       const ctx = this.ctx;
+      const cs = state.metrics ? state.metrics.cellSize : 40;
+      const fontPx = Math.max(15, Math.round(cs * 0.38));
+      const largePx = Math.max(18, Math.round(cs * 0.48));
       state.floatingTexts.forEach((ft) => {
         ctx.globalAlpha = ft.life / ft.maxLife;
         ctx.fillStyle = ft.color;
-        ctx.font = (ft.large ? 'bold 13px' : 'bold 11px') + ' Orbitron';
+        ctx.font = (ft.large ? 'bold ' + largePx + 'px' : 'bold ' + fontPx + 'px') + ' Orbitron';
         ctx.textAlign = 'center';
+        if (!perfReduced()) {
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+          ctx.shadowBlur = 5;
+        }
         ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.shadowBlur = 0;
       });
       ctx.globalAlpha = 1;
     }

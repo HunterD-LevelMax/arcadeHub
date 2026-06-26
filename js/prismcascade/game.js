@@ -265,19 +265,22 @@
       const m = g.gridMetrics;
       if (!m) return;
 
+      const border = m.border != null ? m.border : 6;
+      const inset = m.cellInset != null ? m.cellInset : 4;
+      const gemRatio = m.gemSizeRatio != null ? m.gemSizeRatio : C.GEM_SIZE_RATIO;
+
       ctx.fillStyle = 'rgba(10, 2, 18, 0.85)';
-      roundRect(ctx, m.offsetX - 6, m.offsetY - 6, m.size + 12, m.size + 12, 10);
+      roundRect(ctx, m.offsetX - border, m.offsetY - border, m.size + border * 2, m.size + border * 2, 10);
       ctx.fill();
       ctx.strokeStyle = 'rgba(170, 0, 255, 0.45)';
       ctx.lineWidth = 2;
-      roundRect(ctx, m.offsetX - 6, m.offsetY - 6, m.size + 12, m.size + 12, 10);
+      roundRect(ctx, m.offsetX - border, m.offsetY - border, m.size + border * 2, m.size + border * 2, 10);
       ctx.stroke();
 
       for (let r = 0; r < C.GRID_SIZE; r++) {
         for (let c = 0; c < C.GRID_SIZE; c++) {
           const x = m.offsetX + c * m.cellSize;
           const y = m.offsetY + r * m.cellSize;
-          const inset = 4;
           const w = m.cellSize - inset * 2;
           const h = m.cellSize - inset * 2;
           ctx.fillStyle = (r + c) % 2 === 0 ? 'rgba(14, 4, 24, 0.95)' : 'rgba(22, 6, 36, 0.92)';
@@ -306,7 +309,7 @@
             if (blk && blk.type === 'crate') {
               const cx = m.offsetX + c * m.cellSize + m.cellSize / 2;
               const cy = m.offsetY + r * m.cellSize + m.cellSize / 2;
-              this.drawCrate(cx, cy, m.cellSize * C.GEM_SIZE_RATIO, blk.hp);
+              this.drawCrate(cx, cy, m.cellSize * gemRatio, blk.hp);
             }
             continue;
           }
@@ -359,7 +362,7 @@
 
           const x = m.offsetX + drawC * m.cellSize + m.cellSize / 2;
           const y = m.offsetY + drawR * m.cellSize + m.cellSize / 2;
-          const size = m.cellSize * C.GEM_SIZE_RATIO;
+          const size = m.cellSize * gemRatio;
           this.drawGemShape(C.GEM_DEFS[type], x, y, size, alpha, scale);
 
           const special = g.specialGrid[r][c];
@@ -382,9 +385,9 @@
         ctx.shadowColor = '#ffffff';
         ctx.shadowBlur = 16;
         g.hintCells.forEach((hc) => {
-          const x = m.offsetX + hc.c * m.cellSize + 4;
-          const y = m.offsetY + hc.r * m.cellSize + 4;
-          roundRect(ctx, x, y, m.cellSize - 8, m.cellSize - 8, 8);
+          const x = m.offsetX + hc.c * m.cellSize + inset;
+          const y = m.offsetY + hc.r * m.cellSize + inset;
+          roundRect(ctx, x, y, m.cellSize - inset * 2, m.cellSize - inset * 2, 8);
           ctx.stroke();
         });
         ctx.restore();
@@ -489,6 +492,7 @@
       };
 
       this.loop = null;
+      this._drawPhase = 0;
 
       if (this.canvas && typeof initGameCommon === 'function') {
         initGameCommon(this.canvas, C.BASE_W, C.BASE_H, () => this.resize());
@@ -570,10 +574,43 @@
 
     resize() {
       this.gridMetrics = this.computeGridMetrics();
+      if (this.renderer && typeof this.renderer.invalidateCellSlots === 'function') {
+        this.renderer.invalidateCellSlots();
+      }
+    }
+
+    _syncRenderLoop() {
+      if (!this.loop) return;
+      if (this.gameState.state === 'levelSelect') {
+        if (typeof this.loop.pause === 'function') this.loop.pause();
+      } else if (typeof this.loop.resume === 'function') {
+        this.loop.resume();
+      }
+    }
+
+    _shouldSkipDrawFrame() {
+      if (!window.ArcadePerf || !window.ArcadePerf.reducedEffects) return false;
+      if (this.anim || this.particles.length > 0 || this.floatTexts.length > 0 || this.screenShake > 0) {
+        return false;
+      }
+      this._drawPhase = (this._drawPhase + 1) % 2;
+      return this._drawPhase === 1;
+    }
+
+    _scaledParticleCount(count) {
+      const perf = window.ArcadePerf;
+      if (perf && perf.reducedEffects) return Math.max(3, Math.round(count * 0.35));
+      if (perf && perf.tier === 'medium') return Math.max(4, Math.round(count * 0.65));
+      return count;
     }
 
     computeGridMetrics() {
-      const pad = 11;
+      const mobile =
+        typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+      const pad = mobile ? 4 : 11;
+      const border = mobile ? 3 : 6;
+      const cellInset = mobile ? 2 : 4;
+      const gemSizeRatio = mobile ? 0.9 : C.GEM_SIZE_RATIO;
       const size = Math.min(this.W() - pad * 2, this.H() - pad * 2);
       const cellSize = size / C.GRID_SIZE;
       return {
@@ -581,6 +618,9 @@
         offsetX: (this.W() - size) / 2,
         offsetY: (this.H() - size) / 2,
         size,
+        border,
+        cellInset,
+        gemSizeRatio,
       };
     }
 
@@ -609,10 +649,11 @@
 
     cellCenter(r, c) {
       const m = this.gridMetrics;
+      const ratio = m.gemSizeRatio != null ? m.gemSizeRatio : C.GEM_SIZE_RATIO;
       return {
         x: m.offsetX + c * m.cellSize + m.cellSize / 2,
         y: m.offsetY + r * m.cellSize + m.cellSize / 2,
-        size: m.cellSize * C.GEM_SIZE_RATIO,
+        size: m.cellSize * ratio,
       };
     }
 
@@ -1414,6 +1455,7 @@
       this.updateHeaderUI();
       this.updateGoalUI();
       this.updateAbilityUI();
+      this._syncRenderLoop();
     }
 
     renderLevelSelect() {
@@ -1507,6 +1549,7 @@
       this.updateHeaderUI();
       this.updateGoalUI();
       this.updateAbilityUI();
+      this._syncRenderLoop();
     }
 
     winLevel() {
@@ -1531,7 +1574,8 @@
       const k = String(this.levelId);
       this.progress.stars[k] = Math.max(this.progress.stars[k] || 0, stars);
       if (typeof this.levelId === 'number' && this.levelId >= this.progress.unlockedLevel) {
-        this.progress.unlockedLevel = Math.min(10, this.levelId + 1);
+        const maxLevel = L.MAX_CAMPAIGN_LEVEL || (L.LEVELS && L.LEVELS.length) || 20;
+        this.progress.unlockedLevel = Math.min(maxLevel, this.levelId + 1);
       }
       L.saveProgress(this.progress);
 
@@ -1715,6 +1759,7 @@
     }
 
     burstParticles(x, y, color, count) {
+      count = this._scaledParticleCount(count);
       for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 1.5 + Math.random() * 3;
@@ -2319,6 +2364,7 @@
     }
 
     draw(now) {
+      if (this._shouldSkipDrawFrame()) return;
       if (!this.gridMetrics) this.gridMetrics = this.computeGridMetrics();
       if (!this.ctx) return;
       const ctx = this.ctx;
@@ -2360,9 +2406,10 @@
         this.loop = createGameLoop(
           (dt) => this.update(dt),
           (time) => this.draw(time),
-          { shouldRun: () => true }
+          { shouldRun: () => this.gameState.state !== 'levelSelect' }
         );
       }
+      this._syncRenderLoop();
     }
   }
 

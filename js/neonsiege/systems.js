@@ -304,7 +304,7 @@
 
       if (id === 'cluster') {
         const sorted = game.enemies.slice().sort(
-          (a, b) => (a.pathIndex + a.segT) - (b.pathIndex + b.segT)
+          (a, b) => a.pathDistance - b.pathDistance
         );
         let startIdx = 0;
         let bestDist = Infinity;
@@ -508,7 +508,7 @@
         let best = null;
         let bestDist = Infinity;
         for (const enemy of inRange) {
-          const d = enemy.pathIndex + enemy.segT;
+          const d = enemy.pathDistance;
           if (d < bestDist) {
             best = enemy;
             bestDist = d;
@@ -531,7 +531,7 @@
       let best = null;
       let bestDist = -1;
       for (const enemy of inRange) {
-        const d = enemy.pathIndex + enemy.segT;
+        const d = enemy.pathDistance;
         if (d > bestDist) {
           best = enemy;
           bestDist = d;

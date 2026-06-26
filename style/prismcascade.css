@@ -467,6 +467,46 @@ canvas {
   display: none;
 }
 
+@media (pointer: coarse) {
+  .page {
+    gap: 8px;
+    padding: 8px 8px 10px;
+    max-width: none;
+  }
+
+  .header {
+    padding: 8px 8px;
+    gap: 8px;
+  }
+
+  .goal-bar {
+    padding: 6px 8px;
+  }
+
+  .goal-list {
+    gap: 4px;
+  }
+
+  .objective-bar {
+    padding: 6px 8px;
+    gap: 8px;
+  }
+
+  .ability-bar {
+    gap: 6px;
+  }
+
+  .page .ability-btn {
+    min-height: 44px;
+    padding: 8px 6px;
+  }
+
+  .page .footer {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+}
+
 @media (max-width: 480px) {
   :root {
     --pc-text-xs: 11px;

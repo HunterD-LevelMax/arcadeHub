@@ -188,7 +188,7 @@
         damage: 5, range: 2.4, fireRate: 0.6, shape: 'triangle',
         slow: 0.5, slowMs: 1500,
         upgradeCost: [55, 95, 140],
-        desc: 'Low damage but strong slow. Extends time on path. Synergy: NOVA deals +35% to slowed targets.',
+        desc: 'Low damage but strong slow (scales with tier). Extends time on path. Synergy: NOVA deals +35% to slowed targets.',
       },
       tesla: {
         name: 'TESLA', cost: 115, color: '#b8ff00', glow: '#b8ff00',
@@ -395,8 +395,16 @@
         chainRange: base.chainRange,
         chainFalloff: base.chainFalloff,
         shieldBonus: base.shieldBonus,
-        slow: base.slow,
-        slowMs: base.slowMs ? base.slowMs + tier * 250 : base.slowMs,
+        slow: base.slow
+          ? (type === 'frost'
+            ? Math.max(0.15, base.slow * 0.8 - tier * 0.05)
+            : base.slow)
+          : base.slow,
+        slowMs: base.slowMs
+          ? (type === 'frost'
+            ? Math.round(base.slowMs * 1.2 + tier * 400)
+            : base.slowMs + tier * 250)
+          : base.slowMs,
         fastBonus: base.fastBonus,
         fastThreshold: base.fastThreshold,
         rampPerSec: base.rampPerSec,
