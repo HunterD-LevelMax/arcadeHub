@@ -6,6 +6,7 @@
 
   class HubScrollMemory {
     static SCROLL_KEY = 'arcadeHub_scrollY';
+    static _wheelBound = false;
 
     static init() {
       if (/\/games\//i.test(window.location.pathname)) return;
@@ -13,6 +14,8 @@
       if ('scrollRestoration' in history) {
         history.scrollRestoration = 'manual';
       }
+
+      HubScrollMemory.bindWheelScroll();
 
       window.addEventListener('arcade-hub-visible', () => HubScrollMemory.restore());
 
@@ -25,6 +28,32 @@
 
     static scrollRoot() {
       return document.getElementById('hubRoot');
+    }
+
+    static bindWheelScroll() {
+      if (HubScrollMemory._wheelBound) return;
+      HubScrollMemory._wheelBound = true;
+
+      document.addEventListener(
+        'wheel',
+        (e) => {
+          if (document.body.classList.contains('game-active')) return;
+          if (e.ctrlKey) return;
+
+          const root = HubScrollMemory.scrollRoot();
+          if (!root) return;
+
+          const target = e.target;
+          const onStars = target.closest && target.closest('.stars');
+          const onRoot = target === root;
+
+          if (!onStars && !onRoot) return;
+
+          root.scrollTop += e.deltaY;
+          e.preventDefault();
+        },
+        { passive: false }
+      );
     }
 
     static restore() {
