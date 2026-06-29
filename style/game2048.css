@@ -4,13 +4,18 @@
 }
 
 .game-title { color: var(--game-accent); text-shadow: 0 0 20px var(--game-accent); }
-.score-badge { color: var(--game-accent); }
 
 canvas {
+  touch-action: none;
+  cursor: grab;
   border-color: rgba(255, 136, 0, 0.35);
   box-shadow:
     0 0 40px rgba(255, 136, 0, 0.18),
     inset 0 0 30px rgba(255, 136, 0, 0.04);
+}
+
+canvas:active {
+  cursor: grabbing;
 }
 
 .game-container {
@@ -32,55 +37,19 @@ canvas {
   text-shadow: 0 0 30px var(--game-accent);
 }
 
-.header-stats {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.stat-box {
-  min-width: 72px;
-  padding: 6px 10px;
-  border: 1px solid rgba(255, 136, 0, 0.35);
-  background: rgba(255, 136, 0, 0.08);
-  text-align: center;
-}
-
-.stat-label {
-  font-size: 9px;
-  letter-spacing: 2px;
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.stat-value {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--game-accent);
-  text-shadow: 0 0 12px rgba(255, 136, 0, 0.5);
-  transition: transform 0.15s ease, text-shadow 0.15s ease;
-}
-
-.stat-box.score-pop {
+#scoreBox.score-pop {
   animation: scoreBoxPop 0.35s ease-out;
 }
 
-.stat-box.score-pop .stat-value {
+#scoreBox.score-pop span {
+  display: inline-block;
   transform: scale(1.12);
   text-shadow: 0 0 18px rgba(255, 200, 80, 0.95);
+  transition: transform 0.15s ease, text-shadow 0.15s ease;
 }
 
 @keyframes scoreBoxPop {
   0% { box-shadow: 0 0 0 rgba(255, 136, 0, 0); }
   40% { box-shadow: 0 0 22px rgba(255, 136, 0, 0.45); }
   100% { box-shadow: 0 0 0 rgba(255, 136, 0, 0); }
-}
-
-canvas {
-  touch-action: none;
-  cursor: grab;
-}
-
-canvas:active {
-  cursor: grabbing;
 }
