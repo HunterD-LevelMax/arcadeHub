@@ -251,6 +251,29 @@
     randomObjectives: true, useTiers: true,
   };
 
+  const OLD_GRID_SIZE = 8;
+
+  function scaleStartingObstacles(obstacles) {
+    if (!Array.isArray(obstacles) || C.GRID_SIZE >= OLD_GRID_SIZE) return obstacles;
+    const seen = new Set();
+    const out = [];
+    obstacles.forEach((o) => {
+      const r = Math.min(C.GRID_SIZE - 1, Math.round(o.r * (C.GRID_SIZE - 1) / (OLD_GRID_SIZE - 1)));
+      const c = Math.min(C.GRID_SIZE - 1, Math.round(o.c * (C.GRID_SIZE - 1) / (OLD_GRID_SIZE - 1)));
+      const key = r + ',' + c;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ ...o, r, c });
+    });
+    return out;
+  }
+
+  LEVELS.forEach((level) => {
+    if (level.startingObstacles) {
+      level.startingObstacles = scaleStartingObstacles(level.startingObstacles);
+    }
+  });
+
   function defaultProgress() {
     return { unlockedLevel: 1, stars: {}, infiniteBest: 0 };
   }

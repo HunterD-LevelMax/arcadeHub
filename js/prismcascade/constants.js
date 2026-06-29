@@ -3,7 +3,7 @@
     GAME_ID: 'prismcascade',
     BASE_W: 400,
     BASE_H: 600,
-    GRID_SIZE: 8,
+    GRID_SIZE: 7,
     GEM_TYPES: 6,
     GAME_TIME: 60,
     TIME_BONUS_MOVE: 4,

@@ -5,88 +5,106 @@
   const ROWS = C.GRID_ROWS;
   const LAST_ROW = ROWS - 1;
   const LAST_COL = COLS - 1;
+  const OLD_ROWS = 14;
+  const OLD_COLS = 12;
   const DIRS = [[0, 1], [0, -1], [1, 0], [-1, 0]];
-  const MIN_PATH_LEN = 42;
-  const MAX_PATH_LEN = 58;
-  const MAX_PATH_CELLS = 65;
-  const TARGET_SLOTS_MIN = 28;
-  const TARGET_SLOTS_MAX = 32;
-  const MAX_TOTAL_SLOTS = 34;
+  const MIN_PATH_LEN = Math.round(42 * ROWS / OLD_ROWS);
+  const MAX_PATH_LEN = Math.round(58 * ROWS / OLD_ROWS);
+  const MAX_PATH_CELLS = Math.round(65 * ROWS * COLS / (OLD_ROWS * OLD_COLS));
+  const TARGET_SLOTS_MIN = Math.round(28 * ROWS * COLS / (OLD_ROWS * OLD_COLS));
+  const TARGET_SLOTS_MAX = Math.round(32 * ROWS * COLS / (OLD_ROWS * OLD_COLS));
+  const MAX_TOTAL_SLOTS = Math.round(34 * ROWS * COLS / (OLD_ROWS * OLD_COLS));
   const MAX_VOID_RATIO = 0.58;
-  const POCKET_MAX_SIZE = 14;
-  const MIN_TURNS = 12;
+  const POCKET_MAX_SIZE = Math.round(14 * ROWS * COLS / (OLD_ROWS * OLD_COLS));
+  const MIN_TURNS = Math.max(8, Math.round(12 * ROWS / OLD_ROWS));
   const MIN_ROUTES = 2;
   const TUNNEL_MIN = 3;
   const TUNNEL_MAX = 7;
+  const FORK_TAIL_MARGIN = Math.round(12 * ROWS / OLD_ROWS);
+  const FORK_ROW_MIN = Math.round(4 * LAST_ROW / (OLD_ROWS - 1));
+  const FORK_ROW_MAX = Math.round(9 * LAST_ROW / (OLD_ROWS - 1));
+  const MERGE_ROW_MIN = Math.round(6 * LAST_ROW / (OLD_ROWS - 1));
+  const MERGE_ROW_MAX = LAST_ROW;
+
+  function scaleCorner(r, c) {
+    return [
+      Math.min(LAST_ROW, Math.round(r * LAST_ROW / (OLD_ROWS - 1))),
+      Math.min(LAST_COL, Math.round(c * LAST_COL / (OLD_COLS - 1))),
+    ];
+  }
+
+  function scaleCorners(corners) {
+    return corners.map(([r, c]) => scaleCorner(r, c));
+  }
 
   const PATH_TEMPLATES = [
     {
       id: 'zigzag',
       label: 'ZIGZAG',
-      corners: [[0, 1], [0, 4], [3, 4], [3, 8], [7, 8], [7, 4], [10, 4], [10, 8], [12, 8], [13, 6]],
+      corners: scaleCorners([[0, 1], [0, 4], [3, 4], [3, 8], [7, 8], [7, 4], [10, 4], [10, 8], [12, 8], [13, 6]]),
       hpMod: 1,
       countMod: 0,
     },
     {
       id: 'serpent',
       label: 'SERPENT',
-      corners: [[0, 2], [0, 9], [4, 9], [4, 3], [8, 3], [8, 10], [11, 10], [13, 5]],
+      corners: scaleCorners([[0, 2], [0, 9], [4, 9], [4, 3], [8, 3], [8, 10], [11, 10], [13, 5]]),
       hpMod: 1.05,
       countMod: 0,
     },
     {
       id: 'coil',
       label: 'COIL',
-      corners: [[0, 3], [0, 7], [2, 7], [2, 2], [6, 2], [6, 10], [9, 10], [9, 4], [12, 4], [13, 7]],
+      corners: scaleCorners([[0, 3], [0, 7], [2, 7], [2, 2], [6, 2], [6, 10], [9, 10], [9, 4], [12, 4], [13, 7]]),
       hpMod: 1.08,
       countMod: 1,
     },
     {
       id: 'rift',
       label: 'RIFT',
-      corners: [[0, 9], [0, 5], [2, 5], [2, 9], [5, 9], [5, 2], [9, 2], [9, 8], [12, 8], [13, 5]],
+      corners: scaleCorners([[0, 9], [0, 5], [2, 5], [2, 9], [5, 9], [5, 2], [9, 2], [9, 8], [12, 8], [13, 5]]),
       hpMod: 1.1,
       countMod: 0,
     },
     {
       id: 'march',
       label: 'MARCH',
-      corners: [[0, 2], [0, 10], [3, 10], [3, 1], [6, 1], [6, 11], [9, 11], [9, 3], [12, 3], [13, 6]],
+      corners: scaleCorners([[0, 2], [0, 10], [3, 10], [3, 1], [6, 1], [6, 11], [9, 11], [9, 3], [12, 3], [13, 6]]),
       hpMod: 1.12,
       countMod: 1,
     },
     {
       id: 'ladder',
       label: 'LADDER',
-      corners: [[0, 1], [0, 8], [3, 8], [3, 2], [6, 2], [6, 9], [9, 9], [9, 1], [12, 1], [13, 6]],
+      corners: scaleCorners([[0, 1], [0, 8], [3, 8], [3, 2], [6, 2], [6, 9], [9, 9], [9, 1], [12, 1], [13, 6]]),
       hpMod: 1.06,
       countMod: 0,
     },
     {
       id: 'delta',
       label: 'DELTA',
-      corners: [[0, 5], [0, 2], [4, 2], [4, 9], [8, 9], [8, 1], [12, 1], [13, 6]],
+      corners: scaleCorners([[0, 5], [0, 2], [4, 2], [4, 9], [8, 9], [8, 1], [12, 1], [13, 6]]),
       hpMod: 1.04,
       countMod: 0,
     },
     {
       id: 'omega',
       label: 'OMEGA',
-      corners: [[0, 6], [0, 10], [2, 10], [2, 3], [7, 3], [7, 11], [11, 11], [11, 4], [13, 4], [13, 6]],
+      corners: scaleCorners([[0, 6], [0, 10], [2, 10], [2, 3], [7, 3], [7, 11], [11, 11], [11, 4], [13, 4], [13, 6]]),
       hpMod: 1.07,
       countMod: 1,
     },
     {
       id: 'cross',
       label: 'CROSS',
-      corners: [[0, 6], [3, 6], [3, 2], [6, 2], [6, 10], [9, 10], [9, 6], [13, 6]],
+      corners: scaleCorners([[0, 6], [3, 6], [3, 2], [6, 2], [6, 10], [9, 10], [9, 6], [13, 6]]),
       hpMod: 1.03,
       countMod: 0,
     },
     {
       id: 'pulse',
       label: 'PULSE',
-      corners: [[0, 2], [0, 9], [4, 9], [4, 4], [9, 4], [9, 10], [12, 10], [13, 5]],
+      corners: scaleCorners([[0, 2], [0, 9], [4, 9], [4, 4], [9, 4], [9, 10], [12, 10], [13, 5]]),
       hpMod: 1.09,
       countMod: 1,
     },
@@ -891,9 +909,9 @@
 
   function injectForkMerge(grid, mainPath) {
     const forkCandidates = [];
-    for (let i = 3; i < mainPath.length - 12; i++) {
+    for (let i = 3; i < mainPath.length - FORK_TAIL_MARGIN; i++) {
       const [r] = mainPath[i];
-      if (r >= 4 && r <= 9) forkCandidates.push(i);
+      if (r >= FORK_ROW_MIN && r <= FORK_ROW_MAX) forkCandidates.push(i);
     }
     if (!forkCandidates.length) return null;
 
@@ -902,7 +920,7 @@
       const mergeCandidates = [];
       for (let i = forkIdx + 8; i < mainPath.length - 2; i++) {
         const [r] = mainPath[i];
-        if (r >= 6 && r <= 12) mergeCandidates.push(i);
+        if (r >= MERGE_ROW_MIN && r <= MERGE_ROW_MAX) mergeCandidates.push(i);
       }
       if (!mergeCandidates.length) continue;
 

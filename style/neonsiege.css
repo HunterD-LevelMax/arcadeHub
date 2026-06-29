@@ -1158,6 +1158,45 @@ canvas {
   .tower-panel-btn-label { font-size: 11px; }
   .codex-icon-wrap { flex: 0 0 52px; width: 52px; height: 52px; }
   .codex-icon { width: 42px; height: 42px; }
+
+  .codex-title {
+    font-size: 15px;
+    letter-spacing: 1.5px;
+  }
+
+  .codex-section-title {
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+
+  .codex-card {
+    padding: 10px 12px;
+  }
+
+  .codex-card-title {
+    font-size: 13px;
+    margin-bottom: 5px;
+  }
+
+  .codex-cost,
+  .codex-wave {
+    font-size: 11px;
+  }
+
+  .codex-card-desc {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 5px;
+  }
+
+  .codex-card-stat {
+    font-size: 11px;
+  }
+
+  .codex-body {
+    padding: 12px 10px 16px 14px;
+  }
+
   .footer { font-size: 8px; letter-spacing: 1px; }
 }
 

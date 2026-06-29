@@ -158,7 +158,7 @@
       let text = theme.toUpperCase() + ' · ' + routes + ' route' + (routes > 1 ? 's' : '');
       const slots = this.currentMap.slotCount;
       if (slots) text += ' · ' + slots + ' slots';
-      text += ' · arena loops & tower islands · 28–32 sites';
+      text += ' · arena loops & tower islands · 20–24 sites';
       if (reward > 0) text += ' · +' + reward + '% gold';
       if (this.currentMap.hpMod && this.currentMap.hpMod < 1) {
         text += ' · easier';
