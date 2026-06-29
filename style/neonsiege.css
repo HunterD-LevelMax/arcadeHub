@@ -188,8 +188,9 @@ canvas {
   transform: scale(0.90) translateY(1px);
 }
 
-.map-btn .material-symbols-outlined {
-  font-size: 1rem;
+.map-btn .arcade-icon svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .map-btn.selected {
@@ -473,8 +474,9 @@ canvas {
   box-shadow: 0 0 6px rgba(255, 204, 0, 0.2);
 }
 
-.action-btn .material-symbols-outlined {
-  font-size: 1rem;
+.action-btn .arcade-icon svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .action-btn:disabled {
@@ -613,8 +615,9 @@ canvas {
     box-shadow var(--md-motion-duration-short) var(--md-motion-easing);
 }
 
-.tower-panel-btn .material-symbols-outlined {
-  font-size: 1.45rem;
+.tower-panel-btn .arcade-icon svg {
+  width: 1.45rem;
+  height: 1.45rem;
   line-height: 1;
 }
 
@@ -735,8 +738,9 @@ canvas {
   text-shadow: none;
 }
 
-.action-btn.codex-btn .material-symbols-outlined {
-  font-size: 1.25rem;
+.action-btn.codex-btn .arcade-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 .codex-overlay {
@@ -1020,8 +1024,9 @@ canvas {
     padding: 7px 5px;
   }
 
-  .tower-panel-btn .material-symbols-outlined {
-    font-size: 1.55rem;
+  .tower-panel-btn .arcade-icon svg {
+    width: 1.55rem;
+    height: 1.55rem;
   }
 
   .tower-panel-btn-label {
@@ -1121,8 +1126,9 @@ canvas {
     padding: 0 12px;
   }
 
-  .tower-bar-build .action-btn.codex-btn .material-symbols-outlined {
-    font-size: 1.5rem;
+  .tower-bar-build .action-btn.codex-btn .arcade-icon svg {
+    width: 1.5rem;
+    height: 1.5rem;
   }
 
   .action-btn {
@@ -1148,7 +1154,7 @@ canvas {
   .tower-panel-stats { font-size: 12px; }
   .tower-panel-actions { gap: 8px; }
   .tower-panel-btn { min-height: 58px; padding: 8px 6px; }
-  .tower-panel-btn .material-symbols-outlined { font-size: 1.65rem; }
+  .tower-panel-btn .arcade-icon svg { width: 1.65rem; height: 1.65rem; }
   .tower-panel-btn-label { font-size: 11px; }
   .codex-icon-wrap { flex: 0 0 52px; width: 52px; height: 52px; }
   .codex-icon { width: 42px; height: 42px; }
@@ -1199,8 +1205,9 @@ canvas {
   gap: 2px;
 }
 
-.action-btn.arsenal-btn .material-symbols-outlined {
-  font-size: 1rem;
+.action-btn.arsenal-btn .arcade-icon svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 /* —— Arsenal modal —— */

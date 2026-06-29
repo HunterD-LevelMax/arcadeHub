@@ -2,76 +2,87 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
-const SKIP = new Set([".git", "node_modules", "scripts", ".cursor"]);
-const EXTRA = ["index.html", "privacy.html", "manifest.webmanifest", "icon_round.png", "sw.js"];
-const BGM_FILES = ["music_1.mp3", "music_2.mp3", "music_3.mp3"];
+const EXTRA = ["index.html", "privacy.html", "manifest.webmanifest", "icon_round.png"];
+const HUB_STYLE_FILES = [
+  "./style/fonts.css",
+  "./style/main.css",
+  "./style/compat.css",
+  "./style/scrollbars.css",
+  "./style/hub/cards.css",
+  "./style/hub/stars.css",
+];
+const HUB_JS_FILES = [
+  "./js/perf.js",
+  "./js/haptics.js",
+  "./js/arcade-icons.js",
+  "./js/audio.js",
+  "./js/economy-api.js",
+  "./js/economy.js",
+  "./js/hub/ArcadeRouter.js",
+  "./js/hub/HubPreviewBase.js",
+  "./js/hub/HubPreviewManager.js",
+  "./js/hub/previews.js",
+  "./js/hub/Starfield.js",
+  "./js/hub/HubScrollMemory.js",
+  "./js/hub/HubBootstrap.js",
+  "./js/economy/ArcadeModal.js",
+  "./js/economy/EconomyUI.js",
+];
+const FONT_FILES = [
+  "./fonts/orbitron-latin-400-normal.woff2",
+  "./fonts/orbitron-latin-700-normal.woff2",
+  "./fonts/orbitron-latin-900-normal.woff2",
+  "./fonts/share-tech-mono-latin-400-normal.woff2",
+];
+const UI_SFX = [
+  "./audio/sfx/ui/coin.ogg",
+  "./audio/sfx/ui/confirm.ogg",
+  "./audio/sfx/ui/error.ogg",
+  "./audio/sfx/ui/hit.ogg",
+  "./audio/sfx/ui/success.ogg",
+  "./audio/sfx/ui/tap.ogg",
+];
 
-function shouldSkipDir(name) {
-  return name.endsWith("_files") || name.includes("Принципы") || name === "tower_gamedesign";
-}
+function buildCriticalPrecache() {
+  const files = new Set([
+    ...EXTRA,
+    ...HUB_STYLE_FILES,
+    ...HUB_JS_FILES,
+    ...FONT_FILES,
+    "./icons/sprite.svg",
+    ...UI_SFX,
+  ]);
 
-function walk(dir, out) {
-  for (const name of fs.readdirSync(dir)) {
-    if (SKIP.has(name) || shouldSkipDir(name)) continue;
-    const full = path.join(dir, name);
-    const rel = path.relative(ROOT, full).replace(/\\/g, "/");
-    if (fs.statSync(full).isDirectory()) walk(full, out);
-    else out.add("./" + rel);
-  }
-}
-
-function walkGames(out) {
-  const gamesDir = path.join(ROOT, "games");
-  if (!fs.existsSync(gamesDir)) return;
-
-  for (const gameId of fs.readdirSync(gamesDir)) {
-    if (SKIP.has(gameId) || shouldSkipDir(gameId)) continue;
-    const gameDir = path.join(gamesDir, gameId);
-    if (!fs.statSync(gameDir).isDirectory()) continue;
-
-    const indexHtml = path.join(gameDir, "index.html");
-    if (fs.existsSync(indexHtml)) {
-      out.add(`./games/${gameId}/index.html`);
+  for (const rel of files) {
+    const abs = path.join(ROOT, rel.replace(/^\.\//, ""));
+    if (!fs.existsSync(abs)) {
+      console.warn("Missing critical asset:", rel);
     }
-
-    const audioDir = path.join(gameDir, "audio");
-    if (fs.existsSync(audioDir)) walk(audioDir, out);
   }
+
+  return [...files].sort();
 }
 
-function walkAudio(out) {
-  const uiDir = path.join(ROOT, "audio", "sfx", "ui");
-  if (fs.existsSync(uiDir)) walk(uiDir, out);
+const CRITICAL_PRECACHE = buildCriticalPrecache();
 
-  const bgmDir = path.join(ROOT, "audio", "bgm");
-  if (!fs.existsSync(bgmDir)) return;
-  for (const file of BGM_FILES) {
-    const full = path.join(bgmDir, file);
-    if (fs.existsSync(full)) {
-      out.add("./audio/bgm/" + file);
-    }
-  }
+const sw = `/* Auto-generated — run: node scripts/build-precache.js */
+const CACHE_NAME = "arcade-hub-v2";
+const CRITICAL_PRECACHE = ${JSON.stringify(CRITICAL_PRECACHE, null, 2)};
+
+function matchesCritical(url) {
+  const pathname = url.pathname;
+  return CRITICAL_PRECACHE.some((entry) => {
+    const normalized = entry.replace(/^\\.\\//, "");
+    return pathname.endsWith("/" + normalized) || pathname.endsWith(normalized);
+  });
 }
-
-const files = new Set(EXTRA.map((f) => "./" + f));
-walkGames(files);
-walkAudio(files);
-for (const dir of ["js", "style", "fonts"]) {
-  const abs = path.join(ROOT, dir);
-  if (fs.existsSync(abs)) walk(abs, files);
-}
-
-const list = [...files].sort();
-const sw = `/* Auto-generated precache list — run: node scripts/build-precache.js */
-const CACHE_NAME = "arcade-hub-v1";
-const PRECACHE_URLS = ${JSON.stringify(list, null, 2)};
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
-      cache.addAll(PRECACHE_URLS).catch((err) => {
-        console.warn("[sw] precache partial fail", err);
+      cache.addAll(CRITICAL_PRECACHE).catch((err) => {
+        console.warn("[sw] critical precache partial fail", err);
       })
     )
   );
@@ -92,6 +103,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
+  const critical = matchesCritical(url);
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const networkFetch = fetch(event.request)
@@ -104,11 +117,15 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => cached);
 
-      return cached || networkFetch;
+      if (critical) {
+        return cached || networkFetch;
+      }
+
+      return networkFetch.then((response) => response || cached);
     })
   );
 });
 `;
 
 fs.writeFileSync(path.join(ROOT, "sw.js"), sw);
-console.log("Wrote sw.js with", list.length, "precache entries");
+console.log("Wrote sw.js with", CRITICAL_PRECACHE.length, "critical precache entries");

@@ -132,3 +132,17 @@ if (ArcadeRouter.getCurrentGame() != null) {
 New games are added following the conventions in [`rules.md`](rules.md) (shared HTML/CSS structure, required UI element IDs, high score API, and main-page card template).
 
 Sound layout is described in [`audio/README.md`](audio/README.md).
+
+### Deploy checklist (GitHub Pages)
+
+Before pushing to production:
+
+```bash
+node scripts/build-icon-sprite.js   # only if icons changed
+node scripts/verify-assets.js
+node scripts/build-precache.js
+```
+
+- All fonts live in [`fonts/`](fonts/) (no CDN).
+- UI icons use [`icons/sprite.svg`](icons/sprite.svg) via [`js/arcade-icons.js`](js/arcade-icons.js).
+- Service worker precaches only the hub shell; games and BGM load on demand.

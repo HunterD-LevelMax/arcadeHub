@@ -20,3 +20,7 @@
 body.game-active .stars.stars--css {
   animation-play-state: paused;
 }
+
+html.perf-low .stars.stars--css {
+  animation: none;
+}

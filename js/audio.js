@@ -331,8 +331,13 @@
 
   function updateMuteButtons() {
     document.querySelectorAll("[data-audio-mute]").forEach((btn) => {
-      const icon = btn.querySelector(".material-symbols-outlined");
-      if (icon) icon.textContent = muted ? "volume_off" : "volume_up";
+      const icon = btn.querySelector(".arcade-icon, .material-symbols-outlined");
+      const name = muted ? "volume_off" : "volume_up";
+      if (icon && window.ArcadeIcons && typeof ArcadeIcons.setIcon === "function") {
+        ArcadeIcons.setIcon(icon, name);
+      } else if (icon) {
+        icon.textContent = name;
+      }
       btn.setAttribute("aria-pressed", muted ? "true" : "false");
       btn.title = muted ? "Unmute sound" : "Mute sound";
     });
@@ -359,13 +364,18 @@
     bindAppLifecycle();
     window.addEventListener("arcade-audio-mute", updateMuteButtons);
     document.addEventListener("click", () => {
-      unlock().then(() => maybeStartHubBgm());
+      unlock().then(() => {
+        maybeStartHubBgm();
+        if (!isGamePage() && !muted) preloadBgm();
+      });
     }, { once: true, capture: true });
     document.addEventListener("touchstart", () => {
-      unlock().then(() => maybeStartHubBgm());
+      unlock().then(() => {
+        maybeStartHubBgm();
+        if (!isGamePage() && !muted) preloadBgm();
+      });
     }, { once: true, capture: true });
     if (!isGamePage() && !muted) {
-      preloadBgm();
       window.addEventListener("arcade-hub-visible", () => unduckBgm());
     }
   }

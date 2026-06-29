@@ -136,13 +136,12 @@
 
       this.plats.forEach((p, i) => {
         const col = i % 2 === 0 ? '#39ff14' : '#00f5ff';
-        ctx.shadowColor = col;
-        ctx.shadowBlur = 8;
+        this.applyShadow(col, 8);
         ctx.fillStyle = col + '33';
         ctx.fillRect(p.x, p.y, p.w, 8);
         ctx.fillStyle = col;
         ctx.fillRect(p.x, p.y, p.w, 2.5);
-        ctx.shadowBlur = 0;
+        this.clearShadow();
       });
 
       const playerY = this.height * 0.45 + Math.sin(this.t) * this.height * 0.22;
@@ -154,8 +153,7 @@
       ctx.fillStyle = grd;
       ctx.fillRect(px - 10, playerY - 6, 44, 44);
 
-      ctx.shadowColor = '#c8ff80';
-      ctx.shadowBlur = 12;
+      this.applyShadow('#c8ff80', 12);
       ctx.fillStyle = '#1a2e00';
       ctx.strokeStyle = '#c8ff80';
       ctx.lineWidth = 1.5;
@@ -166,7 +164,7 @@
       ctx.fillStyle = '#00f5ff';
       ctx.fillRect(px + 5, playerY + 5, 4, 4);
       ctx.fillRect(px + 14, playerY + 5, 4, 4);
-      ctx.shadowBlur = 0;
+      this.clearShadow();
     }
   }
 
@@ -218,7 +216,7 @@
 
       this.snake.forEach((seg, i) => {
         const alpha = 1 - (i / this.snake.length) * 0.5;
-        ctx.shadowBlur = i === 0 ? 8 : 4;
+        this.applyShadow('#39ff14', i === 0 ? 8 : 4);
         ctx.fillStyle = `rgba(57, 255, 20, ${alpha})`;
         ctx.fillRect(seg.x * this.GRID + 1, seg.y * this.GRID + 1, this.GRID - 2, this.GRID - 2);
       });
@@ -273,16 +271,15 @@
       for (let y = 0; y < this.ROWS; y++) {
         for (let x = 0; x < this.COLS; x++) {
           if (this.grid[y][x] !== -1) {
-            ctx.shadowBlur = 4;
-            ctx.shadowColor = this.COLORS[this.grid[y][x]];
-            ctx.fillStyle = this.COLORS[this.grid[y][x]];
+            const color = this.COLORS[this.grid[y][x]];
+            this.applyShadow(color, 4);
+            ctx.fillStyle = color;
             ctx.fillRect(this.ox + x * this.bs + 1, y * this.bs + 1, this.bs - 2, this.bs - 2);
           }
         }
       }
 
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = this.COLORS[this.currentShape];
+      this.applyShadow(this.COLORS[this.currentShape], 8);
       ctx.fillStyle = this.COLORS[this.currentShape];
       this.piece.forEach((row, y) => {
         row.forEach((val, x) => {
@@ -412,7 +409,10 @@
       const ah = 12;
       const pad = 8;
       const maxWidth = this.width - 60;
-      const cols = Math.max(6, Math.floor(maxWidth / (aw + pad)));
+      let cols = Math.max(6, Math.floor(maxWidth / (aw + pad)));
+      if (window.ArcadePerf && ArcadePerf.reducedEffects) {
+        cols = Math.min(cols, 8);
+      }
       const totalW = cols * (aw + pad) - pad;
       const startX = (this.width - totalW) / 2;
       this.aliens = [];
@@ -631,7 +631,7 @@
         ctx.fillStyle = i % 2 ? '#ffcc00' : this.ACCENT;
         this.applyShadow(this.ACCENT, 6);
         ctx.beginPath();
-        ctx.arc(px, py, 2 + Math.random(), 0, Math.PI * 2);
+        ctx.arc(px, py, 2 + Math.abs(Math.sin(this.t * 3 + i)) * 0.8, 0, Math.PI * 2);
         ctx.fill();
       }
       this.clearShadow();
@@ -739,7 +739,9 @@
     }
 
     spawnParticles(x, y, color) {
-      for (let i = 0; i < 10; i++) {
+      const reduced = window.ArcadePerf && ArcadePerf.reducedEffects;
+      const count = reduced ? 3 : 10;
+      for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 1 + Math.random() * 2;
         this.particles.push({
@@ -778,6 +780,8 @@
         }
       }
 
+      const reducedFx = window.ArcadePerf && ArcadePerf.reducedEffects;
+
       for (let r = 0; r < this.PREVIEW_SIZE; r++) {
         for (let c = 0; c < this.PREVIEW_SIZE; c++) {
           const type = this.grid[r][c];
@@ -787,9 +791,9 @@
           let alpha = 1;
           let glow = 8;
           if (r === this.matchCell.r && c === this.matchCell.c) {
-            if (this.matchPhase > 0 && this.matchPhase < 12) {
+            if (!reducedFx && this.matchPhase > 0 && this.matchPhase < 12) {
               glow = 16 + this.matchPhase;
-            } else if (this.matchPhase >= 12 && this.matchPhase < 22) {
+            } else if (!reducedFx && this.matchPhase >= 12 && this.matchPhase < 22) {
               alpha = 1 - (this.matchPhase - 12) / 10;
               glow = 20;
             } else if (this.matchPhase === 22) {
@@ -955,19 +959,21 @@
       });
       window.addEventListener('load', scan, { once: true });
 
-      let scrollTimer = 0;
-      const scrollRoot = document.getElementById('hubRoot') || window;
-      scrollRoot.addEventListener(
-        'scroll',
-        () => {
-          if (scrollTimer) return;
-          scrollTimer = requestAnimationFrame(() => {
-            scrollTimer = 0;
-            scan();
-          });
-        },
-        { passive: true }
-      );
+      if (!manager.hasIntersectionObserver()) {
+        let scrollTimer = 0;
+        const scrollRoot = document.getElementById('hubRoot') || window;
+        scrollRoot.addEventListener(
+          'scroll',
+          () => {
+            if (scrollTimer) return;
+            scrollTimer = requestAnimationFrame(() => {
+              scrollTimer = 0;
+              scan();
+            });
+          },
+          { passive: true }
+        );
+      }
     }
   }
 

@@ -1,4 +1,3 @@
-@import url('fonts.css');
 @import url('compat.css');
 @import url('scrollbars.css');
 
@@ -45,9 +44,21 @@
   --arcade-sb-accent: var(--neon-cyan);
 }
 
-/* Material Symbols — base rules in fonts.css */
-.material-symbols-outlined.filled {
-  font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+/* Arcade SVG icons (js/arcade-icons.js) */
+.arcade-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  line-height: 1;
+  user-select: none;
+}
+
+.arcade-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: currentColor;
+  display: block;
 }
 
 /* MD3 surfaces & elevation */
@@ -97,7 +108,7 @@
   transform: scale(0.90) translateY(1px);
 }
 
-.md-chip .material-symbols-outlined {
+.md-chip .arcade-icon {
   font-size: 1rem;
 }
 
@@ -140,7 +151,7 @@
     background var(--md-motion-duration-short) var(--md-motion-easing);
 }
 
-.md-btn .material-symbols-outlined {
+.md-btn .arcade-icon {
   font-size: 1.125rem;
 }
 
@@ -402,7 +413,7 @@ body.game-active .stars .star {
     padding: 3px 10px;
   }
 
-  .header-line span:not(.material-symbols-outlined) {
+  .header-line span:not(.arcade-icon) {
     font-size: 9px;
     letter-spacing: 2px;
   }
@@ -532,15 +543,19 @@ body.game-active .stars .star {
   background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
 }
 
-.header-line span:not(.material-symbols-outlined) {
+.header-line span:not(.arcade-icon) {
   font-size: 11px;
   color: var(--neon-cyan);
   letter-spacing: 3px;
   white-space: nowrap;
 }
 
+.header-line-icon.arcade-icon svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
 .header-line-icon {
-  font-size: 0.9rem !important;
   color: var(--neon-cyan);
   opacity: 0.7;
 }
@@ -566,7 +581,7 @@ body.game-active .stars .star {
   padding: 0;
 }
 
-.audio-mute-btn .material-symbols-outlined {
+.audio-mute-btn .arcade-icon {
   font-size: 1.125rem;
 }
 
@@ -636,10 +651,13 @@ body.game-active .stars .star {
   gap: 10px;
 }
 
+.section-icon.arcade-icon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
 .section-icon {
   color: var(--neon-cyan);
-  font-size: 1.35rem !important;
-  font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
 }
 
 .section-title::after {
@@ -810,7 +828,7 @@ body.game-active .stars .star {
   box-shadow: var(--md-sys-elevation-1);
 }
 
-.card-lock-cost-wrap .material-symbols-outlined {
+.card-lock-cost-wrap .arcade-icon {
   font-size: 0.95rem;
   color: #ffcc00;
 }
@@ -1185,4 +1203,115 @@ body.game-active .stars .star {
 
 body.game-active {
   overflow: hidden;
+}
+
+/* Low-tier / reduced-motion hub optimizations */
+.perf-low body::before,
+html.perf-low body::before {
+  animation: none;
+}
+
+.perf-low body::after,
+html.perf-low body::after {
+  opacity: 0.05;
+}
+
+.perf-low .header-badge,
+html.perf-low .header-badge {
+  animation: none;
+}
+
+.perf-low .header h1,
+html.perf-low .header h1 {
+  filter: none;
+}
+
+.perf-low .md-surface,
+html.perf-low .md-surface {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(14, 14, 36, 0.82);
+}
+
+.perf-low .header.md-surface,
+html.perf-low .header.md-surface {
+  background: rgba(14, 14, 36, 0.88);
+}
+
+.perf-low .card-lock-overlay,
+html.perf-low .card-lock-overlay {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: linear-gradient(
+    180deg,
+    rgba(5, 5, 16, 0.55) 0%,
+    rgba(5, 5, 16, 0.82) 100%
+  );
+}
+
+.perf-low .preview-badge,
+html.perf-low .preview-badge {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.perf-low .arcade-modal-overlay,
+html.perf-low .arcade-modal-overlay {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(5, 5, 16, 0.92);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    animation: none;
+  }
+
+  body::after {
+    opacity: 0.05;
+  }
+
+  .header-badge {
+    animation: none;
+  }
+
+  .header h1 {
+    filter: none;
+  }
+
+  .md-surface {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(14, 14, 36, 0.82);
+  }
+
+  .header.md-surface {
+    background: rgba(14, 14, 36, 0.88);
+  }
+
+  .card-lock-overlay {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .preview-badge {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .arcade-modal-overlay {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(5, 5, 16, 0.92);
+  }
+
+  .stars.stars--css {
+    animation: none;
+  }
+
+  .star {
+    animation: none;
+    opacity: 0.35;
+  }
 }

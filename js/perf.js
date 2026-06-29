@@ -21,6 +21,7 @@
 
   const tier = detectTier();
   const low = tier === 'low';
+  const medium = tier === 'medium';
 
   function applyShadow(ctx, color, blur) {
     if (!ctx || low) return;
@@ -33,13 +34,20 @@
     ctx.shadowBlur = 0;
   }
 
+  if (document.documentElement) {
+    document.documentElement.classList.add('perf-' + tier);
+  }
+
   window.ArcadePerf = {
     tier,
     shadows: !low,
     reducedEffects: low,
     hubPreviewShadows: !low,
-    hubStarCount: low ? 0 : (tier === 'medium' ? 60 : 120),
+    hubStarCount: low ? 0 : (medium ? 60 : 120),
     hubFrameSkip: low ? 2 : 1,
+    hubPreviewFps: low ? 6 : (medium ? 24 : 30),
+    hubPreviewMaxConcurrent: low ? 1 : (medium ? 2 : 99),
+    hubIoRootMargin: low ? '0px' : '120px 0px',
     applyShadow,
     clearShadow,
   };
