@@ -21,6 +21,14 @@
   --md-state-pressed: rgba(0, 245, 255, 0.14);
   --md-motion-easing: cubic-bezier(0.2, 0, 0, 1);
   --md-motion-duration-short: 200ms;
+
+  --ui-stat-size: 10px;
+  --ui-title-size: 17px;
+  --ui-btn-min-h: 40px;
+  --ui-back-min-h: 36px;
+  --ui-icon-btn: 36px;
+  --ui-footer-size: 9px;
+  --ui-overlay-sub-size: 10px;
 }
 
 .arcade-icon {
@@ -107,7 +115,7 @@ body::after {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 40px;
+  min-height: var(--ui-btn-min-h);
   padding: 0 18px;
   border: none;
   border-radius: var(--md-sys-shape-corner-full);
@@ -249,10 +257,12 @@ body::after {
 }
 
 .header {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  column-gap: 10px;
+  row-gap: 6px;
   padding: 10px 12px;
   border-radius: var(--md-sys-shape-corner-large);
   background: rgba(10, 10, 31, 0.55);
@@ -263,18 +273,32 @@ body::after {
 }
 
 .back-btn {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
   flex-shrink: 0;
-  min-height: 36px;
-  padding: 0 14px;
-  font-size: 10px;
+  min-width: var(--ui-icon-btn);
+  width: var(--ui-icon-btn);
+  height: var(--ui-icon-btn);
+  min-height: var(--ui-icon-btn);
+  padding: 0;
+  gap: 0;
+}
+
+.back-btn .material-symbols-outlined {
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .audio-mute-btn {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
   flex-shrink: 0;
-  min-width: 36px;
-  width: 36px;
-  height: 36px;
-  min-height: 36px;
+  min-width: var(--ui-icon-btn);
+  width: var(--ui-icon-btn);
+  height: var(--ui-icon-btn);
+  min-height: var(--ui-icon-btn);
   padding: 0;
 }
 
@@ -284,8 +308,14 @@ body::after {
 }
 
 .game-title {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  width: 100%;
+  text-align: center;
+  min-width: 0;
   font-family: 'Orbitron', sans-serif;
-  font-size: 17px;
+  font-size: var(--ui-title-size);
   font-weight: 700;
   letter-spacing: 2px;
   text-shadow: 0 0 20px color-mix(in srgb, var(--md-btn-accent) 50%, transparent);
@@ -298,6 +328,19 @@ body::after {
   gap: 6px;
   align-items: center;
   justify-content: flex-end;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: stretch;
+}
+
+.header > .frogger-hud,
+.header > .score-display,
+.header > .timer-display,
+.header > .moves-display,
+.header > .tier-display {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: end;
 }
 
 .score-display,
@@ -305,7 +348,7 @@ body::after {
 .stat-display,
 .tier-display {
   font-family: 'Orbitron', sans-serif;
-  font-size: 10px;
+  font-size: var(--ui-stat-size);
   letter-spacing: 1px;
   padding: 4px 8px;
   border-radius: var(--md-sys-shape-corner-small);
@@ -336,7 +379,7 @@ canvas {
 
 .footer {
   text-align: center;
-  font-size: 9px;
+  font-size: var(--ui-footer-size);
   letter-spacing: 2px;
   color: rgba(255, 255, 255, 0.28);
   text-transform: uppercase;
@@ -374,7 +417,7 @@ canvas {
 }
 
 .overlay-sub {
-  font-size: 10px;
+  font-size: var(--ui-overlay-sub-size);
   letter-spacing: 2px;
   color: rgba(255, 255, 255, 0.45);
   text-transform: uppercase;
@@ -520,53 +563,78 @@ canvas {
 
 .md-btn:focus,
 .md-chip:focus,
-.ability-btn:focus {
+.ability-btn:focus,
+.back-btn:focus {
   outline: none;
 }
 
 .md-btn:focus-visible,
 .md-chip:focus-visible,
-.ability-btn:focus-visible {
+.ability-btn:focus-visible,
+.back-btn:focus-visible {
   outline: 2px solid var(--md-btn-accent);
   outline-offset: 2px;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 480px), (pointer: coarse) {
+  :root {
+    --ui-stat-size: 12px;
+    --ui-title-size: 17px;
+    --ui-btn-min-h: 48px;
+    --ui-back-min-h: 44px;
+    --ui-icon-btn: 44px;
+    --ui-footer-size: 10px;
+    --ui-overlay-sub-size: 12px;
+  }
+
   .page {
-    padding: 12px;
-    gap: 10px;
+    padding: 10px 12px 12px;
+    gap: 8px;
   }
 
   .header {
-    flex-wrap: wrap;
-    justify-content: center;
     padding: 8px 10px;
-  }
-
-  .back-btn {
-    font-size: 9px;
-    padding: 0 10px;
-    min-height: 34px;
+    column-gap: 8px;
+    row-gap: 6px;
   }
 
   .game-title {
-    font-size: 14px;
-    order: -1;
-    width: 100%;
-    text-align: center;
-    margin-bottom: 4px;
+    margin-bottom: 0;
   }
 
   .score-display,
   .timer-display,
-  .stat-display {
-    font-size: 9px;
-    padding: 3px 6px;
+  .stat-display,
+  .tier-display {
+    padding: 5px 9px;
+    letter-spacing: 0.5px;
   }
 
-  .overlay-title { font-size: 22px; }
-  .overlay-score { font-size: 36px; }
-  .overlay-best { font-size: 14px; }
-  .start-btn { font-size: 11px; padding: 0 22px; min-height: 40px; }
-  .footer { font-size: 8px; letter-spacing: 1px; }
+  .overlay-title { font-size: 24px; }
+  .overlay-score { font-size: 40px; }
+  .overlay-best { font-size: 16px; }
+  .overlay-sub { letter-spacing: 1.5px; }
+  .start-btn { font-size: 13px; padding: 0 26px; min-height: 48px; }
+  .footer { letter-spacing: 1.5px; padding: 6px 10px; }
+
+  .ability-btn {
+    min-height: 56px;
+    font-size: 12px;
+    padding: 8px 8px;
+  }
+
+  .ability-btn .ability-charge {
+    font-size: 14px;
+  }
+
+  .ability-btn .ability-cost {
+    font-size: 10px;
+  }
+
+  .audio-mute-btn .arcade-icon svg,
+  .back-btn .material-symbols-outlined {
+    width: 1.25rem;
+    height: 1.25rem;
+    font-size: 1.25rem;
+  }
 }

@@ -946,19 +946,20 @@ canvas {
   }
 
   .tower-btn {
-    font-size: 11px;
+    font-size: 9px;
     min-width: 64px;
     max-width: 88px;
     min-height: 48px;
     padding: 7px 5px;
+    letter-spacing: 0.5px;
   }
 
   .tower-btn .tower-cost {
-    font-size: 11px;
+    font-size: 9px;
   }
 
   .tower-bar-build-2 .tower-btn {
-    font-size: 11px;
+    font-size: 9px;
   }
 
   .tower-bar-scroll .tower-btn {
@@ -1093,9 +1094,8 @@ canvas {
 }
 
 @media (max-width: 480px) {
-  .stat-display { font-size: 10px; padding: 4px 6px; letter-spacing: 0; }
-  .game-title { font-size: 14px; }
-  .bar-hint { font-size: 12px; padding: 3px 8px; }
+  .stat-display { font-size: 13px; padding: 5px 9px; letter-spacing: 0.5px; }
+  .bar-hint { font-size: 13px; padding: 4px 10px; }
   .tower-bar { gap: 10px; }
   .tower-bar-row { gap: 8px; }
   .tower-bar-build {
@@ -1109,95 +1109,96 @@ canvas {
 
   .tower-bar-scroll .tower-btn {
     flex: 0 0 auto;
-    min-width: 56px;
+    min-width: 54px;
     max-width: none;
     min-height: 50px;
-    font-size: 11px;
-    padding: 8px 4px;
+    font-size: 9px;
+    padding: 6px 4px;
+    letter-spacing: 0.5px;
   }
 
   .tower-bar-scroll .tower-btn .tower-cost {
-    font-size: 10px;
+    font-size: 8px;
   }
 
   .tower-bar-build .action-btn.codex-btn {
-    min-width: 50px;
-    min-height: 50px;
-    padding: 0 12px;
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0 10px;
   }
 
   .tower-bar-build .action-btn.codex-btn .arcade-icon svg {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 1.4rem;
+    height: 1.4rem;
   }
 
   .action-btn {
-    font-size: 11px;
-    min-height: 50px;
-    padding: 10px 8px;
+    font-size: 9px;
+    min-height: 48px;
+    padding: 8px 8px;
+    letter-spacing: 0.5px;
   }
 
   .action-btn.arsenal-btn {
-    font-size: 10px;
+    font-size: 8px;
+    letter-spacing: 0.3px;
   }
 
-  .map-btn { font-size: 9px; padding: 6px 8px; }
+  .map-btn { font-size: 10px; padding: 7px 9px; }
   .status-overlay { top: 4px; right: 4px; max-width: 62%; gap: 5px; }
   .game-hud-top-left { top: 4px; left: 4px; max-width: 52%; }
-  .status-line { font-size: 11px; padding: 5px 8px; letter-spacing: 0.3px; }
-  .status-wave { font-size: 10px; }
+  .status-line { font-size: 13px; padding: 6px 10px; letter-spacing: 0.3px; }
+  .status-wave { font-size: 12px; }
   .tower-radial {
     max-width: min(320px, 96vw);
   }
 
-  .tower-panel-name { font-size: 13px; }
-  .tower-panel-stats { font-size: 12px; }
+  .tower-panel-name { font-size: 14px; }
+  .tower-panel-stats { font-size: 13px; }
   .tower-panel-actions { gap: 8px; }
-  .tower-panel-btn { min-height: 58px; padding: 8px 6px; }
-  .tower-panel-btn .arcade-icon svg { width: 1.65rem; height: 1.65rem; }
-  .tower-panel-btn-label { font-size: 11px; }
-  .codex-icon-wrap { flex: 0 0 52px; width: 52px; height: 52px; }
-  .codex-icon { width: 42px; height: 42px; }
+  .tower-panel-btn { min-height: 62px; padding: 8px 8px; }
+  .tower-panel-btn .arcade-icon svg { width: 1.75rem; height: 1.75rem; }
+  .tower-panel-btn-label { font-size: 12px; }
+  .codex-icon-wrap { flex: 0 0 56px; width: 56px; height: 56px; }
+  .codex-icon { width: 44px; height: 44px; }
 
   .codex-title {
-    font-size: 15px;
+    font-size: 17px;
     letter-spacing: 1.5px;
   }
 
   .codex-section-title {
-    font-size: 12px;
+    font-size: 14px;
     margin-bottom: 10px;
   }
 
   .codex-card {
-    padding: 10px 12px;
+    padding: 12px 14px;
   }
 
   .codex-card-title {
-    font-size: 13px;
+    font-size: 15px;
     margin-bottom: 5px;
   }
 
   .codex-cost,
   .codex-wave {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .codex-card-desc {
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.5;
     margin-bottom: 5px;
   }
 
   .codex-card-stat {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .codex-body {
     padding: 12px 10px 16px 14px;
   }
-
-  .footer { font-size: 8px; letter-spacing: 1px; }
 }
 
 .tower-btn.locked {

@@ -132,12 +132,12 @@ canvas {
 @media (max-width: 480px) {
   .hud-streak,
   .hud-width {
-    font-size: 8px;
-    padding: 3px 6px;
+    font-size: 12px;
+    padding: 5px 9px;
   }
 
   .drop-hint {
-    font-size: 9px;
+    font-size: 11px;
     bottom: 10px;
   }
 }

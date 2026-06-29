@@ -53,3 +53,16 @@ canvas {
   height: 4px;
   border-radius: 2px;
 }
+
+@media (max-width: 480px), (pointer: coarse) {
+  .platform-legend {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    gap: 12px;
+  }
+
+  .legend-dot {
+    width: 16px;
+    height: 5px;
+  }
+}

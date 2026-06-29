@@ -39,11 +39,24 @@ canvas {
 @media (hover: none) and (pointer: coarse) {
   .tetris-controls {
     display: grid;
+    gap: 8px;
   }
 
-  .page .footer {
-    font-size: 9px;
-    letter-spacing: 2px;
+  .tctrl {
+    min-height: 58px;
+    font-size: 20px;
+  }
+
+  .tctrl-rotate {
+    font-size: 24px;
+  }
+
+  .tctrl-soft {
+    font-size: 22px;
+  }
+
+  .tctrl-drop {
+    font-size: 18px;
   }
 }
 

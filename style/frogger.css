@@ -112,8 +112,4 @@
     justify-content: center;
     gap: 8px;
   }
-
-  .frogger-hud .score-display {
-    font-size: 10px;
-  }
 }

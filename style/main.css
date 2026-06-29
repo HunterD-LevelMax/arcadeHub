@@ -403,18 +403,18 @@ body.game-active .stars .star {
   }
 
   .header-sub {
-    font-size: 11px;
-    letter-spacing: 4px;
+    font-size: 12px;
+    letter-spacing: 3px;
   }
 
   .header-badge {
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 2px;
-    padding: 3px 10px;
+    padding: 4px 12px;
   }
 
   .header-line span:not(.arcade-icon) {
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 2px;
   }
 
@@ -446,21 +446,12 @@ body.game-active .stars .star {
   }
 
   .section-title {
-    font-size: 12px;
+    font-size: 13px;
     letter-spacing: 3px;
   }
 }
 
-/* Very small screens */
-@media (max-width: 380px) {
-  .card-title {
-    font-size: 18px;
-  }
-
-  .card-desc {
-    font-size: 11px;
-  }
-}
+/* Very small screens — card title tweak only; sizes come from block below .play-btn */
 
 /* Header */
 .header {
@@ -1003,6 +994,72 @@ body.game-active .stars .star {
 
 .play-btn-arrow {
   display: none;
+}
+
+@media (max-width: 720px) {
+  .card-title {
+    font-size: 24px;
+  }
+
+  .card-desc {
+    font-size: 13px;
+  }
+
+  .card-number {
+    font-size: 11px;
+  }
+
+  .tag {
+    font-size: 11px;
+    padding: 5px 11px;
+  }
+
+  .preview-badge {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+
+  .card-lock-cost-wrap {
+    font-size: 12px;
+    min-height: 32px;
+    padding: 0 14px;
+  }
+
+  .play-btn {
+    min-height: 44px;
+    font-size: 12px;
+    padding: 0 16px 0 12px;
+  }
+
+  .page-footer {
+    font-size: 12px;
+    letter-spacing: 2px;
+  }
+
+  .page-footer .footer-link {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .arcade-modal-title {
+    font-size: 18px;
+  }
+
+  .arcade-modal-text {
+    font-size: 15px;
+  }
+
+  .arcade-btn {
+    min-height: 44px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 380px) {
+  .card-title {
+    font-size: 22px;
+    letter-spacing: 1.5px;
+  }
 }
 
 /* Separator bar on card left */
