@@ -4,56 +4,107 @@ A retro neon arcade — a collection of classic browser games with a shared high
 
 Runs as an **installable PWA** or inside an **Android WebView**. The hub uses an app shell — games open in an iframe without full page reload.
 
+**Repository:** [github.com/HunterD-LevelMax/arcadeHub](https://github.com/HunterD-LevelMax/arcadeHub)
+
 ## Project structure
 
 ```
 arcadeHub/
-├── index.html              # Main page with game cards
+├── index.html                  # Hub shell (game cards, iframe, economy UI)
+├── manifest.webmanifest
+├── sw.js                       # Service worker (HTTPS / localhost only)
+├── privacy.html
 ├── games/{gameId}/
-│   ├── index.html          # Game page
-│   └── audio/              # Game-specific SFX
-├── audio/sfx/ui/           # Shared UI sounds
-├── audio/bgm/              # Hub background music
-├── style/                  # CSS (main.css, game.css, per-game styles)
-└── js/
-    ├── router.js           # Hub ↔ game navigation
-    ├── audio.js            # Shared audio layer
-    └── game.js             # Common game utilities (playSfx, arcadeBack, …)
+│   ├── index.html              # Game page
+│   └── audio/                  # Game-specific SFX (.ogg)
+├── audio/
+│   ├── sfx/ui/                 # Shared UI sounds
+│   └── bgm/                    # Hub background music (music_1–7.mp3)
+├── fonts/                      # Self-hosted Orbitron + Share Tech Mono
+├── icons/                      # SVG sources + sprite.svg
+├── style/
+│   ├── main.css, game.css      # Hub + shared game styles
+│   ├── hub/                    # Card grid, starfield
+│   └── {gameId}.css            # Per-game styles
+├── js/
+│   ├── hub/
+│   │   ├── ArcadeRouter.js     # Hub ↔ game navigation (iframe)
+│   │   ├── HubPreviewManager.js
+│   │   ├── HubPreviewBase.js
+│   │   ├── previews.js         # Canvas preview classes per card
+│   │   ├── Starfield.js
+│   │   ├── HubScrollMemory.js
+│   │   └── HubBootstrap.js
+│   ├── economy/
+│   │   ├── ArcadeModal.js
+│   │   └── EconomyUI.js
+│   ├── perf.js                 # Device tier + hub preview layout profiles
+│   ├── arcade-icons.js         # SVG sprite (inline on file://)
+│   ├── audio.js                # BGM + SFX layer
+│   ├── game.js                 # Common game utilities (playSfx, arcadeBack, …)
+│   ├── economy-api.js          # Coins, unlocks, rewards
+│   ├── economy.js              # Hub economy wiring
+│   └── haptics.js
+└── scripts/
+    ├── build-precache.js       # Regenerate sw.js precache list
+    ├── build-icon-sprite.js    # Patch inline sprite into arcade-icons.js
+    └── verify-assets.js
 ```
 
 ## Games
 
-| # | Game | Genre | Description |
-|---|------|-------|-------------|
-| 01 | **Prism Cascade** | Puzzle / Timed | Drag and swap glowing gems, chain matches into cascading combos, race the clock. |
-| 02 | **Crossy Frog** | Classic | Help the frog cross the road and river. Avoid cars, jump on logs and get to safety. |
-| 03 | **Space Blocks** | Puzzle / Arcade | Classic block puzzle game. Rotate and place falling tetrominos, clear lines and get the highest score. |
-| 04 | **Snake** | Classic / Arcade | Eat food, grow longer, don't hit yourself or the walls. |
-| 05 | **Asteroids** | Shooter / Arcade | Destroy asteroids, dodge debris. Survive in open space as long as you can. |
-| 06 | **Fly Hard** | Casual / One-tap | One tap and the bird flies. Dodge pipes, collect points, beat your high score. |
-| 07 | **Space Hopper** | Platform / Endless | Jump higher on platforms. Moving, breaking, spring-loaded — don't let yourself fall. |
-| 08 | **Space Aliens** | Shooter / Classic | Defend Earth from alien waves. Shoot aliens, use bombs, survive as long as possible. |
-| 09 | **Neon 2048** | Puzzle / Strategy | Slide tiles, merge matching numbers, and chase the legendary 2048 tile. |
-| 10 | **Stack Tower** | One-tap / Skill | Tap to drop blocks, align perfectly, and build the tallest neon tower you can. |
-| 11 | **Thrust Runner** | Endless / Skill | Hold to thrust, release to fall. Weave through the tunnel, dodge obstacles, collect crystals. |
+11 games are shown on the hub. **Crossy Frog** (`frogger`) is implemented but its card is commented out in `index.html`.
+
+| # | Game ID | Title | Genre | Description |
+|---|---------|-------|-------|-------------|
+| 01 | `prismcascade` | **Prism Cascade** | Puzzle / Timed | Drag and swap glowing gems, chain matches into cascading combos, race the clock. |
+| 02 | `neonsiege` | **Neon Siege** | Tower Defense | Build geometric towers, stop neon waves, defend the core. Featured “first goal” game. |
+| 03 | `tetris` | **Space Blocks** | Puzzle / Arcade | Rotate and place falling tetrominos, clear lines, chase the highest score. |
+| 04 | `snake` | **Snake** | Classic / Arcade | Eat food, grow longer, don't hit yourself or the walls. |
+| 05 | `asteroids` | **Asteroids** | Shooter / Arcade | Destroy asteroids, dodge debris. Survive in open space as long as you can. |
+| 06 | `flappy` | **Fly Hard** | Casual / One-tap | One tap and the bird flies. Dodge pipes, collect points, beat your high score. |
+| 07 | `doodle` | **Space Hopper** | Platform / Endless | Jump higher on platforms. Moving, breaking, spring-loaded — don't let yourself fall. |
+| 08 | `spaceinvaders` | **Space Aliens** | Shooter / Classic | Defend Earth from alien waves. Shoot aliens, use bombs, survive as long as possible. |
+| 09 | `game2048` | **Neon 2048** | Puzzle / Strategy | Slide tiles, merge matching numbers, and chase the legendary 2048 tile. |
+| 10 | `stacktower` | **Stack Tower** | One-tap / Skill | Tap to drop blocks, align perfectly, and build the tallest neon tower you can. |
+| 11 | `thrustrunner` | **Thrust Runner** | Endless / Skill | Hold to thrust, release to fall. Weave through the tunnel, dodge obstacles, collect crystals. |
+| — | `frogger` | **Crossy Frog** | Classic | *Hidden on hub.* Help the frog cross the road and river. Still playable via `games/frogger/index.html`. |
 
 ## Features
 
-- Unified neon arcade UI with animated canvas previews on the main hub
-- Per-game high score tracking
-- Shared coin economy and player profile
-- Haptic feedback support
+- Unified neon arcade UI with **lazy animated canvas previews** on game cards
+- **Adaptive preview performance** — layout profiles for phone / tablet / desktop (`js/perf.js`); scroll pause; visibility-based animation on mobile
+- Per-game high score tracking (`localStorage`)
+- **Coin economy** — earn coins from runs, unlock games by card rarity, featured Neon Siege goal
+- Hub **BGM** (7 tracks) with ducking while a game is open
+- Haptic feedback support (`js/haptics.js`, optional Android bridge)
 - Mobile-friendly touch controls (tap / drag / hold, depending on the game)
+- **PWA** on HTTPS — installable, offline hub shell via service worker
+- **`file://` friendly** — inline SVG icons, conditional font preload (for Android WebView and local opens)
+
+## Hub previews
+
+Each game card has a small canvas animation driven by [`js/hub/previews.js`](js/hub/previews.js) and [`js/hub/HubPreviewManager.js`](js/hub/HubPreviewManager.js).
+
+| Layout | FPS | Animation threshold |
+|--------|-----|---------------------|
+| Phone (≤720px, touch) | 12 | Only cards ≥50% visible |
+| Tablet (touch, wider) | 15 | Cards ≥25% visible |
+| Desktop | 30 | All intersecting cards |
+
+Previews pause while `#hubRoot` is scrolling and resume after a short debounce. The render loop uses `setTimeout` (not a perpetual `requestAnimationFrame`) to avoid idle wakeups.
 
 ## Hub navigation & browser history
 
-Navigation is handled by [`js/router.js`](js/router.js). The hub page stays mounted; the active game loads in `#gameFrame` (`games/{gameId}/index.html`).
+Navigation is handled by [`js/hub/ArcadeRouter.js`](js/hub/ArcadeRouter.js). The hub page stays mounted; the active game loads in `#gameFrame` (`games/{gameId}/index.html`).
+
+> [`js/router.js`](js/router.js) is a deprecated shim that loads `ArcadeRouter.js` for backward compatibility.
 
 There are **two separate history stacks**:
 
 | Stack | What it tracks | Managed by |
 |-------|----------------|------------|
-| **Parent** (`index.html`) | Hub vs which game is open (`#game/…`) | `pushState` / `replaceState` in `router.js` |
+| **Parent** (`index.html`) | Hub vs which game is open (`#game/…`) | `pushState` / `replaceState` in `ArcadeRouter` |
 | **Iframe** (`#gameFrame`) | Each `src` assignment to a game URL | Browser, unless iframe is reset |
 
 Browser / Android **Back** walks the **iframe stack first**. If the iframe still holds game A and you open game B via `gameFrame.src = …`, Back shows A instead of the hub. This is independent of parent `history.state` fixes.
@@ -99,6 +150,8 @@ If `event.state.arcadeGame` differs from `currentGame` (stale entry after A → 
 
 ### Android WebView
 
+See [`ANDROID.md`](ANDROID.md) for WebView settings, hardware Back, and the haptics bridge.
+
 Do **not** use `webView.goBack()` alone when a game is open — it usually consumes **iframe** history first.
 
 ```kotlin
@@ -117,15 +170,17 @@ if (ArcadeRouter.getCurrentGame() != null) {
 
 1. Create `games/{gameId}/index.html` and optional `games/{gameId}/audio/`.
 2. Add a hub card with `data-game-id="{gameId}"` in `index.html`.
-3. Use `class="back-btn"` on the BACK control — `initGameBackNavigation()` in `game.js` wires it to `arcadeBack()`.
-4. Do not navigate to `../../index.html` directly from the iframe when the hub shell is available.
-5. Do not add extra iframe navigations (links, `location.href`) that push history inside the game frame unless you know how to reset the frame afterward.
+3. Register a canvas preview in [`js/hub/previews.js`](js/hub/previews.js) (`HubPreviewRegistry`).
+4. Use `class="back-btn"` on the BACK control — `initGameBackNavigation()` in `game.js` wires it to `arcadeBack()`.
+5. Do not navigate to `../../index.html` directly from the iframe when the hub shell is available.
+6. Do not add extra iframe navigations (links, `location.href`) that push history inside the game frame unless you know how to reset the frame afterward.
 
 ### Local testing
 
-- Use a local HTTP server (`npx serve .`) for PWA / service worker / manifest.
-- `file://` has browser security limits; Android APK uses `file:///android_asset/` in WebView instead.
-- Regression check: game A → BACK → game B → **browser Back** → must land on **hub**, not game A.
+- **Recommended:** local HTTP server (`npx serve .`) for PWA, service worker, and manifest.
+- **`file://`:** works for hub + games in a browser or WebView. Manifest and crossorigin font preload are skipped on `file://`; icons use an inline SVG sprite from [`js/arcade-icons.js`](js/arcade-icons.js).
+- **Android APK:** bundle assets under `file:///android_asset/www/` — see [`ANDROID.md`](ANDROID.md).
+- **Regression check:** game A → BACK → game B → **browser Back** → must land on **hub**, not game A.
 
 ## Development
 
@@ -138,11 +193,11 @@ Sound layout is described in [`audio/README.md`](audio/README.md).
 Before pushing to production:
 
 ```bash
-node scripts/build-icon-sprite.js   # only if icons changed
+node scripts/build-icon-sprite.js   # only if icons/ changed
 node scripts/verify-assets.js
-node scripts/build-precache.js
+node scripts/build-precache.js      # after hub JS/CSS/asset changes
 ```
 
 - All fonts live in [`fonts/`](fonts/) (no CDN).
 - UI icons use [`icons/sprite.svg`](icons/sprite.svg) via [`js/arcade-icons.js`](js/arcade-icons.js).
-- Service worker precaches only the hub shell; games and BGM load on demand.
+- Service worker precaches the hub shell; games and BGM load on demand.

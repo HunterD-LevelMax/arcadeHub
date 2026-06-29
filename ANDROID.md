@@ -10,7 +10,7 @@ Load **only** the hub shell:
 file:///android_asset/www/index.html
 ```
 
-Copy the entire repository into `app/src/main/assets/www/` (or your project's assets folder). Games open inside an iframe via [`js/router.js`](js/router.js) — do **not** navigate the WebView to separate URLs for each game.
+Copy the entire repository into `app/src/main/assets/www/` (or your project's assets folder). Games open inside an iframe via [`js/hub/ArcadeRouter.js`](js/hub/ArcadeRouter.js) — do **not** navigate the WebView to separate URLs for each game.
 
 ```
 Splash Activity  →  WebView Activity  →  file:///android_asset/www/index.html
@@ -34,6 +34,13 @@ webView.settings.apply {
 
 Use a single `WebView` instance for the whole session. The BACK button in games calls `window.parent.ArcadeRouter.backToHub()` when same-origin allows it, or `postMessage({ type: 'arcade-hub-back' })` as fallback (required on `file://` where iframe and parent are often cross-origin).
 
+## Icons and fonts on file://
+
+- [`js/arcade-icons.js`](js/arcade-icons.js) embeds the SVG sprite inline when `location.protocol === 'file:'` (external `icons/sprite.svg` is blocked by CORS on local files).
+- Hub `index.html` skips manifest registration and crossorigin font preload on `file://`; fonts still load from [`style/fonts.css`](style/fonts.css).
+
+Run `node scripts/build-icon-sprite.js` after changing files in `icons/src/` so the inline sprite stays in sync.
+
 ## JavaScript bridge (haptics)
 
 Existing games call `window.ArcadeAndroid.vibrate(kind)` via [`js/game.js`](js/game.js). Register the interface from Kotlin:
@@ -54,7 +61,8 @@ class ArcadeBridge {
 - SFX and BGM files live under `assets/www/audio/`.
 - First user tap unlocks audio (`ArcadeAudio.unlock()`).
 - Mute state is stored in `localStorage` key `arcadeHub_muted`.
-- Hub background music (`audio/bgm/music_1.mp3`–`music_3.mp3`) plays in the parent shell and ducks while a game iframe is open.
+- Hub background music (`audio/bgm/music_1.mp3`–`music_7.mp3`) plays in the parent shell, picks a random track on start and when each track ends, and **ducks** while a game iframe is open (`duckBgm()` / `unduckBgm()`).
+- Game SFX volume is scaled to 80% of the user volume (`SFX_GAME_MASTER` in `js/audio.js`).
 - When the app is **minimized or hidden**, audio pauses automatically via `visibilitychange` / `pagehide` (implemented in `js/audio.js`). On return, BGM resumes if it was playing and mute is off.
 
 Optional native hook if `visibilitychange` is unreliable on your WebView:
@@ -73,7 +81,7 @@ override fun onResume() {
 
 ## Offline
 
-On `file://` assets, a service worker is **not** used — everything is already on disk. For HTTPS hosting, [`sw.js`](sw.js) precaches all game assets after the first visit.
+On `file://` assets, a service worker is **not** used — everything is already on disk. For HTTPS hosting, [`sw.js`](sw.js) precaches the hub shell after the first visit; games and BGM load on demand.
 
 ## Updating assets
 
