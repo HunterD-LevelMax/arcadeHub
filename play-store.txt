@@ -1,0 +1,59 @@
+ARCADE HUB — Google Play listing copy
+=====================================
+
+APP NAME
+--------
+Arcade Hub
+
+
+SHORT DESCRIPTION (max 80 characters)
+-------------------------------------
+11 arcade games offline. Neon Siege, Prism Cascade, classics and original music.
+
+
+FULL DESCRIPTION
+----------------
+ARCADE HUB is a retro neon arcade with eleven games in one app. Pick a cabinet, chase your high score, earn coins, and unlock new titles — all offline, no login required.
+
+NEON SIEGE
+A tower defense game set in a geometric neon battlefield. Place and upgrade towers, survive enemy waves, defend the core, and push your strategy across two maps with combos and overcharge strikes.
+
+PRISM CASCADE
+A timed match puzzle built around glowing gems. Swap tiles, trigger cascading combos, and clear objectives before the clock runs out. Easy to learn, hard to put down.
+
+THE FULL LINEUP
+Space Blocks, Snake, Asteroids, Fly Hard, Space Hopper, Space Aliens, Neon 2048, Stack Tower, and Thrust Runner — arcade classics and quick-session challenges in one shared hub with animated game previews on every card.
+
+ORIGINAL SOUNDTRACK
+Browse the arcade to a rotating library of hub background music. Punchy sound effects, optional vibration feedback, and smooth audio transitions when you jump in and out of games.
+
+FEATURES
+- Eleven games in a single install
+- Per-game high scores saved on your device
+- Coin rewards and unlockable games
+- Touch controls for phone and tablet
+- Fully offline — play anywhere
+- Unified neon arcade interface
+
+One app. One hub. Your best run is always the next one.
+
+
+PROMO TEXT (optional, max 170 characters)
+-----------------------------------------
+A pocket arcade with Neon Siege, Prism Cascade, ten more classics, and an original synth soundtrack. Offline play, high scores, and coin unlocks.
+
+
+WHAT'S NEW (first release)
+--------------------------
+Initial release of Arcade Hub.
+
+- Eleven neon arcade games in one app
+- Neon Siege tower defense and Prism Cascade puzzle mode
+- Original hub music and game sound effects
+- High scores, coins, and unlockable titles
+- Full offline support
+
+
+ASO KEYWORDS (internal notes — do not paste into description)
+-------------------------------------------------------------
+arcade, retro, neon, puzzle, tower defense, tetris, snake, offline games, casual games, synth music, high score
