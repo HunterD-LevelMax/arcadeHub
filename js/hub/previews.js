@@ -231,50 +231,132 @@
       this.ROWS = 18;
       this.bs = this.height / this.ROWS;
       this.ox = (this.width - this.COLS * this.bs) / 2;
-      this.SHAPES = [[[1, 1, 1, 1]], [[1, 1], [1, 1]], [[0, 1, 0], [1, 1, 1]], [[0, 0, 1], [1, 1, 1]]];
+      this.SHAPES = [
+        [[1, 1, 1, 1]],
+        [[1, 1], [1, 1]],
+        [[0, 1, 0], [1, 1, 1]],
+        [[0, 0, 1], [1, 1, 1]],
+        [[1, 0, 0], [1, 1, 1]],
+        [[0, 1, 1], [1, 1, 0]],
+        [[1, 1, 0], [0, 1, 1]],
+      ];
+      this.COLORS = ['#00f5ff', '#ff00ff', '#39ff14', '#ffff00', '#ff3344', '#ff8800', '#aa66ff'];
       this.grid = Array(this.ROWS).fill().map(() => Array(this.COLS).fill(-1));
-      this.currentShape = 0;
+      this._seedStack();
+      this.currentShape = 2;
       this.piece = this.SHAPES[this.currentShape];
-      this.px = Math.floor(this.COLS / 2);
-      this.py = -2;
+      this.px = 3;
+      this.py = 0;
       this._dropAcc = 0;
-      this.COLORS = ['#00f5ff', '#ff00ff', '#39ff14', '#ffff00', '#ff3344'];
+    }
+
+    _seedStack() {
+      const stack = [
+        [1, 1, -1, 3, 3, 3, -1, 0, 0, -1],
+        [-1, 1, 1, -1, 3, -1, -1, 0, 0, 0],
+        [-1, -1, 4, 4, 4, 4, -1, 2, 2, -1],
+        [-1, -1, -1, 4, -1, -1, 2, 2, 2, 2],
+        [5, 5, 5, 5, -1, 6, 6, -1, -1, -1],
+        [-1, -1, 5, -1, -1, 6, 6, 6, -1, -1],
+      ];
+      const startRow = this.ROWS - stack.length;
+      stack.forEach((row, i) => {
+        this.grid[startRow + i] = row.slice();
+      });
+    }
+
+    _canPlace(piece, px, py) {
+      for (let y = 0; y < piece.length; y++) {
+        for (let x = 0; x < piece[y].length; x++) {
+          if (!piece[y][x]) continue;
+          const gx = px + x;
+          const gy = py + y;
+          if (gx < 0 || gx >= this.COLS || gy >= this.ROWS) return false;
+          if (gy >= 0 && this.grid[gy][gx] !== -1) return false;
+        }
+      }
+      return true;
+    }
+
+    _lockPiece() {
+      this.piece.forEach((row, y) => {
+        row.forEach((val, x) => {
+          if (val && this.py + y >= 0) {
+            this.grid[this.py + y][this.px + x] = this.currentShape;
+          }
+        });
+      });
+    }
+
+    _clearLines() {
+      for (let y = this.ROWS - 1; y >= 0; y--) {
+        if (this.grid[y].every((c) => c !== -1)) {
+          this.grid.splice(y, 1);
+          this.grid.unshift(Array(this.COLS).fill(-1));
+          y++;
+        }
+      }
+    }
+
+    _spawnPiece() {
+      this.currentShape = Math.floor(Math.random() * this.SHAPES.length);
+      this.piece = this.SHAPES[this.currentShape];
+      this.px = Math.floor(this.COLS / 2) - Math.floor(this.piece[0].length / 2);
+      this.py = -1;
+      if (!this._canPlace(this.piece, this.px, this.py)) {
+        this.grid = Array(this.ROWS).fill().map(() => Array(this.COLS).fill(-1));
+        this._seedStack();
+        this.currentShape = 2;
+        this.piece = this.SHAPES[this.currentShape];
+        this.px = 3;
+        this.py = 0;
+      }
+    }
+
+    _drawGrid(ctx) {
+      ctx.strokeStyle = 'rgba(0, 245, 255, 0.07)';
+      ctx.lineWidth = 1;
+      for (let y = 0; y < this.ROWS; y++) {
+        for (let x = 0; x < this.COLS; x++) {
+          ctx.strokeRect(this.ox + x * this.bs + 0.5, y * this.bs + 0.5, this.bs - 1, this.bs - 1);
+        }
+      }
+    }
+
+    _drawCell(ctx, x, y, colorIdx) {
+      const color = this.COLORS[colorIdx % this.COLORS.length];
+      const px = this.ox + x * this.bs + 1;
+      const py = y * this.bs + 1;
+      const sz = this.bs - 2;
+      this.applyShadow(color, 4);
+      ctx.fillStyle = color;
+      ctx.fillRect(px, py, sz, sz);
+      ctx.fillStyle = 'rgba(255,255,255,0.22)';
+      ctx.fillRect(px + 1, py + 1, Math.max(2, sz * 0.35), Math.max(2, sz * 0.22));
+      this.clearShadow();
     }
 
     render(ctx, dtMs) {
-      ctx.clearRect(0, 0, this.width, this.height);
+      ctx.fillStyle = '#050510';
+      ctx.fillRect(0, 0, this.width, this.height);
+      this._drawGrid(ctx);
+
       this._dropAcc += dtMs;
-      if (this._dropAcc >= 12 * REF_MS) {
-        this._dropAcc -= 12 * REF_MS;
-        this.py++;
-        if (this.py + this.piece.length >= this.ROWS) {
-          this.piece.forEach((row, y) => {
-            row.forEach((val, x) => {
-              if (val && this.py + y >= 0) {
-                this.grid[this.py + y][this.px + x] = this.currentShape;
-              }
-            });
-          });
-          for (let y = this.ROWS - 1; y >= 0; y--) {
-            if (this.grid[y].every((c) => c !== -1)) {
-              this.grid.splice(y, 1);
-              this.grid.unshift(Array(this.COLS).fill(-1));
-            }
-          }
-          this.currentShape = Math.floor(Math.random() * this.SHAPES.length);
-          this.piece = this.SHAPES[this.currentShape];
-          this.px = Math.floor(this.COLS / 2) - Math.floor(this.piece[0].length / 2);
-          this.py = -2;
+      if (this._dropAcc >= 14 * REF_MS) {
+        this._dropAcc -= 14 * REF_MS;
+        if (this._canPlace(this.piece, this.px, this.py + 1)) {
+          this.py++;
+        } else {
+          this._lockPiece();
+          this._clearLines();
+          this._spawnPiece();
         }
       }
 
       for (let y = 0; y < this.ROWS; y++) {
         for (let x = 0; x < this.COLS; x++) {
           if (this.grid[y][x] !== -1) {
-            const color = this.COLORS[this.grid[y][x]];
-            this.applyShadow(color, 4);
-            ctx.fillStyle = color;
-            ctx.fillRect(this.ox + x * this.bs + 1, y * this.bs + 1, this.bs - 2, this.bs - 2);
+            this._drawCell(ctx, x, y, this.grid[y][x]);
           }
         }
       }
@@ -284,7 +366,13 @@
       this.piece.forEach((row, y) => {
         row.forEach((val, x) => {
           if (val && this.py + y >= 0) {
-            ctx.fillRect(this.ox + (this.px + x) * this.bs + 1, (this.py + y) * this.bs + 1, this.bs - 2, this.bs - 2);
+            const px = this.ox + (this.px + x) * this.bs + 1;
+            const py = (this.py + y) * this.bs + 1;
+            const sz = this.bs - 2;
+            ctx.fillRect(px, py, sz, sz);
+            ctx.fillStyle = 'rgba(255,255,255,0.22)';
+            ctx.fillRect(px + 1, py + 1, Math.max(2, sz * 0.35), Math.max(2, sz * 0.22));
+            ctx.fillStyle = this.COLORS[this.currentShape];
           }
         });
       });
@@ -295,7 +383,9 @@
   class FroggerPreview extends Base {
     constructor(canvas, card) {
       super(canvas, card);
-      this.stars = Array.from({ length: 30 }, () => ({
+      const reduced = window.ArcadePerf && ArcadePerf.reducedEffects;
+      const starCount = reduced ? 8 : 30;
+      this.stars = Array.from({ length: starCount }, () => ({
         x: Math.random() * this.width,
         y: Math.random() * this.height * 0.4,
         size: 0.3 + Math.random(),
@@ -740,7 +830,8 @@
 
     spawnParticles(x, y, color) {
       const reduced = window.ArcadePerf && ArcadePerf.reducedEffects;
-      const count = reduced ? 3 : 10;
+      if (reduced) return;
+      const count = 10;
       for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 1 + Math.random() * 2;
@@ -827,6 +918,8 @@
       super(canvas, card);
       this.ACCENT = '#ffcc00';
       this.t = 0;
+      const reduced = window.ArcadePerf && ArcadePerf.reducedEffects;
+      this._shotInterval = reduced ? 220 : 140;
       this.path = [
         { x: 0.15, y: 0.18 },
         { x: 0.42, y: 0.18 },
@@ -839,12 +932,17 @@
         { x: 0.55, y: 0.88 },
       ].map((p) => ({ x: p.x * this.width, y: p.y * this.height }));
       this.tower = { x: 0.78 * this.width, y: 0.48 * this.height };
-      this.enemies = [
-        { seg: 0, prog: 0.2 },
-        { seg: 2, prog: 0.35 },
-        { seg: 4, prog: 0.5 },
-        { seg: 6, prog: 0.65 },
-      ];
+      this.enemies = reduced
+        ? [
+            { seg: 0, prog: 0.2 },
+            { seg: 4, prog: 0.5 },
+          ]
+        : [
+            { seg: 0, prog: 0.2 },
+            { seg: 2, prog: 0.35 },
+            { seg: 4, prog: 0.5 },
+            { seg: 6, prog: 0.65 },
+          ];
       this.shots = [];
       this._shotAcc = 0;
     }
@@ -878,8 +976,8 @@
       this.clearShadow();
 
       this._shotAcc += dtMs;
-      if (this._shotAcc >= 140) {
-        this._shotAcc -= 140;
+      if (this._shotAcc >= this._shotInterval) {
+        this._shotAcc -= this._shotInterval;
         this.shots.push({ x: this.tower.x, y: this.tower.y, life: 1 });
       }
 
@@ -953,27 +1051,33 @@
         manager.registerLazy(canvasId, Preview);
       });
 
+      if (typeof manager.bindScrollPause === 'function') {
+        manager.bindScrollPause();
+      }
+
+      const initial = window.ArcadePerf && ArcadePerf.hubPreviewLayout !== 'desktop';
+      if (initial && typeof manager.primeInitial === 'function') {
+        manager.primeInitial();
+      }
+
       const scan = () => manager.scanVisible();
       requestAnimationFrame(() => {
         requestAnimationFrame(scan);
       });
       window.addEventListener('load', scan, { once: true });
 
-      if (!manager.hasIntersectionObserver()) {
-        let scrollTimer = 0;
-        const scrollRoot = document.getElementById('hubRoot') || window;
-        scrollRoot.addEventListener(
-          'scroll',
-          () => {
-            if (scrollTimer) return;
-            scrollTimer = requestAnimationFrame(() => {
-              scrollTimer = 0;
-              scan();
-            });
-          },
-          { passive: true }
-        );
-      }
+      let resizeTimer = 0;
+      window.addEventListener('resize', () => {
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          resizeTimer = 0;
+          if (window.ArcadePerf && typeof ArcadePerf.refreshPreviewLayout === 'function') {
+            ArcadePerf.refreshPreviewLayout();
+          } else if (typeof manager.onLayoutChange === 'function') {
+            manager.onLayoutChange();
+          }
+        }, 150);
+      });
     }
   }
 

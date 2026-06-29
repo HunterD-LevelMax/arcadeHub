@@ -18,8 +18,14 @@
       if (!this.canvas || !this.card) return;
       const w = this.card.offsetWidth || 320;
       const h = this.card.offsetHeight || 180;
-      this.canvas.width = w;
-      this.canvas.height = h;
+      const dprCap =
+        window.ArcadePerf && typeof ArcadePerf.hubPreviewDprCap === 'number'
+          ? ArcadePerf.hubPreviewDprCap
+          : 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
+      this.canvas.width = Math.max(1, Math.round(w * dpr));
+      this.canvas.height = Math.max(1, Math.round(h * dpr));
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       this.width = w;
       this.height = h;
     }

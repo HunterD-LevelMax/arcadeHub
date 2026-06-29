@@ -17,35 +17,41 @@
     return 1000 / previewFps();
   }
 
-  function maxConcurrent() {
-    const max = perf().hubPreviewMaxConcurrent;
-    return typeof max === 'number' && max > 0 ? max : 99;
-  }
-
   function ioRootMargin() {
     return perf().hubIoRootMargin || '120px 0px';
+  }
+
+  function animateMinRatio() {
+    const min = perf().hubPreviewAnimateMinRatio;
+    return typeof min === 'number' && min >= 0 ? min : 0;
+  }
+
+  function ioScrollRoot() {
+    return document.getElementById('hubRoot') || null;
   }
 
   class HubPreviewManager {
     constructor() {
       this._entries = [];
+      this._targetMap = new Map();
       this._paused = false;
+      this._scrollPaused = false;
       this._tabHidden = false;
-      this._rafId = 0;
+      this._timerId = 0;
       this._loopActive = false;
       this._lastFrameAt = 0;
       this._observer = null;
+      this._observerMargin = '';
+      this._scrollResumeTimer = 0;
+      this._scrollBound = false;
 
       window.addEventListener('arcade-hub-visible', () => this.resumeAll());
+      window.addEventListener('arcade-preview-layout', () => this.onLayoutChange());
 
       document.addEventListener('visibilitychange', () => {
         this._tabHidden = document.hidden;
         if (this._tabHidden) {
-          this._loopActive = false;
-          if (this._rafId) {
-            cancelAnimationFrame(this._rafId);
-            this._rafId = 0;
-          }
+          this._stopLoop();
         } else if (!this._paused && this._hasActiveEntries()) {
           this._ensureLoop();
         }
@@ -56,8 +62,18 @@
       return !!this._observer;
     }
 
+    _shouldAnimate(entry) {
+      if (!entry.visible || !entry.initialized) return false;
+      return entry.intersectionRatio >= animateMinRatio();
+    }
+
     _shouldRun(entry) {
-      return !this._paused && !this._tabHidden && entry.visible && entry.initialized;
+      return (
+        !this._paused &&
+        !this._scrollPaused &&
+        !this._tabHidden &&
+        this._shouldAnimate(entry)
+      );
     }
 
     _hasActiveEntries() {
@@ -65,29 +81,34 @@
     }
 
     _renderableEntries() {
-      const active = this._entries.filter((entry) => this._shouldRun(entry));
-      const limit = maxConcurrent();
-      if (active.length <= limit) return active;
+      return this._entries.filter((entry) => this._shouldRun(entry));
+    }
 
-      return active
-        .slice()
-        .sort((a, b) => (b.intersectionRatio || 0) - (a.intersectionRatio || 0))
-        .slice(0, limit);
+    _stopLoop() {
+      this._loopActive = false;
+      if (this._timerId) {
+        clearTimeout(this._timerId);
+        this._timerId = 0;
+      }
     }
 
     _ensureLoop() {
       if (this._loopActive || this._tabHidden) return;
+      if (!this._hasActiveEntries()) return;
       this._loopActive = true;
       this._lastFrameAt = 0;
-      this._rafId = requestAnimationFrame((t) => this._loop(t));
+      this._timerId = setTimeout(() => this._loop(performance.now()), 0);
     }
 
-    _scheduleNext() {
-      this._rafId = requestAnimationFrame((t) => this._loop(t));
+    _scheduleNext(delayMs) {
+      const dtMs = previewDtMs();
+      const wait = typeof delayMs === 'number' ? Math.max(0, delayMs) : dtMs;
+      this._timerId = setTimeout(() => this._loop(performance.now()), wait);
     }
 
-    _renderEntry(entry, dtMs) {
-      if (!this._shouldRun(entry)) return;
+    _renderEntry(entry, dtMs, force) {
+      if (!force && !this._shouldRun(entry)) return;
+      if (!entry.initialized) return;
       try {
         if (entry.instance) {
           entry.instance.render(entry.ctx, dtMs);
@@ -107,9 +128,9 @@
       const elapsed = now - this._lastFrameAt;
 
       if (elapsed >= dtMs) {
-        this._lastFrameAt = now;
+        this._lastFrameAt += dtMs;
 
-        if (!this._paused && this._hasActiveEntries()) {
+        if (!this._paused && !this._scrollPaused && this._hasActiveEntries()) {
           const toRender = this._renderableEntries();
           for (const entry of toRender) {
             this._renderEntry(entry, dtMs);
@@ -117,11 +138,11 @@
         }
       }
 
-      if (!this._tabHidden && (this._paused || this._hasActiveEntries())) {
-        this._scheduleNext();
+      if (!this._tabHidden && !this._paused && !this._scrollPaused && this._hasActiveEntries()) {
+        const remaining = dtMs - (now - this._lastFrameAt);
+        this._scheduleNext(remaining);
       } else {
-        this._loopActive = false;
-        this._rafId = 0;
+        this._stopLoop();
       }
     }
 
@@ -129,6 +150,16 @@
       if (!el || !el.getBoundingClientRect) return false;
       const rect = el.getBoundingClientRect();
       const margin = 100;
+      const root = ioScrollRoot();
+      if (root) {
+        const rootRect = root.getBoundingClientRect();
+        return (
+          rect.bottom >= rootRect.top - margin &&
+          rect.top <= rootRect.bottom + margin &&
+          rect.right >= rootRect.left - margin &&
+          rect.left <= rootRect.right + margin
+        );
+      }
       const vh = window.innerHeight || document.documentElement.clientHeight;
       const vw = window.innerWidth || document.documentElement.clientWidth;
       return (
@@ -140,19 +171,33 @@
     }
 
     _setVisible(entry, visible, intersectionRatio) {
+      const wasVisible = entry.visible;
+      const wasAnimating = this._shouldAnimate(entry);
       entry.visible = visible;
       entry.intersectionRatio = visible ? (intersectionRatio || 0) : 0;
+      const isAnimating = this._shouldAnimate(entry);
+
       if (visible && !entry.initialized && entry.lazyFactory) {
         this._initLazy(entry);
-      } else if (visible && entry.initialized && entry.instance) {
-        if (typeof entry.instance.resize === 'function') {
-          entry.instance.resize();
-        }
-        if (this._renderableEntries().includes(entry)) {
-          this._renderEntry(entry, previewDtMs());
-        }
-        this._ensureLoop();
+        return;
       }
+
+      if (visible && entry.initialized && entry.instance) {
+        if (!wasVisible) {
+          if (typeof entry.instance.resize === 'function') {
+            entry.instance.resize();
+          }
+          this._paintStatic(entry);
+        }
+        if (isAnimating && !wasAnimating && !this._scrollPaused && !this._paused) {
+          this._ensureLoop();
+        }
+      }
+    }
+
+    _paintStatic(entry) {
+      if (!entry.initialized || !entry.instance) return;
+      this._renderEntry(entry, 0, true);
     }
 
     _initLazy(entry) {
@@ -167,31 +212,73 @@
         if (typeof entry.instance.resize === 'function') {
           entry.instance.resize();
         }
-        if (entry.visible && !this._paused && this._renderableEntries().includes(entry)) {
-          this._renderEntry(entry, previewDtMs());
-          this._ensureLoop();
+        if (entry.visible) {
+          this._paintStatic(entry);
+          if (this._shouldAnimate(entry) && !this._paused && !this._scrollPaused) {
+            this._ensureLoop();
+          }
         }
       };
 
-      requestAnimationFrame(() => {
-        finalize();
-        requestAnimationFrame(finalize);
-      });
+      requestAnimationFrame(finalize);
+    }
+
+    _warmEntry(entry) {
+      if (entry.initialized) return;
+      entry.eager = true;
+      entry.initialized = true;
+      if (!entry.lazyFactory) return;
+
+      entry.instance = entry.lazyFactory();
+      if (entry.instance && typeof entry.instance.resize === 'function') {
+        entry.instance.resize();
+      }
+      if (entry.instance) {
+        this._renderEntry(entry, 0, true);
+      }
+    }
+
+    primeInitial() {
+      for (const entry of this._entries) {
+        if (!entry.initialized && this._isInViewport(entry.observeTarget)) {
+          this._warmEntry(entry);
+        }
+      }
+      this.scanVisible();
+      if (!this._scrollPaused) {
+        this._ensureLoop();
+      }
+    }
+
+    _destroyObserver() {
+      if (!this._observer) return;
+      this._observer.disconnect();
+      this._observer = null;
+      this._observerMargin = '';
     }
 
     _ensureObserver() {
-      if (this._observer || !('IntersectionObserver' in window)) return;
+      const margin = ioRootMargin();
+      if (this._observer && this._observerMargin === margin) return;
+
+      this._destroyObserver();
+      if (!('IntersectionObserver' in window)) return;
+
+      this._observerMargin = margin;
       this._observer = new IntersectionObserver(
         (ioEntries) => {
-          ioEntries.forEach((ioEntry) => {
-            this._entries.forEach((entry) => {
-              if (entry.observeTarget !== ioEntry.target) return;
-              this._setVisible(entry, ioEntry.isIntersecting, ioEntry.intersectionRatio);
-            });
-          });
+          for (const ioEntry of ioEntries) {
+            const entry = this._targetMap.get(ioEntry.target);
+            if (!entry) continue;
+            this._setVisible(entry, ioEntry.isIntersecting, ioEntry.intersectionRatio);
+          }
         },
-        { root: null, rootMargin: ioRootMargin(), threshold: [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1] }
+        { root: ioScrollRoot(), rootMargin: margin, threshold: [0, 0.25, 0.5, 0.75] }
       );
+
+      for (const entry of this._entries) {
+        if (entry.observeTarget) this._observer.observe(entry.observeTarget);
+      }
     }
 
     _observeTarget(target) {
@@ -202,13 +289,15 @@
 
     _addEntry(canvas, card, observeTarget, options) {
       const ctx = canvas.getContext('2d');
+      const target = observeTarget || card;
       const entry = {
         canvas,
         card,
-        observeTarget: observeTarget || card,
+        observeTarget: target,
         ctx,
         visible: false,
         intersectionRatio: 0,
+        eager: false,
         initialized: !options.lazy,
         instance: options.instance || null,
         renderFn: options.renderFn || null,
@@ -216,21 +305,68 @@
       };
 
       this._entries.push(entry);
-      this._observeTarget(entry.observeTarget);
+      this._targetMap.set(target, entry);
+      this._observeTarget(target);
 
       if (!this._observer) {
         this._setVisible(entry, true, 1);
       }
 
-      this._ensureLoop();
       return entry;
     }
 
     scanVisible() {
       for (const entry of this._entries) {
-        if (this._isInViewport(entry.observeTarget)) {
-          this._setVisible(entry, true, entry.intersectionRatio || 0.5);
+        const inView = this._isInViewport(entry.observeTarget);
+        if (inView) {
+          if (!entry.visible) {
+            this._setVisible(entry, true, entry.intersectionRatio || 0.5);
+          } else if (!entry.initialized && entry.lazyFactory) {
+            this._initLazy(entry);
+          }
+        } else if (entry.visible) {
+          this._setVisible(entry, false, 0);
         }
+      }
+    }
+
+    bindScrollPause() {
+      if (this._scrollBound) return;
+      const scrollRoot = ioScrollRoot();
+      if (!scrollRoot) return;
+      this._scrollBound = true;
+
+      scrollRoot.addEventListener(
+        'scroll',
+        () => {
+          if (!this._scrollPaused) {
+            this._scrollPaused = true;
+            this._stopLoop();
+          }
+          if (this._scrollResumeTimer) clearTimeout(this._scrollResumeTimer);
+          this._scrollResumeTimer = setTimeout(() => {
+            this._scrollResumeTimer = 0;
+            this._scrollPaused = false;
+            if (!this._paused && !this._tabHidden) {
+              this.resumeAll();
+            }
+          }, 150);
+        },
+        { passive: true }
+      );
+    }
+
+    onLayoutChange() {
+      this._destroyObserver();
+      for (const entry of this._entries) {
+        if (entry.initialized && entry.instance && typeof entry.instance.resize === 'function') {
+          entry.instance.resize();
+        }
+      }
+      this._ensureObserver();
+      this.scanVisible();
+      if (!this._paused && !this._scrollPaused) {
+        this._ensureLoop();
       }
     }
 
@@ -257,6 +393,7 @@
 
     pauseAll() {
       this._paused = true;
+      this._stopLoop();
     }
 
     resumeAll() {

@@ -110,7 +110,32 @@ async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const sprite = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" style="display:none">\n${symbols.join("\n")}\n</svg>\n`;
   fs.writeFileSync(OUT_FILE, sprite);
+  patchArcadeIcons(sprite);
   console.log("Wrote", path.relative(ROOT, OUT_FILE), `(${ICONS.length} icons)`);
+}
+
+function patchArcadeIcons(spriteText) {
+  const iconsJs = path.join(ROOT, "js", "arcade-icons.js");
+  let text = fs.readFileSync(iconsJs, "utf8");
+  const inner = spriteText
+    .replace(/^<\?xml[\s\S]*?>\s*/i, "")
+    .replace(/^<svg[^>]*>\s*/i, "")
+    .replace(/\s*<\/svg>\s*$/i, "")
+    .trim();
+  const escaped = inner
+    .replace(/\\/g, "\\\\")
+    .replace(/`/g, "\\`")
+    .replace(/\$\{/g, "\\${");
+  const block = `/* AUTO-GENERATED_SPRITE_START */\n  const INLINE_SPRITE = \`${escaped}\`;\n  /* AUTO-GENERATED_SPRITE_END */`;
+  if (!/\/\* AUTO-GENERATED_SPRITE_START \*\//.test(text)) {
+    throw new Error("arcade-icons.js is missing AUTO-GENERATED_SPRITE markers");
+  }
+  text = text.replace(
+    /\/\* AUTO-GENERATED_SPRITE_START \*\/[\s\S]*?\/\* AUTO-GENERATED_SPRITE_END \*\//,
+    block
+  );
+  fs.writeFileSync(iconsJs, text);
+  console.log("Patched", path.relative(ROOT, iconsJs));
 }
 
 main();

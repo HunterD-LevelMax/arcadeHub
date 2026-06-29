@@ -4,8 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>SPACE BLOCKS — ARCADE HUB</title>
-  <link rel="preload" href="../../fonts/orbitron-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="../../fonts/share-tech-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <script>
+    if (location.protocol !== 'file:') {
+      for (const href of [
+        '../../fonts/orbitron-latin-900-normal.woff2',
+        '../../fonts/share-tech-mono-latin-400-normal.woff2',
+      ]) {
+        const link = document.createElement('link');
+        link.rel = 'preload';
+        link.href = href;
+        link.as = 'font';
+        link.type = 'font/woff2';
+        link.crossOrigin = '';
+        document.head.appendChild(link);
+      }
+    }
+  </script>
   <link rel="stylesheet" href="../../style/fonts.css">
   <link rel="stylesheet" href="../../style/game.css">
   <link rel="stylesheet" href="../../style/tetris.css">

@@ -11,12 +11,22 @@
       link.rel = 'manifest';
       link.href = 'manifest.webmanifest';
       document.head.appendChild(link);
+      for (const href of [
+        'fonts/orbitron-latin-900-normal.woff2',
+        'fonts/share-tech-mono-latin-400-normal.woff2',
+      ]) {
+        const preload = document.createElement('link');
+        preload.rel = 'preload';
+        preload.href = href;
+        preload.as = 'font';
+        preload.type = 'font/woff2';
+        preload.crossOrigin = '';
+        document.head.appendChild(preload);
+      }
     }
   </script>
   <link rel="icon" href="icon_round.png" type="image/png">
   <link rel="apple-touch-icon" href="icon_round.png">
-  <link rel="preload" href="fonts/orbitron-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="fonts/share-tech-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style/fonts.css">
   <link rel="stylesheet" href="style/main.css">
   <link rel="stylesheet" href="style/hub/cards.css">

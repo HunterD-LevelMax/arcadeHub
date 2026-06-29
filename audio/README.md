@@ -2,11 +2,11 @@
 
 All SFX in this folder are sourced from **Kenney "Interface Sounds"** (v1.0).
 
-- **Author:** Kenney (https://kenney.nl)
+- **Author:** Kenney ([https://kenney.nl](https://kenney.nl))
 - **License:** [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) — public domain, free for personal and commercial use without attribution (crediting Kenney is appreciated but not required).
-- **Downloaded:** 2026-06-23 from https://opengameart.org/content/interface-sounds
+- **Downloaded:** 2026-06-23 from [https://opengameart.org/content/interface-sounds](https://opengameart.org/content/interface-sounds)
 
-See [`LICENSE-kenney-interface.txt`](LICENSE-kenney-interface.txt) for the original license file from the pack.
+See `[LICENSE-kenney-interface.txt](LICENSE-kenney-interface.txt)` for the original license file from the pack.
 
 ## Layout
 
@@ -19,7 +19,7 @@ games/{gameId}/
   audio/          Game-specific sounds (shoot.ogg, eat.ogg, …)
 ```
 
-Game sounds live next to each game. Shared UI sounds stay in `audio/sfx/ui/`. Resolution is handled in [`js/audio.js`](../js/audio.js) via `new URL()` relative to the current page.
+Game sounds live next to each game. Shared UI sounds stay in `audio/sfx/ui/`. Resolution is handled in `[js/audio.js](../js/audio.js)` via `new URL()` relative to the current page.
 
 **Do not duplicate game SFX under `audio/sfx/{gameId}/`.** Only `audio/sfx/ui/` and `games/{gameId}/audio/` are used at runtime.
 
@@ -30,6 +30,10 @@ audio/bgm/
   music_1.mp3
   music_2.mp3
   music_3.mp3
+  music_4.mp3
+  music_5.mp3
+  music_6.mp3
+  music_7.mp3
 ```
 
 - User-provided background tracks for the hub shell

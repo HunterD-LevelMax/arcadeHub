@@ -35,16 +35,25 @@
     error: "ui.error",
   };
 
-  const BGM_TRACKS = ["music_1.mp3", "music_2.mp3", "music_3.mp3"];
+  const BGM_TRACKS = [
+    "music_1.mp3",
+    "music_2.mp3",
+    "music_3.mp3",
+    "music_4.mp3",
+    "music_5.mp3",
+    "music_6.mp3",
+    "music_7.mp3",
+  ];
 
   const cache = new Map();
   let unlocked = false;
   let muted = false;
   let bgmNode = null;
   let lastBgmTrack = null;
-  let bgmVolume = 0.32;
+  let bgmVolume = 0.05;
   let bgmDucked = false;
-  const BGM_DUCK_RATIO = 0.2;
+  const BGM_DUCK_RATIO = 0.9;
+  const SFX_GAME_MASTER = 0.8;
   let hubBgmStarted = false;
   let appSuspended = false;
   let bgmWasPlaying = false;
@@ -281,7 +290,8 @@
   function play(id, opts) {
     if (muted || !id || appSuspended) return;
     if (!unlocked) unlock();
-    const master = opts && Number.isFinite(opts.volume) ? opts.volume : 1;
+    const raw = opts && Number.isFinite(opts.volume) ? opts.volume : 1;
+    const master = raw * (isGamePage() ? SFX_GAME_MASTER : 1);
     const base = load(id);
     if (!base) return;
     const node = base.cloneNode();
