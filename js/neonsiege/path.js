@@ -10,6 +10,48 @@
     return cell === C.CELL_PATH || cell === C.CELL_TUNNEL;
   }
 
+  function cellsAlongSegment(a, b) {
+    const out = [];
+    let [r, c] = a;
+    out.push([r, c]);
+    while (r !== b[0]) {
+      r += Math.sign(b[0] - r);
+      out.push([r, c]);
+    }
+    while (c !== b[1]) {
+      c += Math.sign(b[1] - c);
+      out.push([r, c]);
+    }
+    return out;
+  }
+
+  function appendPathCells(out, cells) {
+    for (const cell of cells) {
+      if (!out.length) {
+        out.push(cell);
+        continue;
+      }
+      const last = out[out.length - 1];
+      if (last[0] === cell[0] && last[1] === cell[1]) continue;
+      const manhattan = Math.abs(cell[0] - last[0]) + Math.abs(cell[1] - last[1]);
+      if (manhattan === 1) {
+        out.push(cell);
+        continue;
+      }
+      const bridge = cellsAlongSegment(last, cell);
+      for (let i = 1; i < bridge.length; i++) {
+        out.push(bridge[i]);
+      }
+    }
+    return out;
+  }
+
+  function ensureAdjacentCells(cells) {
+    const out = [];
+    appendPathCells(out, cells);
+    return out;
+  }
+
   class RouteView {
     constructor(pathFinder, routeId) {
       this._pf = pathFinder;
@@ -116,14 +158,17 @@
 
     build(precomputedRoutes) {
       if (precomputedRoutes && precomputedRoutes.length) {
-        this.routes = precomputedRoutes.map((cells) => ({
-          cells: cells.slice(),
-          waypoints: this._compress(cells),
-          waypointPixels: [],
-          pathCellPixels: [],
-        }));
+        this.routes = precomputedRoutes.map((cells) => {
+          const expanded = ensureAdjacentCells(cells.slice());
+          return {
+            cells: expanded,
+            waypoints: this._compress(expanded),
+            waypointPixels: [],
+            pathCellPixels: [],
+          };
+        });
       } else {
-        const cells = this._bfsCells(this.spawn, this.goal);
+        const cells = ensureAdjacentCells(this._bfsCells(this.spawn, this.goal) || []);
         if (!cells || cells.length < 2) {
           throw new Error('NeonSiege: no valid path from spawn to goal');
         }
@@ -305,6 +350,8 @@
     PathFinder,
     RouteView,
     isWalkable,
+    cellsAlongSegment,
+    ensureAdjacentCells,
     computeGridMetrics,
     cellFromPointer,
   };

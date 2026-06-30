@@ -171,13 +171,27 @@
   }
 
   function dedupePath(pathCells) {
-    const seen = new Set();
     const out = [];
-    for (const cell of pathCells) {
-      const k = key(cell[0], cell[1]);
-      if (!seen.has(k)) {
-        seen.add(k);
+    appendPathCells(out, pathCells);
+    return out;
+  }
+
+  function appendPathCells(out, cells) {
+    for (const cell of cells) {
+      if (!out.length) {
         out.push(cell);
+        continue;
+      }
+      const last = out[out.length - 1];
+      if (last[0] === cell[0] && last[1] === cell[1]) continue;
+      const manhattan = Math.abs(cell[0] - last[0]) + Math.abs(cell[1] - last[1]);
+      if (manhattan === 1) {
+        out.push(cell);
+        continue;
+      }
+      const bridge = cellsAlongSegment(last, cell);
+      for (let i = 1; i < bridge.length; i++) {
+        out.push(bridge[i]);
       }
     }
     return out;
@@ -185,15 +199,8 @@
 
   function concatPaths(parts) {
     const out = [];
-    const seen = new Set();
     for (const part of parts) {
-      for (const cell of part) {
-        const k = key(cell[0], cell[1]);
-        if (!seen.has(k)) {
-          seen.add(k);
-          out.push(cell);
-        }
-      }
+      appendPathCells(out, part);
     }
     return out;
   }
